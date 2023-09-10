@@ -1,0 +1,16 @@
+//
+//  NVim.pch
+//  NVim
+//
+//  Created by wizjin on 2023/9/10.
+//
+
+#ifndef __NVIM_PCH__
+#define __NVIM_PCH__
+
+#include "NVConfig.h"
+#include "NVLogger.h"
+#include "NVUtils.h"
+
+
+#endif /* __NVIM_PCH__ */

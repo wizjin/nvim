@@ -1,0 +1,425 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FCF2AADF5DA00B25717 /* AppDelegate.m */; };
+		6D681FD22AADF5DB00B25717 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6D681FD12AADF5DB00B25717 /* Assets.xcassets */; };
+		6D681FD52AADF5DB00B25717 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 6D681FD32AADF5DB00B25717 /* MainMenu.xib */; };
+		6D681FD72AADF5DB00B25717 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FD62AADF5DB00B25717 /* main.m */; };
+		6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FED2AADFC0800B25717 /* NVLogger.m */; };
+		6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FF02AADFC3F00B25717 /* NVUtils.m */; };
+		C4413092ED5EE9FA5A597797 /* libPods-NVim.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-NVim.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		6D681FCB2AADF5DA00B25717 /* NVim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NVim.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6D681FCE2AADF5DA00B25717 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		6D681FCF2AADF5DA00B25717 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		6D681FD12AADF5DB00B25717 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6D681FD42AADF5DB00B25717 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		6D681FD62AADF5DB00B25717 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		6D681FD82AADF5DB00B25717 /* NVim.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NVim.entitlements; sourceTree = "<group>"; };
+		6D681FE42AADFA0300B25717 /* NVConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVConfig.h; sourceTree = "<group>"; };
+		6D681FEB2AADFADA00B25717 /* NVim.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVim.pch; sourceTree = "<group>"; };
+		6D681FEC2AADFC0800B25717 /* NVLogger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVLogger.h; sourceTree = "<group>"; };
+		6D681FED2AADFC0800B25717 /* NVLogger.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVLogger.m; sourceTree = "<group>"; };
+		6D681FEF2AADFC3F00B25717 /* NVUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVUtils.h; sourceTree = "<group>"; };
+		6D681FF02AADFC3F00B25717 /* NVUtils.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVUtils.m; sourceTree = "<group>"; };
+		95844A96CB9BC84A72565201 /* Pods-NVim.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.debug.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.debug.xcconfig"; sourceTree = "<group>"; };
+		CED193A2A6409B458DD5A4C3 /* Pods-NVim.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.release.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.release.xcconfig"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6D681FC82AADF5DA00B25717 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4413092ED5EE9FA5A597797 /* libPods-NVim.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		01623B7CC6FF6AE0D63A8D65 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		6D681FC22AADF5DA00B25717 = {
+			isa = PBXGroup;
+			children = (
+				6D681FCD2AADF5DA00B25717 /* NVim */,
+				6D681FCC2AADF5DA00B25717 /* Products */,
+				8271E1DAAEF951CB084E9722 /* Pods */,
+				01623B7CC6FF6AE0D63A8D65 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		6D681FCC2AADF5DA00B25717 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6D681FCB2AADF5DA00B25717 /* NVim.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6D681FCD2AADF5DA00B25717 /* NVim */ = {
+			isa = PBXGroup;
+			children = (
+				6D681FDE2AADF7C400B25717 /* Classes */,
+				6D681FE32AADF91700B25717 /* Resources */,
+				6D681FD82AADF5DB00B25717 /* NVim.entitlements */,
+			);
+			path = NVim;
+			sourceTree = "<group>";
+		};
+		6D681FDE2AADF7C400B25717 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				6D681FCE2AADF5DA00B25717 /* AppDelegate.h */,
+				6D681FCF2AADF5DA00B25717 /* AppDelegate.m */,
+				6D681FE42AADFA0300B25717 /* NVConfig.h */,
+				6D681FEC2AADFC0800B25717 /* NVLogger.h */,
+				6D681FED2AADFC0800B25717 /* NVLogger.m */,
+				6D681FEF2AADFC3F00B25717 /* NVUtils.h */,
+				6D681FF02AADFC3F00B25717 /* NVUtils.m */,
+				6D681FEB2AADFADA00B25717 /* NVim.pch */,
+				6D681FD62AADF5DB00B25717 /* main.m */,
+			);
+			path = Classes;
+			sourceTree = "<group>";
+		};
+		6D681FE32AADF91700B25717 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				6D681FD32AADF5DB00B25717 /* MainMenu.xib */,
+				6D681FD12AADF5DB00B25717 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		8271E1DAAEF951CB084E9722 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				95844A96CB9BC84A72565201 /* Pods-NVim.debug.xcconfig */,
+				CED193A2A6409B458DD5A4C3 /* Pods-NVim.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6D681FCA2AADF5DA00B25717 /* NVim */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6D681FDB2AADF5DB00B25717 /* Build configuration list for PBXNativeTarget "NVim" */;
+			buildPhases = (
+				12CCCC039F50E42CCB222427 /* [CP] Check Pods Manifest.lock */,
+				6D681FC72AADF5DA00B25717 /* Sources */,
+				6D681FC82AADF5DA00B25717 /* Frameworks */,
+				6D681FC92AADF5DA00B25717 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NVim;
+			productName = NVim;
+			productReference = 6D681FCB2AADF5DA00B25717 /* NVim.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6D681FC32AADF5DA00B25717 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					6D681FCA2AADF5DA00B25717 = {
+						CreatedOnToolsVersion = 14.3.1;
+					};
+				};
+			};
+			buildConfigurationList = 6D681FC62AADF5DA00B25717 /* Build configuration list for PBXProject "NVim" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 6D681FC22AADF5DA00B25717;
+			productRefGroup = 6D681FCC2AADF5DA00B25717 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6D681FCA2AADF5DA00B25717 /* NVim */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6D681FC92AADF5DA00B25717 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6D681FD22AADF5DB00B25717 /* Assets.xcassets in Resources */,
+				6D681FD52AADF5DB00B25717 /* MainMenu.xib in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		12CCCC039F50E42CCB222427 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-NVim-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		6D681FC72AADF5DA00B25717 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */,
+				6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */,
+				6D681FD72AADF5DB00B25717 /* main.m in Sources */,
+				6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		6D681FD32AADF5DB00B25717 /* MainMenu.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				6D681FD42AADF5DB00B25717 /* Base */,
+			);
+			name = MainMenu.xib;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		6D681FD92AADF5DB00B25717 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.3;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		6D681FDA2AADF5DB00B25717 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		6D681FDC2AADF5DB00B25717 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 95844A96CB9BC84A72565201 /* Pods-NVim.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = NVim/NVim.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = P4XS4AVCLW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_PREFIX_HEADER = "$(PROJECT_DIR)/$(PROJECT_NAME)/Classes/$(PROJECT_NAME).pch";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainNibFile = MainMenu;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wizjin.NVim;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		6D681FDD2AADF5DB00B25717 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CED193A2A6409B458DD5A4C3 /* Pods-NVim.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = NVim/NVim.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = P4XS4AVCLW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_PREFIX_HEADER = "$(PROJECT_DIR)/$(PROJECT_NAME)/Classes/$(PROJECT_NAME).pch";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainNibFile = MainMenu;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wizjin.NVim;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6D681FC62AADF5DA00B25717 /* Build configuration list for PBXProject "NVim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6D681FD92AADF5DB00B25717 /* Debug */,
+				6D681FDA2AADF5DB00B25717 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6D681FDB2AADF5DB00B25717 /* Build configuration list for PBXNativeTarget "NVim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6D681FDC2AADF5DB00B25717 /* Debug */,
+				6D681FDD2AADF5DB00B25717 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 6D681FC32AADF5DA00B25717 /* Project object */;
+}
