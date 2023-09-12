@@ -9,10 +9,14 @@
 /* Begin PBXBuildFile section */
 		6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FCF2AADF5DA00B25717 /* AppDelegate.m */; };
 		6D681FD22AADF5DB00B25717 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6D681FD12AADF5DB00B25717 /* Assets.xcassets */; };
-		6D681FD52AADF5DB00B25717 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 6D681FD32AADF5DB00B25717 /* MainMenu.xib */; };
 		6D681FD72AADF5DB00B25717 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FD62AADF5DB00B25717 /* main.m */; };
 		6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FED2AADFC0800B25717 /* NVLogger.m */; };
 		6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FF02AADFC3F00B25717 /* NVUtils.m */; };
+		6D6A33672AB0AF9800BF791C /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6D6A33652AB0AF9800BF791C /* Localizable.strings */; };
+		6D6A336B2AB0AFE900BF791C /* NSString+Localized.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A33692AB0AFE900BF791C /* NSString+Localized.m */; };
+		6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A336E2AB0B03100BF791C /* NVEditView.m */; };
+		6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A336F2AB0B03100BF791C /* NVMainMenu.m */; };
+		6D6A33752AB0B03100BF791C /* NVWindow.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A33712AB0B03100BF791C /* NVWindow.m */; };
 		C4413092ED5EE9FA5A597797 /* libPods-NVim.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */; };
 /* End PBXBuildFile section */
 
@@ -22,7 +26,6 @@
 		6D681FCE2AADF5DA00B25717 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		6D681FCF2AADF5DA00B25717 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		6D681FD12AADF5DB00B25717 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		6D681FD42AADF5DB00B25717 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		6D681FD62AADF5DB00B25717 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		6D681FD82AADF5DB00B25717 /* NVim.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NVim.entitlements; sourceTree = "<group>"; };
 		6D681FE42AADFA0300B25717 /* NVConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVConfig.h; sourceTree = "<group>"; };
@@ -31,6 +34,15 @@
 		6D681FED2AADFC0800B25717 /* NVLogger.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVLogger.m; sourceTree = "<group>"; };
 		6D681FEF2AADFC3F00B25717 /* NVUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVUtils.h; sourceTree = "<group>"; };
 		6D681FF02AADFC3F00B25717 /* NVUtils.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVUtils.m; sourceTree = "<group>"; };
+		6D6A33662AB0AF9800BF791C /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = Base.lproj/Localizable.strings; sourceTree = "<group>"; };
+		6D6A33692AB0AFE900BF791C /* NSString+Localized.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+Localized.m"; sourceTree = "<group>"; };
+		6D6A336A2AB0AFE900BF791C /* NSString+Localized.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+Localized.h"; sourceTree = "<group>"; };
+		6D6A336D2AB0B03100BF791C /* NVEditView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NVEditView.h; sourceTree = "<group>"; };
+		6D6A336E2AB0B03100BF791C /* NVEditView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NVEditView.m; sourceTree = "<group>"; };
+		6D6A336F2AB0B03100BF791C /* NVMainMenu.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NVMainMenu.m; sourceTree = "<group>"; };
+		6D6A33702AB0B03100BF791C /* NVWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NVWindow.h; sourceTree = "<group>"; };
+		6D6A33712AB0B03100BF791C /* NVWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NVWindow.m; sourceTree = "<group>"; };
+		6D6A33722AB0B03100BF791C /* NVMainMenu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NVMainMenu.h; sourceTree = "<group>"; };
 		95844A96CB9BC84A72565201 /* Pods-NVim.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.debug.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.debug.xcconfig"; sourceTree = "<group>"; };
 		CED193A2A6409B458DD5A4C3 /* Pods-NVim.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.release.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -76,7 +88,9 @@
 		6D681FCD2AADF5DA00B25717 /* NVim */ = {
 			isa = PBXGroup;
 			children = (
+				6D6A336C2AB0AFF300BF791C /* Views */,
 				6D681FDE2AADF7C400B25717 /* Classes */,
+				6D6A33682AB0AFBF00BF791C /* Extensions */,
 				6D681FE32AADF91700B25717 /* Resources */,
 				6D681FD82AADF5DB00B25717 /* NVim.entitlements */,
 			);
@@ -102,10 +116,32 @@
 		6D681FE32AADF91700B25717 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				6D681FD32AADF5DB00B25717 /* MainMenu.xib */,
+				6D6A33652AB0AF9800BF791C /* Localizable.strings */,
 				6D681FD12AADF5DB00B25717 /* Assets.xcassets */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		6D6A33682AB0AFBF00BF791C /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				6D6A336A2AB0AFE900BF791C /* NSString+Localized.h */,
+				6D6A33692AB0AFE900BF791C /* NSString+Localized.m */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		6D6A336C2AB0AFF300BF791C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				6D6A33722AB0B03100BF791C /* NVMainMenu.h */,
+				6D6A336F2AB0B03100BF791C /* NVMainMenu.m */,
+				6D6A336D2AB0B03100BF791C /* NVEditView.h */,
+				6D6A336E2AB0B03100BF791C /* NVEditView.m */,
+				6D6A33702AB0B03100BF791C /* NVWindow.h */,
+				6D6A33712AB0B03100BF791C /* NVWindow.m */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		8271E1DAAEF951CB084E9722 /* Pods */ = {
@@ -176,7 +212,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6D681FD22AADF5DB00B25717 /* Assets.xcassets in Resources */,
-				6D681FD52AADF5DB00B25717 /* MainMenu.xib in Resources */,
+				6D6A33672AB0AF9800BF791C /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -212,22 +248,26 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */,
+				6D6A33752AB0B03100BF791C /* NVWindow.m in Sources */,
+				6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */,
 				6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */,
 				6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */,
 				6D681FD72AADF5DB00B25717 /* main.m in Sources */,
 				6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */,
+				6D6A336B2AB0AFE900BF791C /* NSString+Localized.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
-		6D681FD32AADF5DB00B25717 /* MainMenu.xib */ = {
+		6D6A33652AB0AF9800BF791C /* Localizable.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				6D681FD42AADF5DB00B25717 /* Base */,
+				6D6A33662AB0AF9800BF791C /* Base */,
 			);
-			name = MainMenu.xib;
+			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -266,6 +306,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -324,6 +365,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -352,19 +394,20 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = P4XS4AVCLW;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GCC_PREFIX_HEADER = "$(PROJECT_DIR)/$(PROJECT_NAME)/Classes/$(PROJECT_NAME).pch";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = NVim;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMainNibFile = MainMenu;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.wizjin.NVim;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wizjin.nvim;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -380,19 +423,20 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = P4XS4AVCLW;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GCC_PREFIX_HEADER = "$(PROJECT_DIR)/$(PROJECT_NAME)/Classes/$(PROJECT_NAME).pch";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = NVim;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMainNibFile = MainMenu;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.wizjin.NVim;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wizjin.nvim;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
