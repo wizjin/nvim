@@ -7,6 +7,7 @@
 
 #import "NVWindow.h"
 #import "NVEditView.h"
+#import "NVClient.h"
 
 #define kNVWindowDefaultStyleMask    (\
     NSWindowStyleMaskTitled|\
@@ -14,6 +15,12 @@
     NSWindowStyleMaskMiniaturizable|\
     NSWindowStyleMaskResizable\
 )
+
+@interface NVWindow ()
+
+@property (nonatomic, readonly, strong) NVClient *client;
+
+@end
 
 @implementation NVWindow
 
@@ -24,6 +31,7 @@
         self.titlebarAppearsTransparent = YES;
         self.minSize = NSMakeSize(kNVWindowMinWidth, kNVWindowMinHeight);
         self.contentView = [NVEditView new];
+        _client = [NVClient new];
     }
     return self;
 }

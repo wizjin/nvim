@@ -7,6 +7,10 @@
 
 #import "NVEditView.h"
 
+@interface NVEditView ()
+
+@end
+
 @implementation NVEditView
 
 - (instancetype)initWithFrame:(NSRect)frameRect {
@@ -15,6 +19,10 @@
         self.layer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
     }
     return self;
+}
+
+- (BOOL)isFlipped {
+    return YES;
 }
 
 
