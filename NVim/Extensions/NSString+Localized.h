@@ -12,7 +12,6 @@ NS_ASSUME_NONNULL_BEGIN
 @interface NSString (Localized)
 
 @property (nonatomic, readonly, strong) NSString *localized;
-@property (nonatomic, readonly, assign) const char *cstr;
 
 
 @end

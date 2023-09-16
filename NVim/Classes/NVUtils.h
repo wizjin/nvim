@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+#define INVALID_SOCKET          -1
+
 #ifdef __OBJC__
 
 #pragma mark - Weakify & Strongify Macros

@@ -14,10 +14,5 @@
     return [NSBundle.mainBundle localizedStringForKey:self ?: @"" value:@"" table:nil];
 }
 
-- (const char *)cstr {
-    const char *p = [self cStringUsingEncoding:NSUTF8StringEncoding];
-    return p != NULL ? p : "";
-}
-
 
 @end

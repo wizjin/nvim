@@ -11,6 +11,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface NVClient : NSObject
 
+- (void)close;
+
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -7,7 +7,7 @@
 
 #import "NVWindow.h"
 #import "NVEditView.h"
-#import "NVClient.h"
+#import "NVTCPClient.h"
 
 #define kNVWindowDefaultStyleMask    (\
     NSWindowStyleMaskTitled|\
@@ -30,10 +30,19 @@
         self.backgroundColor = NSColor.windowBackgroundColor;
         self.titlebarAppearsTransparent = YES;
         self.minSize = NSMakeSize(kNVWindowMinWidth, kNVWindowMinHeight);
-        self.contentView = [NVEditView new];
-        _client = [NVClient new];
+        
+        _client = [NVTCPClient new];
+        NVEditView *editView = [NVEditView new];
+        self.contentView = editView;
     }
     return self;
+}
+
+- (void)cleanup {
+    if (self.client != nil) {
+        [self.client close];
+        _client = nil;
+    }
 }
 
 

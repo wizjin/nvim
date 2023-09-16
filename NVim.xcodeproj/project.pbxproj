@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6D1E29602AB5853100E1AA79 /* NVTCPClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D1E295F2AB5853100E1AA79 /* NVTCPClient.m */; };
+		6D1E29632AB58B5300E1AA79 /* NSString+NVExt.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D1E29622AB58B5300E1AA79 /* NSString+NVExt.m */; };
 		6D2028442AB20034008B3E3B /* NVClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D2028432AB20034008B3E3B /* NVClient.m */; };
 		6D20284D2AB20347008B3E3B /* cwpack.c in Sources */ = {isa = PBXBuildFile; fileRef = 6D20284B2AB20347008B3E3B /* cwpack.c */; };
 		6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FCF2AADF5DA00B25717 /* AppDelegate.m */; };
@@ -24,6 +26,10 @@
 
 /* Begin PBXFileReference section */
 		2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-NVim.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		6D1E295E2AB5853100E1AA79 /* NVTCPClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVTCPClient.h; sourceTree = "<group>"; };
+		6D1E295F2AB5853100E1AA79 /* NVTCPClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVTCPClient.m; sourceTree = "<group>"; };
+		6D1E29612AB58B5300E1AA79 /* NSString+NVExt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSString+NVExt.h"; sourceTree = "<group>"; };
+		6D1E29622AB58B5300E1AA79 /* NSString+NVExt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSString+NVExt.m"; sourceTree = "<group>"; };
 		6D2028422AB20034008B3E3B /* NVClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVClient.h; sourceTree = "<group>"; };
 		6D2028432AB20034008B3E3B /* NVClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVClient.m; sourceTree = "<group>"; };
 		6D2028492AB20347008B3E3B /* cwpack_internals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cwpack_internals.h; path = Venders/CWPack/cwpack_internals.h; sourceTree = SOURCE_ROOT; };
@@ -80,6 +86,8 @@
 			children = (
 				6D2028422AB20034008B3E3B /* NVClient.h */,
 				6D2028432AB20034008B3E3B /* NVClient.m */,
+				6D1E295E2AB5853100E1AA79 /* NVTCPClient.h */,
+				6D1E295F2AB5853100E1AA79 /* NVTCPClient.m */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -165,6 +173,8 @@
 			children = (
 				6D6A336A2AB0AFE900BF791C /* NSString+Localized.h */,
 				6D6A33692AB0AFE900BF791C /* NSString+Localized.m */,
+				6D1E29612AB58B5300E1AA79 /* NSString+NVExt.h */,
+				6D1E29622AB58B5300E1AA79 /* NSString+NVExt.m */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -289,9 +299,11 @@
 				6D20284D2AB20347008B3E3B /* cwpack.c in Sources */,
 				6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */,
 				6D6A33752AB0B03100BF791C /* NVWindow.m in Sources */,
+				6D1E29632AB58B5300E1AA79 /* NSString+NVExt.m in Sources */,
 				6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */,
 				6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */,
 				6D2028442AB20034008B3E3B /* NVClient.m in Sources */,
+				6D1E29602AB5853100E1AA79 /* NVTCPClient.m in Sources */,
 				6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */,
 				6D681FD72AADF5DB00B25717 /* main.m in Sources */,
 				6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */,

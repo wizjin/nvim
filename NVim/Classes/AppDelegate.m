@@ -33,6 +33,7 @@
 }
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification {
+    [self.window cleanup];
     if (self.statusItem != nil) {
         [NSStatusBar.systemStatusBar removeStatusItem:self.statusItem];
         _statusItem = nil;

@@ -8,6 +8,10 @@
 #import "NVClient.h"
 #import "cwpack.h"
 
+@interface NVClient ()
+
+@end
+
 @implementation NVClient
 
 - (instancetype)init {
@@ -23,6 +27,9 @@
         NVLogI("CWPack unpack value = %lld", uc.item.as.u64);
     }
     return self;
+}
+
+- (void)close {
 }
 
 
