@@ -31,11 +31,21 @@
         self.titlebarAppearsTransparent = YES;
         self.minSize = NSMakeSize(kNVWindowMinWidth, kNVWindowMinHeight);
         
-        _client = [NVTCPClient new];
+        _client = [[NVTCPClient alloc] initWithHost:@"127.0.0.1" port:6666];
         NVEditView *editView = [NVEditView new];
         self.contentView = editView;
+        @weakify(self);
+        dispatch_main_async(^{
+            @strongify(self);
+            [self.client attachUI];
+        });
     }
     return self;
+}
+
+- (void)close {
+    [self.client detachUI];
+    [super close];
 }
 
 - (void)cleanup {

@@ -11,6 +11,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface NVTCPClient : NVClient
 
+- (instancetype)initWithHost:(NSString *)host port:(int)port;
+
+
 @end
 
 NS_ASSUME_NONNULL_END

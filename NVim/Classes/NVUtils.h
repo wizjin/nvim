@@ -13,6 +13,7 @@ extern "C" {
 #endif
 
 #define INVALID_SOCKET          -1
+#define countof(array)          (sizeof(array) / sizeof(array[0]))
 
 #ifdef __OBJC__
 
