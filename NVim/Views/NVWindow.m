@@ -16,9 +16,10 @@
     NSWindowStyleMaskResizable\
 )
 
-@interface NVWindow ()
+@interface NVWindow () <NVClientDelegate>
 
 @property (nonatomic, readonly, strong) NVClient *client;
+@property (nonatomic, readonly, strong) NVEditView *editView;
 
 @end
 
@@ -32,8 +33,9 @@
         self.minSize = NSMakeSize(kNVWindowMinWidth, kNVWindowMinHeight);
         
         _client = [[NVTCPClient alloc] initWithHost:@"127.0.0.1" port:6666];
-        NVEditView *editView = [NVEditView new];
-        self.contentView = editView;
+        self.client.delegate = self;
+        _editView = [NVEditView new];
+        self.contentView = self.editView;
         @weakify(self);
         dispatch_main_async(^{
             @strongify(self);
@@ -53,6 +55,20 @@
         [self.client close];
         _client = nil;
     }
+}
+
+#pragma mark - NVClientDelegate
+- (void)client:(NVClient *)client updateTitle:(NSString *)title {
+    self.title = title != nil ? title : @"";
+}
+
+- (void)client:(NVClient *)client updateColorsSet:(NVColorsSet *)colorsSet {
+    self.editView.colorsSet = colorsSet;
+}
+
+- (void)clientFlush:(NVClient *)client {
+    [self.editView setNeedsDisplay:YES];
+    [self.editView displayIfNeeded];
 }
 
 

@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		6D1E29602AB5853100E1AA79 /* NVTCPClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D1E295F2AB5853100E1AA79 /* NVTCPClient.m */; };
+		6D1E29602AB5853100E1AA79 /* NVTCPClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 6D1E295F2AB5853100E1AA79 /* NVTCPClient.mm */; };
 		6D1E29632AB58B5300E1AA79 /* NSString+NVExt.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D1E29622AB58B5300E1AA79 /* NSString+NVExt.m */; };
 		6D2028442AB20034008B3E3B /* NVClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D2028432AB20034008B3E3B /* NVClient.m */; };
 		6D20284D2AB20347008B3E3B /* cwpack.c in Sources */ = {isa = PBXBuildFile; fileRef = 6D20284B2AB20347008B3E3B /* cwpack.c */; };
@@ -21,13 +21,15 @@
 		6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A336E2AB0B03100BF791C /* NVEditView.m */; };
 		6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A336F2AB0B03100BF791C /* NVMainMenu.m */; };
 		6D6A33752AB0B03100BF791C /* NVWindow.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A33712AB0B03100BF791C /* NVWindow.m */; };
+		6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */ = {isa = PBXBuildFile; fileRef = 6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */; };
+		6DB3F7A92AB72EEB00F6A123 /* NVColorsSet.m in Sources */ = {isa = PBXBuildFile; fileRef = 6DB3F7A82AB72EEB00F6A123 /* NVColorsSet.m */; };
 		C4413092ED5EE9FA5A597797 /* libPods-NVim.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-NVim.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D1E295E2AB5853100E1AA79 /* NVTCPClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVTCPClient.h; sourceTree = "<group>"; };
-		6D1E295F2AB5853100E1AA79 /* NVTCPClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVTCPClient.m; sourceTree = "<group>"; };
+		6D1E295F2AB5853100E1AA79 /* NVTCPClient.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = NVTCPClient.mm; sourceTree = "<group>"; };
 		6D1E29612AB58B5300E1AA79 /* NSString+NVExt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSString+NVExt.h"; sourceTree = "<group>"; };
 		6D1E29622AB58B5300E1AA79 /* NSString+NVExt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSString+NVExt.m"; sourceTree = "<group>"; };
 		6D2028422AB20034008B3E3B /* NVClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVClient.h; sourceTree = "<group>"; };
@@ -57,6 +59,10 @@
 		6D6A33702AB0B03100BF791C /* NVWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NVWindow.h; sourceTree = "<group>"; };
 		6D6A33712AB0B03100BF791C /* NVWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NVWindow.m; sourceTree = "<group>"; };
 		6D6A33722AB0B03100BF791C /* NVMainMenu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NVMainMenu.h; sourceTree = "<group>"; };
+		6DB3F7A32AB72DE000F6A123 /* NSColor+NVExt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSColor+NVExt.h"; sourceTree = "<group>"; };
+		6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSColor+NVExt.m"; sourceTree = "<group>"; };
+		6DB3F7A72AB72EEB00F6A123 /* NVColorsSet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVColorsSet.h; sourceTree = "<group>"; };
+		6DB3F7A82AB72EEB00F6A123 /* NVColorsSet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVColorsSet.m; sourceTree = "<group>"; };
 		95844A96CB9BC84A72565201 /* Pods-NVim.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.debug.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.debug.xcconfig"; sourceTree = "<group>"; };
 		CED193A2A6409B458DD5A4C3 /* Pods-NVim.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.release.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -87,7 +93,7 @@
 				6D2028422AB20034008B3E3B /* NVClient.h */,
 				6D2028432AB20034008B3E3B /* NVClient.m */,
 				6D1E295E2AB5853100E1AA79 /* NVTCPClient.h */,
-				6D1E295F2AB5853100E1AA79 /* NVTCPClient.m */,
+				6D1E295F2AB5853100E1AA79 /* NVTCPClient.mm */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -134,6 +140,7 @@
 			children = (
 				6D6A336C2AB0AFF300BF791C /* Views */,
 				6D681FDE2AADF7C400B25717 /* Classes */,
+				6DB3F7A62AB72ECE00F6A123 /* Models */,
 				6D2028412AB20017008B3E3B /* Services */,
 				6D6A33682AB0AFBF00BF791C /* Extensions */,
 				6D2028472AB20320008B3E3B /* Venders */,
@@ -175,6 +182,8 @@
 				6D6A33692AB0AFE900BF791C /* NSString+Localized.m */,
 				6D1E29612AB58B5300E1AA79 /* NSString+NVExt.h */,
 				6D1E29622AB58B5300E1AA79 /* NSString+NVExt.m */,
+				6DB3F7A32AB72DE000F6A123 /* NSColor+NVExt.h */,
+				6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -190,6 +199,15 @@
 				6D6A336E2AB0B03100BF791C /* NVEditView.m */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		6DB3F7A62AB72ECE00F6A123 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				6DB3F7A72AB72EEB00F6A123 /* NVColorsSet.h */,
+				6DB3F7A82AB72EEB00F6A123 /* NVColorsSet.m */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 		8271E1DAAEF951CB084E9722 /* Pods */ = {
@@ -296,6 +314,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6DB3F7A92AB72EEB00F6A123 /* NVColorsSet.m in Sources */,
 				6D20284D2AB20347008B3E3B /* cwpack.c in Sources */,
 				6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */,
 				6D6A33752AB0B03100BF791C /* NVWindow.m in Sources */,
@@ -303,8 +322,9 @@
 				6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */,
 				6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */,
 				6D2028442AB20034008B3E3B /* NVClient.m in Sources */,
-				6D1E29602AB5853100E1AA79 /* NVTCPClient.m in Sources */,
+				6D1E29602AB5853100E1AA79 /* NVTCPClient.mm in Sources */,
 				6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */,
+				6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */,
 				6D681FD72AADF5DB00B25717 /* main.m in Sources */,
 				6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */,
 				6D6A336B2AB0AFE900BF791C /* NSString+Localized.m in Sources */,
