@@ -13,7 +13,9 @@
 #import <pthread.h>
 #import "cwpack.h"
 
-#define NV_MSGPACK_BUFFER_MAX               8192
+#define NV_MSGPACK_BUFFER_BITS              10 // 1 << 10 == 1024
+#define NV_MSGPACK_BUFFER_INIT              (4<<NV_MSGPACK_BUFFER_BITS)
+#define NV_MSGPACK_BUFFER_THRESHOLD         (256<<NV_MSGPACK_BUFFER_BITS)
 #define cw_pack_const_str(c, str)           cw_pack_str(c, str, sizeof(str) - 1);
 #define nv_rpc_call_const_begin(c, m, n)    nv_rpc_call_begin(c, m, sizeof(m) - 1, n)
 
@@ -21,13 +23,15 @@ typedef struct nv_pack_context {
     cw_pack_context cw;
     int skt;
     int uuid;
-    uint8_t data[NV_MSGPACK_BUFFER_MAX];
+    uint8_t *dataptr;
+    size_t datalen;
 } nv_pack_context_t;
 
 typedef struct nv_unpack_context {
     cw_unpack_context cw;
     int skt;
-    uint8_t data[NV_MSGPACK_BUFFER_MAX];
+    uint8_t *dataptr;
+    size_t datalen;
 } nv_unpack_context_t;
 
 @interface NVTCPClient () {
@@ -139,53 +143,54 @@ typedef struct nv_unpack_context {
 
 - (void)runWorkRoutine {
     nv_unpack_context_t ctx;
-    bzero(&ctx, sizeof(ctx));
-    nv_unpack_context_init(&ctx, skt);
-    while (nv_unpack_context_continue(&ctx)) {
-        if (cw_look_ahead(&ctx.cw) != CWP_ITEM_ARRAY) {
-            cw_skip_items(&ctx.cw, 1);
-        } else {
-            cw_unpack_next(&ctx.cw);
-            switch (ctx.cw.item.as.array.size) {
-                default:
-                    cw_skip_items(&ctx.cw, ctx.cw.item.as.array.size);
-                    break;
-                case 3:
-                    // notify
-                    cw_unpack_next(&ctx.cw);
-                    assert(ctx.cw.item.type == CWP_ITEM_POSITIVE_INTEGER && ctx.cw.item.as.i64 == 2);
-                    cw_unpack_next(&ctx.cw);
-                    assert(ctx.cw.item.type == CWP_ITEM_STR);
-                    notify_routine(self, &ctx);
-                    break;
-                case 4:
-                    cw_unpack_next(&ctx.cw);
-                    assert(ctx.cw.item.type == CWP_ITEM_POSITIVE_INTEGER && ctx.cw.item.as.i64 == 1);
-                    cw_unpack_next(&ctx.cw);
-                    assert(ctx.cw.item.type == CWP_ITEM_POSITIVE_INTEGER);
-                    int64_t msgid = ctx.cw.item.as.i64;
-                    NVLogI("TCP Client recive response msgid: %d", msgid);
-                    cw_unpack_next(&ctx.cw); // error
-                    if (ctx.cw.item.type == CWP_ITEM_ARRAY) {
-                        if (ctx.cw.item.as.array.size != 2) {
-                            cw_skip_items(&ctx.cw, ctx.cw.item.as.array.size);
-                        } else {
-                            cw_unpack_next(&ctx.cw);
-                            assert(ctx.cw.item.type == CWP_ITEM_POSITIVE_INTEGER);
-                            int64_t code = ctx.cw.item.as.i64;
-                            cw_unpack_next(&ctx.cw);
-                            assert(ctx.cw.item.type == CWP_ITEM_STR);
-                            NVLogE("TCP Client match request %d failed(%d): %s", msgid, code,
-                                   [[NSString alloc] initWithBytes:ctx.cw.item.as.str.start length:ctx.cw.item.as.str.length encoding:NSUTF8StringEncoding].cstr);
+    if (nv_unpack_context_init(&ctx, skt) == CWP_RC_OK) {
+        while (nv_unpack_context_continue(&ctx)) {
+            if (cw_look_ahead(&ctx.cw) != CWP_ITEM_ARRAY) {
+                cw_skip_items(&ctx.cw, 1);
+            } else {
+                cw_unpack_next(&ctx.cw);
+                switch (ctx.cw.item.as.array.size) {
+                    default:
+                        cw_skip_items(&ctx.cw, ctx.cw.item.as.array.size);
+                        break;
+                    case 3:
+                        // notify
+                        cw_unpack_next(&ctx.cw);
+                        assert(ctx.cw.item.type == CWP_ITEM_POSITIVE_INTEGER && ctx.cw.item.as.i64 == 2);
+                        cw_unpack_next(&ctx.cw);
+                        assert(ctx.cw.item.type == CWP_ITEM_STR);
+                        notify_routine(self, &ctx);
+                        break;
+                    case 4:
+                        cw_unpack_next(&ctx.cw);
+                        assert(ctx.cw.item.type == CWP_ITEM_POSITIVE_INTEGER && ctx.cw.item.as.i64 == 1);
+                        cw_unpack_next(&ctx.cw);
+                        assert(ctx.cw.item.type == CWP_ITEM_POSITIVE_INTEGER);
+                        int64_t msgid = ctx.cw.item.as.i64;
+                        NVLogI("TCP Client recive response msgid: %d", msgid);
+                        cw_unpack_next(&ctx.cw); // error
+                        if (ctx.cw.item.type == CWP_ITEM_ARRAY) {
+                            if (ctx.cw.item.as.array.size != 2) {
+                                cw_skip_items(&ctx.cw, ctx.cw.item.as.array.size);
+                            } else {
+                                cw_unpack_next(&ctx.cw);
+                                assert(ctx.cw.item.type == CWP_ITEM_POSITIVE_INTEGER);
+                                int64_t code = ctx.cw.item.as.i64;
+                                cw_unpack_next(&ctx.cw);
+                                assert(ctx.cw.item.type == CWP_ITEM_STR);
+                                NVLogE("TCP Client match request %d failed(%d): %s", msgid, code,
+                                       [[NSString alloc] initWithBytes:ctx.cw.item.as.str.start length:ctx.cw.item.as.str.length encoding:NSASCIIStringEncoding].cstr);
+                            }
                         }
-                    }
-                    cw_unpack_next(&ctx.cw); // result
-                    if (ctx.cw.item.type == CWP_ITEM_MAP) {
-                        cw_skip_items(&ctx.cw, ctx.cw.item.as.map.size);
-                    }
-                    break;
+                        cw_unpack_next(&ctx.cw); // result
+                        if (ctx.cw.item.type == CWP_ITEM_MAP) {
+                            cw_skip_items(&ctx.cw, ctx.cw.item.as.map.size);
+                        }
+                        break;
+                }
             }
         }
+        nv_unpack_context_final(&ctx);
     }
 }
 
@@ -233,16 +238,41 @@ static inline int nv_config_socket(int skt) {
     return skt;
 }
 
+static inline size_t nv_msgpack_buffer_best_size(size_t kept, size_t more) {
+    size_t datalen = kept;
+    size_t target = kept + more;
+    while (datalen < target) {
+        datalen *= 2;
+    }
+    if (datalen > NV_MSGPACK_BUFFER_THRESHOLD) {
+        datalen = kept + ((((more)>>NV_MSGPACK_BUFFER_BITS) + !!((more)&((1<<NV_MSGPACK_BUFFER_BITS)-1)))<<NV_MSGPACK_BUFFER_BITS);
+    }
+    return datalen;
+}
+
 #pragma mark - MsgPack Pack
-static inline void nv_pack_context_init(nv_pack_context_t *ctx, int skt) {
+static inline int nv_pack_context_init(nv_pack_context_t *ctx, int skt) {
+    int result = CWP_RC_MALLOC_ERROR;
     bzero(ctx, sizeof(nv_pack_context_t));
-    cw_pack_context_init(&ctx->cw, ctx->data, NV_MSGPACK_BUFFER_MAX, nv_pack_overflow_handler);
-    cw_pack_set_flush_handler(&ctx->cw, nv_pack_flush_handler);
-    ctx->skt = skt;
-    ctx->uuid = 1;
+    ctx->datalen = NV_MSGPACK_BUFFER_INIT;
+    ctx->dataptr = malloc(ctx->datalen);
+    if (ctx->dataptr != NULL) {
+        result = cw_pack_context_init(&ctx->cw, ctx->dataptr, ctx->datalen, nv_pack_overflow_handler);
+        if (result != CWP_RC_OK) {
+            nv_pack_context_final(ctx);
+        } else {
+            cw_pack_set_flush_handler(&ctx->cw, nv_pack_flush_handler);
+            ctx->skt = skt;
+            ctx->uuid = 1;
+        }
+    }
+    return result;
 }
 
 static inline void nv_pack_context_final(nv_pack_context_t *ctx) {
+    if (ctx->dataptr != NULL) {
+        free(ctx->dataptr);
+    }
     bzero(ctx, sizeof(nv_pack_context_t));
     ctx->skt = INVALID_SOCKET;
 }
@@ -250,12 +280,31 @@ static inline void nv_pack_context_final(nv_pack_context_t *ctx) {
 static inline int nv_pack_overflow_handler(cw_pack_context *ptr, size_t more) {
     int result = nv_pack_flush_handler(ptr);
     if (result == CWP_RC_OK) {
-        if (more > NV_MSGPACK_BUFFER_MAX) {
-            result = CWP_RC_BUFFER_OVERFLOW;
-        } else {
-            nv_pack_context_t *ctx = (nv_pack_context_t *)ptr;
-            ctx->cw.end = ctx->cw.start + NV_MSGPACK_BUFFER_MAX;
-            result = CWP_RC_OK;
+        nv_pack_context_t *ctx = (nv_pack_context_t *)ptr;
+        size_t kept = ctx->cw.current - ctx->cw.start;
+        size_t target = kept + more;
+        if (ctx->datalen > NV_MSGPACK_BUFFER_THRESHOLD && target < NV_MSGPACK_BUFFER_THRESHOLD) {
+            uint8_t *new_dateptr = realloc(ctx->dataptr, NV_MSGPACK_BUFFER_THRESHOLD);
+            if (new_dateptr != NULL) {
+                ctx->datalen = NV_MSGPACK_BUFFER_THRESHOLD;
+                ctx->dataptr = new_dateptr;
+                ctx->cw.start = ctx->dataptr;
+                ctx->cw.current = ctx->cw.start + kept;
+                ctx->cw.end = ctx->cw.start + ctx->datalen;
+            }
+        }
+        if (target > ctx->datalen) {
+            size_t new_datalen = nv_msgpack_buffer_best_size(ctx->datalen, more);
+            uint8_t *new_dateptr = realloc(ctx->dataptr, new_datalen);
+            if (new_dateptr == NULL) {
+                result = CWP_RC_BUFFER_OVERFLOW;
+            } else {
+                ctx->datalen = new_datalen;
+                ctx->dataptr = new_dateptr;
+                ctx->cw.start = ctx->dataptr;
+                ctx->cw.current = ctx->cw.start + kept;
+                ctx->cw.end = ctx->cw.start + ctx->datalen;
+            }
         }
     }
     return result;
@@ -264,69 +313,123 @@ static inline int nv_pack_overflow_handler(cw_pack_context *ptr, size_t more) {
 static inline int nv_pack_flush_handler(cw_pack_context *ptr) {
     nv_pack_context_t *ctx = (nv_pack_context_t *)ptr;
     int result = CWP_RC_ERROR_IN_HANDLER;
-    if (ctx->skt != INVALID_SOCKET) {
+    if (ctx->cw.return_code == 0) {
         result = CWP_RC_OK;
         size_t contains = ctx->cw.current - ctx->cw.start;
         if (contains > 0) {
             size_t i = 0;
             while (contains > 0) {
                 ssize_t n = write(ctx->skt, ctx->cw.start + i, contains);
-                if (n <= 0) {
+                if (n > 0) {
+                    i += n;
+                    contains -= n;
+                    continue;
+                }
+                if (n == 0) {
+                    result = CWP_RC_END_OF_INPUT;
+                } else {
                     if (errno != EBADF) {
                         NVLogW("TCP Client write data failed: %s", strerror(errno));
                     }
-                    ctx->skt = INVALID_SOCKET;
-                    result = CWP_RC_END_OF_INPUT;
-                    break;
+                    ctx->cw.err_no = errno;
+                    result = CWP_RC_ERROR_IN_HANDLER;
                 }
-                i += n;
-                contains -= n;
+                break;
             }
-            ctx->cw.current = ctx->cw.start;
+            if (contains > 0) {
+                memmove(ctx->cw.start, ctx->cw.start + i, contains);
+            }
+            ctx->cw.current = ctx->cw.start + contains;
+            ctx->cw.end = ctx->cw.start + ctx->datalen;
         }
     }
     return result;
 }
 
 #pragma mark - MsgPack Unpack
-static inline void nv_unpack_context_init(nv_unpack_context_t *ctx, int skt) {
-    cw_unpack_context_init(&ctx->cw, ctx->data, 0, nv_unpack_underflow_handler);
-    ctx->skt = skt;
+static inline int nv_unpack_context_init(nv_unpack_context_t *ctx, int skt) {
+    int result = CWP_RC_MALLOC_ERROR;
+    bzero(ctx, sizeof(nv_unpack_context_t));
+    ctx->datalen = NV_MSGPACK_BUFFER_INIT;
+    ctx->dataptr = malloc(ctx->datalen);
+    if (ctx->dataptr != NULL) {
+        result = cw_unpack_context_init(&ctx->cw, ctx->dataptr, 0, nv_unpack_underflow_handler);
+        if (result != CWP_RC_OK) {
+            nv_unpack_context_final(ctx);
+        } else {
+            ctx->skt = skt;
+        }
+    }
+    return result;
+}
+
+static inline void nv_unpack_context_final(nv_unpack_context_t *ctx) {
+    if (ctx->dataptr != NULL) {
+        free(ctx->dataptr);
+    }
+    bzero(ctx, sizeof(nv_unpack_context_t));
+    ctx->skt = INVALID_SOCKET;
 }
 
 static inline bool nv_unpack_context_continue(nv_unpack_context_t *ctx) {
-    return ctx->skt != INVALID_SOCKET;
+    return ctx->cw.return_code == 0;
 }
 
 static inline int nv_unpack_underflow_handler(cw_unpack_context *ptr, size_t more) {
     nv_unpack_context_t *ctx = (nv_unpack_context_t *)ptr;
     int result = CWP_RC_ERROR_IN_HANDLER;
-    if (ctx->skt != INVALID_SOCKET) {
+    if (ctx->cw.return_code == 0) {
+        result = CWP_RC_OK;
         size_t used = ctx->cw.current - ctx->cw.start;
         size_t remains = ctx->cw.end - ctx->cw.current;
-        if (used + remains + more > NV_MSGPACK_BUFFER_MAX) {
+        size_t target = remains + more;
+        if (used > 0 && used + target > ctx->datalen) {
             if (remains > 0) {
                 memmove(ctx->cw.start, ctx->cw.current, remains);
             }
+            if (ctx->datalen > NV_MSGPACK_BUFFER_THRESHOLD && target < NV_MSGPACK_BUFFER_THRESHOLD) {
+                uint8_t *new_dataptr = realloc(ctx->dataptr, NV_MSGPACK_BUFFER_THRESHOLD);
+                if (new_dataptr != NULL) {
+                    ctx->datalen = NV_MSGPACK_BUFFER_THRESHOLD;
+                    ctx->dataptr = new_dataptr;
+                    ctx->cw.start = ctx->dataptr;
+                }
+            }
             ctx->cw.current = ctx->cw.start;
-            ctx->cw.end = ctx->cw.start + remains;
+            ctx->cw.end = ctx->cw.current + remains;
+            used = 0;
         }
-        if (remains + more > NV_MSGPACK_BUFFER_MAX) {
-            result = CWP_RC_BUFFER_UNDERFLOW;
-        } else {
-            result = CWP_RC_OK;
+        if (target > ctx->datalen) {
+            size_t new_datalen = nv_msgpack_buffer_best_size(ctx->datalen, target);
+            uint8_t *new_dataptr = realloc(ctx->dataptr, new_datalen);
+            if (new_dataptr == NULL) {
+                result = CWP_RC_BUFFER_UNDERFLOW;
+            } else {
+                ctx->datalen = new_datalen;
+                ctx->dataptr = new_dataptr;
+                ctx->cw.start = ctx->dataptr;
+                ctx->cw.current = ctx->cw.start + used;
+                ctx->cw.end = ctx->cw.current + remains;
+            }
+        }
+        if (result == CWP_RC_OK) {
             while (more > 0) {
                 ssize_t n = read(ctx->skt, ctx->cw.end, more);
-                if (n <= 0) {
+                if (n > 0) {
+                    ctx->cw.end += n;
+                    more -= n;
+                    continue;
+                }
+                if (n == 0) {
+                    result = CWP_RC_END_OF_INPUT;
+                } else if (n < 0) {
                     if (errno != EBADF) {
                         NVLogW("TCP Client read data failed: %s", strerror(errno));
                     }
-                    ctx->skt = INVALID_SOCKET;
-                    result = CWP_RC_END_OF_INPUT;
-                    break;
+                    ctx->cw.err_no = errno;
+                    result = CWP_RC_ERROR_IN_HANDLER;
                 }
-                ctx->cw.end += n;
-                more -= n;
+                break;
             }
         }
     }
@@ -345,5 +448,6 @@ static inline void nv_rpc_call_begin(nv_pack_context_t *ctx, const char *method,
 static inline void nv_pack_call_end(nv_pack_context_t *ctx) {
     nv_pack_flush_handler(&ctx->cw);
 }
+
 
 @end
