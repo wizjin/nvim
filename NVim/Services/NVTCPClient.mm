@@ -29,15 +29,15 @@ typedef struct nv_pack_context {
     cw_pack_context cw;
     int skt;
     uint64_t uuid;
-    uint8_t *dataptr;
     size_t datalen;
+    uint8_t *dataptr;
 } nv_pack_context_t;
 
 typedef struct nv_unpack_context {
     cw_unpack_context cw;
     int skt;
-    uint8_t *dataptr;
     size_t datalen;
+    uint8_t *dataptr;
 } nv_unpack_context_t;
 
 typedef int (*nv_rpc_action_t)(NVClient *client, cw_unpack_context *ctx, int narg);
@@ -168,7 +168,7 @@ typedef int (*nv_rpc_action_t)(NVClient *client, cw_unpack_context *ctx, int nar
                         break;
                     case 4:
                         assert(cw_unpack_next_int(&ctx.cw) == 1);
-                        uint64_t msgid = cw_unpack_next_int(&ctx.cw);
+                        uint64_t msgid = cw_unpack_next_uint64(&ctx.cw);
                         NVLogI("TCP Client recive response msgid: %lu", msgid);
                         // Show error
                         if (cw_look_ahead(&ctx.cw) != CWP_ITEM_ARRAY) {
@@ -178,7 +178,7 @@ typedef int (*nv_rpc_action_t)(NVClient *client, cw_unpack_context *ctx, int nar
                             if (ctx.cw.item.as.array.size != 2) {
                                 cw_skip_items(&ctx.cw, ctx.cw.item.as.array.size);
                             } else {
-                                int64_t code = cw_unpack_next_int(&ctx.cw);
+                                int64_t code = cw_unpack_next_int64(&ctx.cw);
                                 auto msg = cw_unpack_next_str(&ctx.cw);
                                 NVLogE("TCP Client match request %d failed(%lu): %s", msgid, code, msg.c_str());
                             }
@@ -465,10 +465,28 @@ static inline bool cw_unpack_next_bool(cw_unpack_context *ctx) {
     return ctx->item.as.boolean;
 }
 
-static inline int64_t cw_unpack_next_int(cw_unpack_context *ctx) {
+static inline int cw_unpack_next_int(cw_unpack_context *ctx) {
+    cw_unpack_next(ctx);
+    assert(ctx->item.type == CWP_ITEM_POSITIVE_INTEGER || ctx->item.type == CWP_ITEM_NEGATIVE_INTEGER);
+    return (int)ctx->item.as.i64;
+}
+
+static inline uint32_t cw_unpack_next_uint32(cw_unpack_context *ctx) {
+    cw_unpack_next(ctx);
+    assert(ctx->item.type == CWP_ITEM_POSITIVE_INTEGER || ctx->item.type == CWP_ITEM_NEGATIVE_INTEGER);
+    return (uint32_t)ctx->item.as.i64;
+}
+
+static inline int64_t cw_unpack_next_int64(cw_unpack_context *ctx) {
     cw_unpack_next(ctx);
     assert(ctx->item.type == CWP_ITEM_POSITIVE_INTEGER || ctx->item.type == CWP_ITEM_NEGATIVE_INTEGER);
     return ctx->item.as.i64;
+}
+
+static inline uint64_t cw_unpack_next_uint64(cw_unpack_context *ctx) {
+    cw_unpack_next(ctx);
+    assert(ctx->item.type == CWP_ITEM_POSITIVE_INTEGER);
+    return ctx->item.as.u64;
 }
 
 static inline int cw_unpack_next_array(cw_unpack_context *ctx) {
@@ -484,6 +502,7 @@ static inline int cw_unpack_next_array(cw_unpack_context *ctx) {
 
 #pragma mark - Notification Actions
 static inline int nv_notification_action_redraw(NVClient *client, cw_unpack_context *ctx, int count) {
+    //NVLogD("TCP Client redraw: %d", count);
     while (count-- > 0) {
         int narg = cw_unpack_next_array(ctx);
         if (narg-- > 0) {
@@ -522,7 +541,6 @@ static inline int nv_redraw_action_set_title(NVClient *client, cw_unpack_context
         int items = cw_unpack_next_array(ctx);
         if (items-- > 0) {
             NSString *title = cw_unpack_next_nsstr(ctx);
-            
             dispatch_main_async(^{
                 [client.delegate client:client updateTitle:title];
             });
@@ -572,15 +590,31 @@ static inline int nv_redraw_action_flush(NVClient *client, cw_unpack_context *ct
     return count;
 }
 
+static inline int nv_redraw_action_grid_resize(NVClient *client, cw_unpack_context *ctx, int count) {
+    if (count-- > 0) {
+        int narg = cw_unpack_next_array(ctx);
+        if (narg >= 3) {
+            narg -= 3;
+            int grid = cw_unpack_next_int(ctx);
+            int width = cw_unpack_next_int(ctx);
+            int height = cw_unpack_next_int(ctx);
+            // TODO: Resize grid
+            NVLogI("Grid resize %d - %dx%d", grid, width, height);
+        }
+        cw_skip_items(ctx, narg);
+    }
+    return count;
+}
+
 static inline int nv_redraw_action_default_colors_set(NVClient *client, cw_unpack_context *ctx, int count) {
     if (count-- > 0) {
         int narg = cw_unpack_next_array(ctx);
         if (narg >= 3) {
             narg -= 3;
             NVColorsSet *colorsSet = [NVColorsSet new];
-            colorsSet.foreground = [NSColor colorWithRGB:(uint32_t)cw_unpack_next_int(ctx)];
-            colorsSet.background = [NSColor colorWithRGB:(uint32_t)cw_unpack_next_int(ctx)];
-            colorsSet.special = [NSColor colorWithRGB:(uint32_t)cw_unpack_next_int(ctx)];
+            colorsSet.foreground = [NSColor colorWithRGB:cw_unpack_next_uint32(ctx)];
+            colorsSet.background = [NSColor colorWithRGB:cw_unpack_next_uint32(ctx)];
+            colorsSet.special = [NSColor colorWithRGB:cw_unpack_next_uint32(ctx)];
             dispatch_main_async(^{
                 [client.delegate client:client updateColorsSet:colorsSet];
             });
@@ -594,6 +628,64 @@ static inline int nv_redraw_action_hl_attr_define(NVClient *client, cw_unpack_co
     if (count-- > 0) {
         int narg = cw_unpack_next_array(ctx);
         // TODO: update highlight colors
+        cw_skip_items(ctx, narg);
+    }
+    return count;
+}
+
+static inline int nv_redraw_action_hl_group_set(NVClient *client, cw_unpack_context *ctx, int count) {
+    if (count-- > 0) {
+        int narg = cw_unpack_next_array(ctx);
+        // TODO: update highlight group
+        cw_skip_items(ctx, narg);
+    }
+    return count;
+}
+
+static inline int nv_redraw_action_grid_line(NVClient *client, cw_unpack_context *ctx, int count) {
+    if (count-- > 0) {
+        int narg = cw_unpack_next_array(ctx);
+        if (narg-- > 4) {
+            narg -= 4;
+            int grid = cw_unpack_next_int(ctx);
+            int row = cw_unpack_next_int(ctx);
+            int col_start = cw_unpack_next_int(ctx);
+            int cells = cw_unpack_next_array(ctx);
+            std::string output;
+            while (cells-- > 0) {
+                int cnum = cw_unpack_next_array(ctx);
+                if (cnum-- > 0) {
+                    auto text = cw_unpack_next_str(ctx);
+                    output += text;
+                    if (cnum >= 2) {
+                        cnum -= 2;
+                        cw_unpack_next_int(ctx); // hl
+                        int repeat = cw_unpack_next_int(ctx);
+                        while (--repeat > 0) {
+                            output += text;
+                        }
+                    }
+                }
+                cw_skip_items(ctx, cnum);
+            }
+            cw_skip_items(ctx, cells);
+            // TODO: Update grid lines
+            NVLogI("Grid line %d row = %d, col_start = %d", grid, row, col_start);
+            //NVLogD("Grid line: %s", output.c_str());
+        }
+        cw_skip_items(ctx, narg);
+    }
+    return count;
+}
+
+static inline int nv_redraw_action_grid_clear(NVClient *client, cw_unpack_context *ctx, int count) {
+    if (count-- > 0) {
+        int narg = cw_unpack_next_array(ctx);
+        if (narg-- > 0) {
+            int grid = cw_unpack_next_int(ctx);
+            // TODO: Clear grid
+            NVLogI("Grid clear %d", grid);
+        }
         cw_skip_items(ctx, narg);
     }
     return count;
@@ -619,12 +711,12 @@ static const std::map<const std::string, nv_rpc_action_t> nv_redraw_actions = {
     NV_REDRAW_ACTION_IGNORE(visual_bell),
     NV_REDRAW_ACTION(flush),
     // Grid Events (line-based)
-    NV_REDRAW_ACTION_IGNORE(grid_resize),
+    NV_REDRAW_ACTION(grid_resize),
     NV_REDRAW_ACTION(default_colors_set),
     NV_REDRAW_ACTION(hl_attr_define),
-    NV_REDRAW_ACTION_IGNORE(hl_group_set),
-    NV_REDRAW_ACTION_IGNORE(grid_line),
-    NV_REDRAW_ACTION_IGNORE(grid_clear),
+    NV_REDRAW_ACTION(hl_group_set),
+    NV_REDRAW_ACTION(grid_line),
+    NV_REDRAW_ACTION(grid_clear),
     NV_REDRAW_ACTION_IGNORE(grid_destroy),
     NV_REDRAW_ACTION_IGNORE(grid_cursor_goto),
     NV_REDRAW_ACTION_IGNORE(grid_scroll),
