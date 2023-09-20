@@ -16,6 +16,7 @@
 		6D681FD72AADF5DB00B25717 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FD62AADF5DB00B25717 /* main.m */; };
 		6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FED2AADFC0800B25717 /* NVLogger.m */; };
 		6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FF02AADFC3F00B25717 /* NVUtils.m */; };
+		6D6A04802AB8A38800A78E12 /* nvc_rpc.c in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */; };
 		6D6A33672AB0AF9800BF791C /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6D6A33652AB0AF9800BF791C /* Localizable.strings */; };
 		6D6A336B2AB0AFE900BF791C /* NSString+Localized.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A33692AB0AFE900BF791C /* NSString+Localized.m */; };
 		6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A336E2AB0B03100BF791C /* NVEditView.m */; };
@@ -50,6 +51,8 @@
 		6D681FED2AADFC0800B25717 /* NVLogger.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVLogger.m; sourceTree = "<group>"; };
 		6D681FEF2AADFC3F00B25717 /* NVUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVUtils.h; sourceTree = "<group>"; };
 		6D681FF02AADFC3F00B25717 /* NVUtils.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVUtils.m; sourceTree = "<group>"; };
+		6D6A047E2AB8A38800A78E12 /* nvc_rpc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_rpc.h; sourceTree = "<group>"; };
+		6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = nvc_rpc.c; sourceTree = "<group>"; };
 		6D6A33662AB0AF9800BF791C /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = Base.lproj/Localizable.strings; sourceTree = "<group>"; };
 		6D6A33692AB0AFE900BF791C /* NSString+Localized.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+Localized.m"; sourceTree = "<group>"; };
 		6D6A336A2AB0AFE900BF791C /* NSString+Localized.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+Localized.h"; sourceTree = "<group>"; };
@@ -94,6 +97,8 @@
 				6D2028432AB20034008B3E3B /* NVClient.m */,
 				6D1E295E2AB5853100E1AA79 /* NVTCPClient.h */,
 				6D1E295F2AB5853100E1AA79 /* NVTCPClient.mm */,
+				6D6A047E2AB8A38800A78E12 /* nvc_rpc.h */,
+				6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -323,6 +328,7 @@
 				6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */,
 				6D2028442AB20034008B3E3B /* NVClient.m in Sources */,
 				6D1E29602AB5853100E1AA79 /* NVTCPClient.mm in Sources */,
+				6D6A04802AB8A38800A78E12 /* nvc_rpc.c in Sources */,
 				6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */,
 				6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */,
 				6D681FD72AADF5DB00B25717 /* main.m in Sources */,

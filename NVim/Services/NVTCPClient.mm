@@ -14,39 +14,16 @@
 #import <pthread.h>
 #import <string>
 #import <map>
-extern "C" {
-#import "cwpack.h"
-}
+#import "nvc_rpc.h"
 
-#define NV_MSGPACK_KBYTES_BITS              10 // 1 << 10 == 1KB
-#define NV_MSGPACK_BUFFER_INIT              (4<<NV_MSGPACK_KBYTES_BITS)
-#define NV_MSGPACK_BUFFER_PREREAD           (16<<NV_MSGPACK_KBYTES_BITS)
-#define NV_MSGPACK_BUFFER_THRESHOLD         (256<<NV_MSGPACK_KBYTES_BITS)
-#define cw_pack_const_str(c, str)           cw_pack_str(c, str, sizeof(str) - 1);
-#define nv_rpc_call_const_begin(c, m, n)    nv_rpc_call_begin(c, m, sizeof(m) - 1, n)
+#define nvc_rpc_write_const_str(c, str)     nvc_rpc_write_str(c, str, sizeof(str) - 1);
+#define nvc_rpc_call_const_begin(c, m, n)   nvc_rpc_call_begin(c, m, sizeof(m) - 1, n)
 
-typedef struct nv_pack_context {
-    cw_pack_context cw;
-    int skt;
-    uint64_t uuid;
-    size_t datalen;
-    uint8_t *dataptr;
-} nv_pack_context_t;
-
-typedef struct nv_unpack_context {
-    cw_unpack_context cw;
-    int skt;
-    size_t datalen;
-    uint8_t *dataptr;
-} nv_unpack_context_t;
-
-typedef int (*nv_rpc_action_t)(NVClient *client, cw_unpack_context *ctx, int narg);
+typedef int (*nv_rpc_action_t)(NVClient *client, nvc_rpc_context_t *ctx, int narg);
 
 @interface NVTCPClient () {
 @private
-    int skt;
-    pthread_t worker;
-    nv_pack_context_t nv_out_ctx;
+    nvc_rpc_context_t *rpc_ctx;
 }
 
 @property (nonatomic, readonly, strong) NSString *host;
@@ -58,8 +35,7 @@ typedef int (*nv_rpc_action_t)(NVClient *client, cw_unpack_context *ctx, int nar
 
 - (instancetype)initWithHost:(NSString *)host port:(int)port {
     if (self = [super init]) {
-        skt = INVALID_SOCKET;
-        worker = NULL;
+        rpc_ctx = NULL;
         _host = host;
         _port = port;
 
@@ -79,6 +55,7 @@ typedef int (*nv_rpc_action_t)(NVClient *client, cw_unpack_context *ctx, int nar
     const char *hostname = self.host.cstr;
     char port[32] = {0};
     snprintf(port, sizeof(port), "%d", self.port);
+    int skt = INVALID_SOCKET;
     int err = getaddrinfo(hostname, port, &hints, &infos);
     if (err != 0) {
         NVLogW("TCP Client lookup failed - %s: %s", self.host.cstr, gai_strerror(err));
@@ -108,102 +85,41 @@ typedef int (*nv_rpc_action_t)(NVClient *client, cw_unpack_context *ctx, int nar
     if (skt == INVALID_SOCKET) {
         NVLogW("TCP Client create connection failed - %s:%d : %s", hostname, self.port, strerror(errno));
     } else {
-        err = pthread_create(&worker, NULL, nv_start_routine, (__bridge void *)self);
-        if (err == 0) {
-            nv_pack_context_init(&nv_out_ctx, skt);
+        rpc_ctx = nvc_rpc_create(skt, skt, (__bridge void *)self, nvclient_rpc_response_handler, nvclient_rpc_notification_handler);
+        if (rpc_ctx == NULL) {
+            NVLogE("TCP Client create rpc failed");
         } else {
-            NVLogE("TCP Client create worker thread failed: %s", strerror(err));
-            worker = NULL;
-            [self close];
+            NVLogE("TCP Client create rpc success");
         }
+        close(skt);
     }
 }
 
 - (void)close {
-    nv_pack_context_final(&nv_out_ctx);
-    if (skt != INVALID_SOCKET) {
+    if (rpc_ctx != NULL) {
         NVLogD("TCP Client close connection success - %s:%d", self.host.cstr, self.port);
-        close(skt);
-        skt = INVALID_SOCKET;
-    }
-    if (worker != NULL) {
-        pthread_join(worker, NULL);
-        worker = NULL;
+        nvc_rpc_destory(&rpc_ctx);
     }
 }
 
 - (void)attachUI {
-    nv_rpc_call_const_begin(&nv_out_ctx, "nvim_ui_attach", 3);
-    cw_pack_unsigned(&nv_out_ctx.cw, 80);
-    cw_pack_unsigned(&nv_out_ctx.cw, 40);
-    cw_pack_map_size(&nv_out_ctx.cw, 2);
-    cw_pack_const_str(&nv_out_ctx.cw, "override");
-    cw_pack_true(&nv_out_ctx.cw);
-    cw_pack_const_str(&nv_out_ctx.cw, "ext_linegrid");
-    cw_pack_true(&nv_out_ctx.cw);
-    nv_pack_call_end(&nv_out_ctx);
+    nvc_rpc_call_const_begin(rpc_ctx, "nvim_ui_attach", 3);
+    nvc_rpc_write_unsigned(rpc_ctx, 80);
+    nvc_rpc_write_unsigned(rpc_ctx, 40);
+    nvc_rpc_write_map_size(rpc_ctx, 2);
+    nvc_rpc_write_const_str(rpc_ctx, "override");
+    nvc_rpc_write_true(rpc_ctx);
+    nvc_rpc_write_const_str(rpc_ctx, "ext_linegrid");
+    nvc_rpc_write_true(rpc_ctx);
+    nvc_rpc_call_end(rpc_ctx);
 }
 
 - (void)detachUI {
-    nv_rpc_call_const_begin(&nv_out_ctx, "nvim_ui_detach", 0);
-    nv_pack_call_end(&nv_out_ctx);
-}
-
-- (void)runWorkRoutine {
-    nv_unpack_context_t ctx;
-    if (nv_unpack_context_init(&ctx, skt) == CWP_RC_OK) {
-        while (nv_unpack_context_continue(&ctx)) {
-            if (cw_look_ahead(&ctx.cw) != CWP_ITEM_ARRAY) {
-                cw_skip_items(&ctx.cw, 1);
-            } else {
-                cw_unpack_next(&ctx.cw);
-                switch (ctx.cw.item.as.array.size) {
-                    default:
-                        cw_skip_items(&ctx.cw, ctx.cw.item.as.array.size);
-                        break;
-                    case 3:
-                        // notify
-                        assert(cw_unpack_next_int(&ctx.cw) == 2);
-                        nv_call_notification_action(self, cw_unpack_next_str(&ctx.cw), &ctx);
-                        break;
-                    case 4:
-                        assert(cw_unpack_next_int(&ctx.cw) == 1);
-                        uint64_t msgid = cw_unpack_next_uint64(&ctx.cw);
-                        NVLogI("TCP Client recive response msgid: %lu", msgid);
-                        // Show error
-                        if (cw_look_ahead(&ctx.cw) != CWP_ITEM_ARRAY) {
-                            cw_skip_items(&ctx.cw, 1);
-                        } else {
-                            cw_unpack_next(&ctx.cw);
-                            if (ctx.cw.item.as.array.size != 2) {
-                                cw_skip_items(&ctx.cw, ctx.cw.item.as.array.size);
-                            } else {
-                                int64_t code = cw_unpack_next_int64(&ctx.cw);
-                                auto msg = cw_unpack_next_str(&ctx.cw);
-                                NVLogE("TCP Client match request %d failed(%lu): %s", msgid, code, msg.c_str());
-                            }
-                        }
-                        // TODO: result
-                        if (cw_look_ahead(&ctx.cw) != CWP_ITEM_MAP) {
-                            cw_skip_items(&ctx.cw, 1);
-                        } else {
-                            cw_unpack_next(&ctx.cw);
-                            cw_skip_items(&ctx.cw, ctx.cw.item.as.map.size);
-                        }
-                        break;
-                }
-            }
-        }
-        nv_unpack_context_final(&ctx);
-    }
+    nvc_rpc_call_const_begin(rpc_ctx, "nvim_ui_detach", 0);
+    nvc_rpc_call_end(rpc_ctx);
 }
 
 #pragma mark - Work Helper
-static inline void *nv_start_routine(void *ptr) {
-    [(__bridge NVTCPClient *)ptr runWorkRoutine];
-    return NULL;
-}
-
 static inline int nv_config_socket_linger(int skt) {
     static const struct linger so_linger = { 1, 1 };
     return setsockopt(skt, SOL_SOCKET, SO_LINGER, &so_linger, sizeof(so_linger));
@@ -235,288 +151,67 @@ static inline int nv_config_socket(int skt) {
     return skt;
 }
 
-static inline size_t nv_msgpack_memory_best_size(size_t kept, size_t more) {
-    size_t datalen = kept;
-    size_t target = kept + more;
-    while (datalen < target) {
-        datalen *= 2;
+static inline const std::string nvc_rpc_read_str(nvc_rpc_context_t *ctx) {
+    uint32_t len = 0;
+    auto str = nvc_rpc_read_str(ctx, &len);
+    if (likely(str != NULL)) {
+        return std::string(str, len);
     }
-    if (datalen > NV_MSGPACK_BUFFER_THRESHOLD) {
-        datalen = kept + ((((more)>>NV_MSGPACK_KBYTES_BITS) + !!((more)&((1<<NV_MSGPACK_KBYTES_BITS)-1)))<<NV_MSGPACK_KBYTES_BITS);
-    }
-    return datalen;
+    return std::string();
 }
 
-#pragma mark - MsgPack Pack
-static inline int nv_pack_context_init(nv_pack_context_t *ctx, int skt) {
-    int result = CWP_RC_MALLOC_ERROR;
-    bzero(ctx, sizeof(nv_pack_context_t));
-    ctx->datalen = NV_MSGPACK_BUFFER_INIT;
-    ctx->dataptr = (uint8_t *)malloc(ctx->datalen);
-    if (ctx->dataptr != NULL) {
-        result = cw_pack_context_init(&ctx->cw, ctx->dataptr, ctx->datalen, nv_pack_overflow_handler);
-        if (result != CWP_RC_OK) {
-            nv_pack_context_final(ctx);
-        } else {
-            cw_pack_set_flush_handler(&ctx->cw, nv_pack_flush_handler);
-            ctx->skt = skt;
-            ctx->uuid = 1;
-        }
-    }
-    return result;
-}
-
-static inline void nv_pack_context_final(nv_pack_context_t *ctx) {
-    if (ctx->dataptr != NULL) {
-        free(ctx->dataptr);
-    }
-    bzero(ctx, sizeof(nv_pack_context_t));
-    ctx->skt = INVALID_SOCKET;
-}
-
-static inline int nv_pack_overflow_handler(cw_pack_context *ptr, size_t more) {
-    int result = nv_pack_flush_handler(ptr);
-    if (result == CWP_RC_OK) {
-        nv_pack_context_t *ctx = (nv_pack_context_t *)ptr;
-        size_t kept = ctx->cw.current - ctx->cw.start;
-        size_t target = kept + more;
-        if (ctx->datalen > NV_MSGPACK_BUFFER_THRESHOLD && target < NV_MSGPACK_BUFFER_THRESHOLD) {
-            void *new_dateptr = realloc(ctx->dataptr, NV_MSGPACK_BUFFER_THRESHOLD);
-            if (new_dateptr != NULL) {
-                ctx->datalen = NV_MSGPACK_BUFFER_THRESHOLD;
-                ctx->dataptr = (uint8_t *)new_dateptr;
-                ctx->cw.start = ctx->dataptr;
-                ctx->cw.current = ctx->cw.start + kept;
-                ctx->cw.end = ctx->cw.start + ctx->datalen;
+#pragma mark - Notification Actions
+static inline int nvclient_rpc_response_handler(nvc_rpc_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        uint64_t msgid = nvc_rpc_read_uint64(ctx);
+        NVLogI("TCP Client recive response msgid: %lu", msgid);
+        if (likely(items-- > 0)) {
+            int n = nvc_rpc_read_array_size(ctx);
+            if (n >= 2) {
+                n -= 2;
+                int64_t code = nvc_rpc_read_int64(ctx);
+                auto msg = nvc_rpc_read_str(ctx);
+                NVLogE("TCP Client match request %d failed(%lu): %s", msgid, code, msg.c_str());
             }
+            nvc_rpc_read_skip_items(ctx, n);
         }
-        if (target > ctx->datalen) {
-            size_t new_datalen = nv_msgpack_memory_best_size(ctx->datalen, more);
-            void *new_dateptr = realloc(ctx->dataptr, new_datalen);
-            if (new_dateptr == NULL) {
-                result = CWP_RC_BUFFER_OVERFLOW;
-            } else {
-                ctx->datalen = new_datalen;
-                ctx->dataptr = (uint8_t *)new_dateptr;
-                ctx->cw.start = ctx->dataptr;
-                ctx->cw.current = ctx->cw.start + kept;
-                ctx->cw.end = ctx->cw.start + ctx->datalen;
-            }
+        if (likely(items-- > 0)) {
+            nvc_rpc_read_skip_items(ctx, nvc_rpc_read_map_size(ctx) * 2);
         }
-    }
-    return result;
-}
-
-static inline int nv_pack_flush_handler(cw_pack_context *ptr) {
-    nv_pack_context_t *ctx = (nv_pack_context_t *)ptr;
-    int result = CWP_RC_ERROR_IN_HANDLER;
-    if (ctx->cw.return_code == 0) {
-        result = CWP_RC_OK;
-        size_t contains = ctx->cw.current - ctx->cw.start;
-        if (contains > 0) {
-            size_t i = 0;
-            while (contains > 0) {
-                ssize_t n = write(ctx->skt, ctx->cw.start + i, contains);
-                if (n > 0) {
-                    i += n;
-                    contains -= n;
-                    continue;
-                }
-                if (n == 0) {
-                    result = CWP_RC_END_OF_INPUT;
-                } else {
-                    if (errno != EBADF) {
-                        NVLogW("TCP Client write data failed: %s", strerror(errno));
-                    }
-                    ctx->cw.err_no = errno;
-                    result = CWP_RC_ERROR_IN_HANDLER;
-                }
-                break;
-            }
-            if (contains > 0) {
-                memmove(ctx->cw.start, ctx->cw.start + i, contains);
-            }
-            ctx->cw.current = ctx->cw.start + contains;
-            ctx->cw.end = ctx->cw.start + ctx->datalen;
-        }
-    }
-    return result;
-}
-
-#pragma mark - MsgPack Unpack
-static inline int nv_unpack_context_init(nv_unpack_context_t *ctx, int skt) {
-    int result = CWP_RC_MALLOC_ERROR;
-    bzero(ctx, sizeof(nv_unpack_context_t));
-    ctx->datalen = NV_MSGPACK_BUFFER_INIT;
-    ctx->dataptr = (uint8_t *)malloc(ctx->datalen);
-    if (ctx->dataptr != NULL) {
-        result = cw_unpack_context_init(&ctx->cw, ctx->dataptr, 0, nv_unpack_underflow_handler);
-        if (result != CWP_RC_OK) {
-            nv_unpack_context_final(ctx);
-        } else {
-            ctx->skt = skt;
-        }
-    }
-    return result;
-}
-
-static inline void nv_unpack_context_final(nv_unpack_context_t *ctx) {
-    if (ctx->dataptr != NULL) {
-        free(ctx->dataptr);
-    }
-    bzero(ctx, sizeof(nv_unpack_context_t));
-    ctx->skt = INVALID_SOCKET;
-}
-
-static inline bool nv_unpack_context_continue(nv_unpack_context_t *ctx) {
-    return ctx->cw.return_code == 0;
-}
-
-static inline int nv_unpack_underflow_handler(cw_unpack_context *ptr, size_t more) {
-    nv_unpack_context_t *ctx = (nv_unpack_context_t *)ptr;
-    int result = CWP_RC_ERROR_IN_HANDLER;
-    if (ctx->cw.return_code == 0) {
-        result = CWP_RC_OK;
-        size_t used = ctx->cw.current - ctx->cw.start;
-        size_t remains = ctx->cw.end - ctx->cw.current;
-
-        size_t ready = 0;
-        if (ioctl(ctx->skt, FIONREAD, &ready) != -1 && ready > more) {
-            more = MAX(more, MIN(MIN(ready, NV_MSGPACK_BUFFER_PREREAD), NV_MSGPACK_BUFFER_THRESHOLD - remains));
-        }
-
-        size_t target = remains + more;
-        if (used > 0 && used + target > ctx->datalen) {
-            if (remains > 0) {
-                memmove(ctx->cw.start, ctx->cw.current, remains);
-            }
-            if (ctx->datalen > NV_MSGPACK_BUFFER_THRESHOLD && target < NV_MSGPACK_BUFFER_THRESHOLD) {
-                void *new_dataptr = realloc(ctx->dataptr, NV_MSGPACK_BUFFER_THRESHOLD);
-                if (new_dataptr != NULL) {
-                    ctx->datalen = NV_MSGPACK_BUFFER_THRESHOLD;
-                    ctx->dataptr = (uint8_t *)new_dataptr;
-                    ctx->cw.start = ctx->dataptr;
-                }
-            }
-            ctx->cw.current = ctx->cw.start;
-            ctx->cw.end = ctx->cw.current + remains;
-            used = 0;
-        }
-        if (target > ctx->datalen) {
-            size_t new_datalen = nv_msgpack_memory_best_size(ctx->datalen, target);
-            void *new_dataptr = realloc(ctx->dataptr, new_datalen);
-            if (new_dataptr == NULL) {
-                result = CWP_RC_BUFFER_UNDERFLOW;
-            } else {
-                ctx->datalen = new_datalen;
-                ctx->dataptr = (uint8_t *)new_dataptr;
-                ctx->cw.start = ctx->dataptr;
-                ctx->cw.current = ctx->cw.start + used;
-                ctx->cw.end = ctx->cw.current + remains;
-            }
-        }
-        if (result == CWP_RC_OK) {
-            while (more > 0) {
-                ssize_t n = read(ctx->skt, ctx->cw.end, more);
-                if (n > 0) {
-                    ctx->cw.end += n;
-                    more -= n;
-                    continue;
-                }
-                if (n == 0) {
-                    result = CWP_RC_END_OF_INPUT;
-                } else if (n < 0) {
-                    if (errno != EBADF) {
-                        NVLogW("TCP Client read data failed: %s", strerror(errno));
-                    }
-                    ctx->cw.err_no = errno;
-                    result = CWP_RC_ERROR_IN_HANDLER;
-                }
-                break;
-            }
-        }
-    }
-    return result;
-}
-
-static inline const std::string cw_unpack_as_str(cw_unpack_context *ctx) {
-    return std::string((const char *)ctx->item.as.str.start, ctx->item.as.str.length);
-}
-
-static inline const std::string cw_unpack_next_str(cw_unpack_context *ctx) {
-    cw_unpack_next(ctx);
-    assert(ctx->item.type == CWP_ITEM_STR);
-    return cw_unpack_as_str(ctx);
-}
-
-static inline NSString *cw_unpack_as_nsstr(cw_unpack_context *ctx) {
-    return [[NSString alloc] initWithBytes:ctx->item.as.str.start length:ctx->item.as.str.length encoding:NSUTF8StringEncoding];
-}
-
-static inline NSString *cw_unpack_next_nsstr(cw_unpack_context *ctx) {
-    cw_unpack_next(ctx);
-    assert(ctx->item.type == CWP_ITEM_STR);
-    return cw_unpack_as_nsstr(ctx);
-}
-
-static inline bool cw_unpack_next_bool(cw_unpack_context *ctx) {
-    cw_unpack_next(ctx);
-    assert(ctx->item.type == CWP_ITEM_BOOLEAN);
-    return ctx->item.as.boolean;
-}
-
-static inline int cw_unpack_next_int(cw_unpack_context *ctx) {
-    cw_unpack_next(ctx);
-    assert(ctx->item.type == CWP_ITEM_POSITIVE_INTEGER || ctx->item.type == CWP_ITEM_NEGATIVE_INTEGER);
-    return (int)ctx->item.as.i64;
-}
-
-static inline uint32_t cw_unpack_next_uint32(cw_unpack_context *ctx) {
-    cw_unpack_next(ctx);
-    assert(ctx->item.type == CWP_ITEM_POSITIVE_INTEGER || ctx->item.type == CWP_ITEM_NEGATIVE_INTEGER);
-    return (uint32_t)ctx->item.as.i64;
-}
-
-static inline int64_t cw_unpack_next_int64(cw_unpack_context *ctx) {
-    cw_unpack_next(ctx);
-    assert(ctx->item.type == CWP_ITEM_POSITIVE_INTEGER || ctx->item.type == CWP_ITEM_NEGATIVE_INTEGER);
-    return ctx->item.as.i64;
-}
-
-static inline uint64_t cw_unpack_next_uint64(cw_unpack_context *ctx) {
-    cw_unpack_next(ctx);
-    assert(ctx->item.type == CWP_ITEM_POSITIVE_INTEGER);
-    return ctx->item.as.u64;
-}
-
-static inline int cw_unpack_next_array(cw_unpack_context *ctx) {
-    int items = 0;
-    if (cw_look_ahead(ctx) != CWP_ITEM_ARRAY) {
-        cw_skip_items(ctx, 1);
-    } else {
-        cw_unpack_next(ctx);
-        items = ctx->item.as.array.size;
     }
     return items;
 }
 
-#pragma mark - Notification Actions
-static inline int nv_notification_action_redraw(NVClient *client, cw_unpack_context *ctx, int count) {
-    //NVLogD("TCP Client redraw: %d", count);
-    while (count-- > 0) {
-        int narg = cw_unpack_next_array(ctx);
+static inline int nvclient_rpc_notification_handler(nvc_rpc_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        auto action = nvc_rpc_read_str(ctx);
+        auto p = nv_notification_actions.find(action);
+        if (p == nv_notification_actions.end()) {
+            NVLogW("TCP Client unknown notification action: %s", action.c_str());
+        } else if (likely(items-- > 0)) {
+            NVTCPClient *client = (__bridge NVTCPClient *)nvc_rpc_get_userdata(ctx);
+            nvc_rpc_read_skip_items(ctx, p->second(client, ctx, nvc_rpc_read_array_size(ctx)));
+        }
+    }
+    return items;
+}
+
+static inline int nv_notification_action_redraw(NVClient *client, nvc_rpc_context_t *ctx, int items) {
+    NVLogD("TCP Client redraw: %d", items);
+    while (items-- > 0) {
+        int narg = nvc_rpc_read_array_size(ctx);
         if (narg-- > 0) {
-            auto action = cw_unpack_next_str(ctx);
+            auto action = nvc_rpc_read_str(ctx);
             auto p = nv_redraw_actions.find(action);
             if (p == nv_redraw_actions.end()) {
                 NVLogW("TCP Client unknown redraw action: %s", action.c_str());
             } else if (p->second != NULL) {
                 narg = p->second(client, ctx, narg);
             }
-            cw_skip_items(ctx, narg);
+            nvc_rpc_read_skip_items(ctx, narg);
         }
     }
-    return count;
+    return items;
 }
 
 #define NV_NOTIFICATION_ACTION(action)   { #action, nv_notification_action_##action}
@@ -524,51 +219,44 @@ static const std::map<const std::string, nv_rpc_action_t> nv_notification_action
     NV_NOTIFICATION_ACTION(redraw),
 };
 
-static inline void nv_call_notification_action(NVTCPClient *client, const std::string& action, nv_unpack_context_t *ctx) {
-    auto p = nv_notification_actions.find(action);
-    if (p == nv_notification_actions.end()) {
-        NVLogW("TCP Client unknown notification action: %s", action.c_str());
-        cw_skip_items(&ctx->cw, 1);
-    } else {
-        int need_skip = p->second(client, &ctx->cw, cw_unpack_next_array(&ctx->cw));
-        cw_skip_items(&ctx->cw, need_skip);
-    }
-}
-
 #pragma mark - Redraw Actions
-static inline int nv_redraw_action_set_title(NVClient *client, cw_unpack_context *ctx, int count) {
-    if (count-- > 0) {
-        int items = cw_unpack_next_array(ctx);
-        if (items-- > 0) {
-            NSString *title = cw_unpack_next_nsstr(ctx);
-            dispatch_main_async(^{
-                [client.delegate client:client updateTitle:title];
-            });
+static inline int nv_redraw_action_set_title(NVClient *client, nvc_rpc_context_t *ctx, int count) {
+    if (likely(count-- > 0)) {
+        int items = nvc_rpc_read_array_size(ctx);
+        if (likely(items-- > 0)) {
+            uint32_t len = 0;
+            const char *str = nvc_rpc_read_str(ctx, &len);
+            if (str != NULL) {
+                NSString *title = [[NSString alloc] initWithBytes:str length:len encoding:NSUTF8StringEncoding];
+                dispatch_main_async(^{
+                    [client.delegate client:client updateTitle:title];
+                });
+            }
         }
-        cw_skip_items(ctx, items);
+        nvc_rpc_read_skip_items(ctx, items);
     }
     return count;
 }
 
-static inline int nv_redraw_action_option_set(NVClient *client, cw_unpack_context *ctx, int count) {
-    while (count-- > 0) {
-        int narg = cw_unpack_next_array(ctx);
-        if (narg-- > 0) {
+static inline int nv_redraw_action_option_set(NVClient *client, nvc_rpc_context_t *ctx, int items) {
+    while (items-- > 0) {
+        int narg = nvc_rpc_read_array_size(ctx);
+        if (likely(narg-- > 0)) {
             std::string value;
-            auto key = cw_unpack_next_str(ctx);
+            auto key = nvc_rpc_read_str(ctx);
             if (narg > 0) {
-                switch (cw_look_ahead(ctx)) {
-                    case CWP_ITEM_STR:
-                        value = cw_unpack_next_str(ctx);
+                switch (nvc_rpc_read_ahead(ctx)) {
+                    case NVC_RPC_ITEM_STR:
+                        value = nvc_rpc_read_str(ctx);
                         narg--;
                         break;
-                    case CWP_ITEM_BOOLEAN:
-                        value = cw_unpack_next_bool(ctx) ? "true" : "false";
+                    case NVC_RPC_ITEM_BOOLEAN:
+                        value = nvc_rpc_read_bool(ctx) ? "true" : "false";
                         narg--;
                         break;
-                    case CWP_ITEM_POSITIVE_INTEGER:
-                    case CWP_ITEM_NEGATIVE_INTEGER:
-                        value = std::to_string(cw_unpack_next_int(ctx));
+                    case NVC_RPC_ITEM_POSITIVE_INTEGER:
+                    case NVC_RPC_ITEM_NEGATIVE_INTEGER:
+                        value = std::to_string(nvc_rpc_read_int(ctx));
                         narg--;
                         break;
                     default:
@@ -577,118 +265,118 @@ static inline int nv_redraw_action_option_set(NVClient *client, cw_unpack_contex
             }
             // TODO: Apply options
             //NVLogD("Set option: %s = %s", key.c_str(), value.c_str());
+            nvc_rpc_read_skip_items(ctx, narg);
         }
-        cw_skip_items(ctx, narg);
     }
-    return count;
+    return items;
 }
 
-static inline int nv_redraw_action_flush(NVClient *client, cw_unpack_context *ctx, int count) {
+static inline int nv_redraw_action_flush(NVClient *client, nvc_rpc_context_t *ctx, int items) {
     dispatch_main_async(^{
         [client.delegate clientFlush:client];
     });
-    return count;
+    return items;
 }
 
-static inline int nv_redraw_action_grid_resize(NVClient *client, cw_unpack_context *ctx, int count) {
-    if (count-- > 0) {
-        int narg = cw_unpack_next_array(ctx);
-        if (narg >= 3) {
+static inline int nv_redraw_action_grid_resize(NVClient *client, nvc_rpc_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx);
+        if (likely(narg >= 3)) {
             narg -= 3;
-            int grid = cw_unpack_next_int(ctx);
-            int width = cw_unpack_next_int(ctx);
-            int height = cw_unpack_next_int(ctx);
+            int grid = nvc_rpc_read_int(ctx);
+            int width = nvc_rpc_read_int(ctx);
+            int height = nvc_rpc_read_int(ctx);
             // TODO: Resize grid
             NVLogI("Grid resize %d - %dx%d", grid, width, height);
         }
-        cw_skip_items(ctx, narg);
+        nvc_rpc_read_skip_items(ctx, narg);
     }
-    return count;
+    return items;
 }
 
-static inline int nv_redraw_action_default_colors_set(NVClient *client, cw_unpack_context *ctx, int count) {
-    if (count-- > 0) {
-        int narg = cw_unpack_next_array(ctx);
-        if (narg >= 3) {
+static inline int nv_redraw_action_default_colors_set(NVClient *client, nvc_rpc_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx);
+        if (likely(narg >= 3)) {
             narg -= 3;
             NVColorsSet *colorsSet = [NVColorsSet new];
-            colorsSet.foreground = [NSColor colorWithRGB:cw_unpack_next_uint32(ctx)];
-            colorsSet.background = [NSColor colorWithRGB:cw_unpack_next_uint32(ctx)];
-            colorsSet.special = [NSColor colorWithRGB:cw_unpack_next_uint32(ctx)];
+            colorsSet.foreground = [NSColor colorWithRGB:nvc_rpc_read_uint32(ctx)];
+            colorsSet.background = [NSColor colorWithRGB:nvc_rpc_read_uint32(ctx)];
+            colorsSet.special = [NSColor colorWithRGB:nvc_rpc_read_uint32(ctx)];
             dispatch_main_async(^{
                 [client.delegate client:client updateColorsSet:colorsSet];
             });
         }
-        cw_skip_items(ctx, narg);
+        nvc_rpc_read_skip_items(ctx, narg);
     }
-    return count;
+    return items;
 }
 
-static inline int nv_redraw_action_hl_attr_define(NVClient *client, cw_unpack_context *ctx, int count) {
-    if (count-- > 0) {
-        int narg = cw_unpack_next_array(ctx);
+static inline int nv_redraw_action_hl_attr_define(NVClient *client, nvc_rpc_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx);
         // TODO: update highlight colors
-        cw_skip_items(ctx, narg);
+        nvc_rpc_read_skip_items(ctx, narg);
     }
-    return count;
+    return items;
 }
 
-static inline int nv_redraw_action_hl_group_set(NVClient *client, cw_unpack_context *ctx, int count) {
-    if (count-- > 0) {
-        int narg = cw_unpack_next_array(ctx);
+static inline int nv_redraw_action_hl_group_set(NVClient *client, nvc_rpc_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx);
         // TODO: update highlight group
-        cw_skip_items(ctx, narg);
+        nvc_rpc_read_skip_items(ctx, narg);
     }
-    return count;
+    return items;
 }
 
-static inline int nv_redraw_action_grid_line(NVClient *client, cw_unpack_context *ctx, int count) {
-    if (count-- > 0) {
-        int narg = cw_unpack_next_array(ctx);
-        if (narg-- > 4) {
+static inline int nv_redraw_action_grid_line(NVClient *client, nvc_rpc_context_t *ctx, int items) {
+    if (items-- > 0) {
+        int narg = nvc_rpc_read_array_size(ctx);
+        if (likely(narg > 4)) {
             narg -= 4;
-            int grid = cw_unpack_next_int(ctx);
-            int row = cw_unpack_next_int(ctx);
-            int col_start = cw_unpack_next_int(ctx);
-            int cells = cw_unpack_next_array(ctx);
+            int grid = nvc_rpc_read_int(ctx);
+            int row = nvc_rpc_read_int(ctx);
+            int col_start = nvc_rpc_read_int(ctx);
+            int cells = nvc_rpc_read_array_size(ctx);
             std::string output;
             while (cells-- > 0) {
-                int cnum = cw_unpack_next_array(ctx);
-                if (cnum-- > 0) {
-                    auto text = cw_unpack_next_str(ctx);
+                int cnum = nvc_rpc_read_array_size(ctx);
+                if (likely(cnum-- > 0)) {
+                    auto text = nvc_rpc_read_str(ctx);
                     output += text;
                     if (cnum >= 2) {
                         cnum -= 2;
-                        cw_unpack_next_int(ctx); // hl
-                        int repeat = cw_unpack_next_int(ctx);
+                        nvc_rpc_read_int(ctx); // hl
+                        int repeat = nvc_rpc_read_int(ctx);
                         while (--repeat > 0) {
                             output += text;
                         }
                     }
                 }
-                cw_skip_items(ctx, cnum);
+                nvc_rpc_read_skip_items(ctx, cnum);
             }
-            cw_skip_items(ctx, cells);
+            nvc_rpc_read_skip_items(ctx, cells);
             // TODO: Update grid lines
             NVLogI("Grid line %d row = %d, col_start = %d", grid, row, col_start);
             //NVLogD("Grid line: %s", output.c_str());
         }
-        cw_skip_items(ctx, narg);
+        nvc_rpc_read_skip_items(ctx, narg);
     }
-    return count;
+    return items;
 }
 
-static inline int nv_redraw_action_grid_clear(NVClient *client, cw_unpack_context *ctx, int count) {
-    if (count-- > 0) {
-        int narg = cw_unpack_next_array(ctx);
-        if (narg-- > 0) {
-            int grid = cw_unpack_next_int(ctx);
+static inline int nv_redraw_action_grid_clear(NVClient *client, nvc_rpc_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx);
+        if (likely(narg-- > 0)) {
+            int grid = nvc_rpc_read_int(ctx);
             // TODO: Clear grid
             NVLogI("Grid clear %d", grid);
         }
-        cw_skip_items(ctx, narg);
+        nvc_rpc_read_skip_items(ctx, narg);
     }
-    return count;
+    return items;
 }
 
 #define NV_REDRAW_ACTION(action)        { #action, nv_redraw_action_##action }
@@ -754,18 +442,18 @@ static const std::map<const std::string, nv_rpc_action_t> nv_redraw_actions = {
 };
 
 #pragma mark - API Helper
-static inline uint64_t nv_rpc_call_begin(nv_pack_context_t *ctx, const char *method, int method_len, int narg) {
-    uint64_t uuid = ctx->uuid++;
-    cw_pack_array_size(&ctx->cw, 4);
-    cw_pack_signed(&ctx->cw, 0);
-    cw_pack_unsigned(&ctx->cw, uuid);
-    cw_pack_str(&ctx->cw, method, method_len);
-    cw_pack_array_size(&ctx->cw, narg);
+static inline uint64_t nvc_rpc_call_begin(nvc_rpc_context_t *ctx, const char *method, int method_len, int narg) {
+    uint64_t uuid = nvc_rpc_get_next_uuid(ctx);
+    nvc_rpc_write_array_size(ctx, 4);
+    nvc_rpc_write_signed(ctx, 0);
+    nvc_rpc_write_unsigned(ctx, uuid);
+    nvc_rpc_write_str(ctx, method, method_len);
+    nvc_rpc_write_array_size(ctx, narg);
     return uuid;
 }
 
-static inline void nv_pack_call_end(nv_pack_context_t *ctx) {
-    cw_pack_flush(&ctx->cw);
+static inline void nvc_rpc_call_end(nvc_rpc_context_t *ctx) {
+    nvc_rpc_write_flush(ctx);
 }
 
 
