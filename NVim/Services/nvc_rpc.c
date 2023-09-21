@@ -8,12 +8,11 @@
 #include "nvc_rpc.h"
 #include <stdlib.h>
 #include <strings.h>
-#include <pthread.h>
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
-#include "cwpack.h"
+
 
 #define NVC_RPC_KBYTES_BITS                 10 // 1 << 10 == 1KB
 #define NVC_RPC_BUFFER_INIT                 (4   << NVC_RPC_KBYTES_BITS)
@@ -24,24 +23,6 @@
 #define NVC_RPC_TYPE_NOTIFICATION           2
 
 #define nvc_rpc_to_context(_ptr, _member)   (nvc_rpc_context_t *)((uint8_t *)(_ptr) - __offsetof(nvc_rpc_context_t, _member))
-
-struct nvc_rpc_context {
-    uint64_t            uuid;
-    pthread_t           worker;
-    void                *userdata;
-    nvc_rpc_handler     response_handler;
-    nvc_rpc_handler     notification_handler;
-    
-    cw_unpack_context   cin;
-    int                 inskt;
-    size_t              inlen;
-    uint8_t             *indata;
-
-    cw_pack_context     cout;
-    int                 outskt;
-    size_t              outlen;
-    uint8_t             *outdata;
-};
 
 static inline size_t nvc_msgpack_memory_best_size(size_t kept, size_t more) {
     size_t datalen = kept;
@@ -58,7 +39,7 @@ static inline size_t nvc_msgpack_memory_best_size(size_t kept, size_t more) {
 static inline int nvc_unpack_underflow_handler(cw_unpack_context *ptr, size_t more) {
     int res = CWP_RC_ERROR_IN_HANDLER;
     nvc_rpc_context_t *ctx = nvc_rpc_to_context(ptr, cin);
-    if (ctx->cin.return_code == 0) {
+    if (ctx->cin.return_code == CWP_RC_OK) {
         res = CWP_RC_OK;
         size_t used = ctx->cin.current - ctx->cin.start;
         size_t remains = ctx->cin.end - ctx->cin.current;
@@ -125,7 +106,7 @@ static inline int nvc_unpack_underflow_handler(cw_unpack_context *ptr, size_t mo
 static inline int nvc_pack_flush_handler(cw_pack_context *ptr) {
     int res = CWP_RC_ERROR_IN_HANDLER;
     nvc_rpc_context_t *ctx = nvc_rpc_to_context(ptr, cout);
-    if (ctx->cout.return_code == 0) {
+    if (ctx->cout.return_code == CWP_RC_OK) {
         res = CWP_RC_OK;
         size_t contains = ctx->cout.current - ctx->cout.start;
         if (contains > 0) {
@@ -214,90 +195,70 @@ static void *nvc_rpc_routine(void *ptr) {
     return NULL;
 }
 
-nvc_rpc_context_t *nvc_rpc_create(int inskt, int outskt, void *userdata, nvc_rpc_handler response_handler, nvc_rpc_handler notification_handler) {
-    nvc_rpc_context_t *ctx = NULL;
-    if (inskt != INVALID_SOCKET && outskt != INVALID_SOCKET && response_handler != NULL && notification_handler != NULL) {
-        ctx = malloc(sizeof(nvc_rpc_context_t));
-        if (ctx != NULL) {
-            bzero(ctx, sizeof(nvc_rpc_context_t));
-            ctx->uuid = 1;
-            ctx->userdata = userdata;
-            ctx->response_handler = response_handler;
-            ctx->notification_handler = notification_handler;
-            ctx->inskt = dup(inskt);
-            ctx->outskt = dup(outskt);
-            ctx->inlen = NVC_RPC_BUFFER_INIT;
-            ctx->outlen = NVC_RPC_BUFFER_INIT;
-            ctx->indata = (uint8_t *)malloc(ctx->inlen);
-            ctx->outdata = (uint8_t *)malloc(ctx->outlen);
-            int res = CWP_RC_OK;
-            if (unlikely(ctx->indata == NULL || ctx->outdata == NULL)) {
-                res = CWP_RC_MALLOC_ERROR;
-            }
-            if (likely(res == CWP_RC_OK)) {
-                res = cw_unpack_context_init(&ctx->cin, ctx->indata, 0, nvc_unpack_underflow_handler);
-            }
-            if (likely(res == CWP_RC_OK)) {
-                res = cw_pack_context_init(&ctx->cout, ctx->outdata, ctx->outlen, nvc_pack_overflow_handler);
-                cw_pack_set_flush_handler(&ctx->cout, nvc_pack_flush_handler);
-            }
-            if (likely(res == CWP_RC_OK)) {
-                res = pthread_create(&ctx->worker, NULL, nvc_rpc_routine, ctx);
-                if (unlikely(res != 0)) {
-                    NVLogE("nvc rpc create worker thread failed: %s", strerror(res));
-                    ctx->worker = NULL;
-                }
-            }
-            if (res != CWP_RC_OK) {
-                nvc_rpc_destory(&ctx);
-            }
+int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *userdata, nvc_rpc_handler response_handler, nvc_rpc_handler notification_handler) {
+    int res = CWP_RC_ILLEGAL_CALL;
+    if (ctx != NULL &&inskt != INVALID_SOCKET && outskt != INVALID_SOCKET && response_handler != NULL && notification_handler != NULL) {
+        bzero(ctx, sizeof(nvc_rpc_context_t));
+        ctx->uuid = 0;
+        ctx->userdata = userdata;
+        ctx->response_handler = response_handler;
+        ctx->notification_handler = notification_handler;
+        ctx->inskt = dup(inskt);
+        ctx->outskt = dup(outskt);
+        ctx->inlen = NVC_RPC_BUFFER_INIT;
+        ctx->outlen = NVC_RPC_BUFFER_INIT;
+        ctx->indata = (uint8_t *)malloc(ctx->inlen);
+        ctx->outdata = (uint8_t *)malloc(ctx->outlen);
+        res = CWP_RC_OK;
+        if (unlikely(ctx->indata == NULL || ctx->outdata == NULL)) {
+            res = CWP_RC_MALLOC_ERROR;
         }
-    }
-    return ctx;
-}
-
-void nvc_rpc_destory(nvc_rpc_context_t **pctx) {
-    if (pctx != NULL) {
-        nvc_rpc_context_t *ctx = *pctx;
-        if (ctx != NULL) {
-            if (ctx->inskt != INVALID_SOCKET) {
-                close(ctx->inskt);
-                ctx->inskt = INVALID_SOCKET;
-            }
-            if (ctx->outskt != INVALID_SOCKET) {
-                close(ctx->outskt);
-                ctx->outskt = INVALID_SOCKET;
-            }
-            if (ctx->worker != NULL) {
-                pthread_join(ctx->worker, NULL);
+        if (likely(res == CWP_RC_OK)) {
+            res = cw_unpack_context_init(&ctx->cin, ctx->indata, 0, nvc_unpack_underflow_handler);
+        }
+        if (likely(res == CWP_RC_OK)) {
+            res = cw_pack_context_init(&ctx->cout, ctx->outdata, ctx->outlen, nvc_pack_overflow_handler);
+            cw_pack_set_flush_handler(&ctx->cout, nvc_pack_flush_handler);
+        }
+        if (likely(res == CWP_RC_OK)) {
+            res = pthread_create(&ctx->worker, NULL, nvc_rpc_routine, ctx);
+            if (unlikely(res != 0)) {
+                NVLogE("nvc rpc create worker thread failed: %s", strerror(res));
                 ctx->worker = NULL;
             }
-            if (ctx->indata != NULL) {
-                free(ctx->indata);
-                ctx->indata = NULL;
-                ctx->inlen = 0;
-            }
-            if (ctx->outdata != NULL) {
-                free(ctx->outdata);
-                ctx->outdata = NULL;
-                ctx->outlen = 0;
-            }
-            free(ctx);
         }
-        *pctx = NULL;
+        if (res != CWP_RC_OK) {
+            nvc_rpc_final(ctx);
+        }
     }
+    return res;
 }
 
-void *nvc_rpc_get_userdata(nvc_rpc_context_t *ctx) {
-    return ctx->userdata;
-}
-
-uint64_t nvc_rpc_get_next_uuid(nvc_rpc_context_t *ctx) {
-    return ctx->uuid++;
-}
-
-int nvc_rpc_read_ahead(nvc_rpc_context_t *ctx) {
-    return cw_look_ahead(&ctx->cin);
+void nvc_rpc_final(nvc_rpc_context_t *ctx) {
+    if (ctx != NULL) {
+        if (ctx->inskt != INVALID_SOCKET) {
+            close(ctx->inskt);
+            ctx->inskt = INVALID_SOCKET;
+        }
+        if (ctx->outskt != INVALID_SOCKET) {
+            close(ctx->outskt);
+            ctx->outskt = INVALID_SOCKET;
+        }
+        if (ctx->worker != NULL) {
+            pthread_join(ctx->worker, NULL);
+            ctx->worker = NULL;
+        }
+        if (ctx->indata != NULL) {
+            free(ctx->indata);
+            ctx->indata = NULL;
+            ctx->inlen = 0;
+        }
+        if (ctx->outdata != NULL) {
+            free(ctx->outdata);
+            ctx->outdata = NULL;
+            ctx->outlen = 0;
+        }
+    }
 }
 
 bool nvc_rpc_read_bool(nvc_rpc_context_t *ctx) {
@@ -330,8 +291,10 @@ const char *nvc_rpc_read_str(nvc_rpc_context_t *ctx, uint32_t *len) {
         cw_skip_items(&ctx->cin, 1);
     } else {
         cw_unpack_next(&ctx->cin);
-        res = ctx->cin.item.as.str.start;
         nlen = ctx->cin.item.as.str.length;
+        if (nlen > 0) {
+            res = ctx->cin.item.as.str.start;
+        }
     }
     if (likely(len != NULL)) {
         *len = nlen;
@@ -361,34 +324,16 @@ int nvc_rpc_read_map_size(nvc_rpc_context_t *ctx) {
     return items;
 }
 
-void nvc_rpc_read_skip_items(nvc_rpc_context_t *ctx, int items) {
-    cw_skip_items(&ctx->cin, items);
+uint64_t nvc_rpc_call_begin(nvc_rpc_context_t *ctx, const char *method, int method_len, int narg) {
+    uint64_t uuid = nvc_rpc_get_next_uuid(ctx);
+    nvc_rpc_write_array_size(ctx, 4);
+    nvc_rpc_write_signed(ctx, 0);
+    nvc_rpc_write_unsigned(ctx, uuid);
+    nvc_rpc_write_str(ctx, method, method_len);
+    nvc_rpc_write_array_size(ctx, narg);
+    return uuid;
 }
 
-void nvc_rpc_write_signed(nvc_rpc_context_t *ctx, int64_t value) {
-    cw_pack_signed(&ctx->cout, value);
-}
-
-void nvc_rpc_write_unsigned(nvc_rpc_context_t *ctx, int64_t value) {
-    cw_pack_signed(&ctx->cout, value);
-}
-
-void nvc_rpc_write_array_size(nvc_rpc_context_t *ctx, uint32_t n) {
-    cw_pack_array_size(&ctx->cout, n);
-}
-
-void nvc_rpc_write_map_size(nvc_rpc_context_t *ctx, uint32_t n) {
-    cw_pack_map_size(&ctx->cout, n);
-}
-
-void nvc_rpc_write_str(nvc_rpc_context_t *ctx, const char *v, uint32_t l) {
-    cw_pack_str(&ctx->cout, v, l);
-}
-
-void nvc_rpc_write_true(nvc_rpc_context_t *ctx) {
-    cw_pack_true(&ctx->cout);
-}
-
-void nvc_rpc_write_flush(nvc_rpc_context_t *ctx) {
-    cw_pack_flush(&ctx->cout);
+void nvc_rpc_call_end(nvc_rpc_context_t *ctx) {
+    nvc_rpc_write_flush(ctx);
 }

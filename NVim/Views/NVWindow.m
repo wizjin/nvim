@@ -62,12 +62,11 @@
     self.title = title != nil ? title : @"";
 }
 
-- (void)client:(NVClient *)client updateColorsSet:(NVColorsSet *)colorsSet {
-    self.editView.colorsSet = colorsSet;
+- (void)client:(NVClient *)client updateBackground:(NSColor *)color {
+    self.editView.backgroundColor = color;
 }
 
 - (void)clientFlush:(NVClient *)client {
-    [self.editView setNeedsDisplay:YES];
     [self.editView displayIfNeeded];
 }
 

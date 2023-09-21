@@ -9,9 +9,9 @@
 #define __NVUTILS_H__
 
 #if defined(__cplusplus)
-#define NVC_API     extern "C"
+#define NVC_API                 extern "C"
 #else
-#define NVC_API     extern
+#define NVC_API                 extern
 #endif
 
 #ifdef __cplusplus
@@ -33,18 +33,18 @@ extern "C" {
 #endif
 
 #define weakify(_x)                                     \
-ext_keywordify                                      \
-_Pragma("clang diagnostic push")                    \
-_Pragma("clang diagnostic ignored \"-Wshadow\"")    \
-__weak __typeof__(_x) __weak_##_x##__ = _x;         \
-_Pragma("clang diagnostic pop")
+    ext_keywordify                                      \
+    _Pragma("clang diagnostic push")                    \
+    _Pragma("clang diagnostic ignored \"-Wshadow\"")    \
+    __weak __typeof__(_x) __weak_##_x##__ = _x;         \
+    _Pragma("clang diagnostic pop")
 
 #define strongify(_x)                                   \
-ext_keywordify                                      \
-_Pragma("clang diagnostic push")                    \
-_Pragma("clang diagnostic ignored \"-Wshadow\"")    \
-__strong __typeof__(_x) _x = __weak_##_x##__;       \
-_Pragma("clang diagnostic pop")
+    ext_keywordify                                      \
+    _Pragma("clang diagnostic push")                    \
+    _Pragma("clang diagnostic ignored \"-Wshadow\"")    \
+    __strong __typeof__(_x) _x = __weak_##_x##__;       \
+    _Pragma("clang diagnostic pop")
 
 #endif /* objc_arc */
 
