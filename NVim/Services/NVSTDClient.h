@@ -11,6 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface NVSTDClient : NVClient
 
+- (instancetype)init;
 - (instancetype)initWithPath:(NSString *)path;
 
 

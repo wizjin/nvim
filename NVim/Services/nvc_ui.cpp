@@ -306,6 +306,7 @@ static inline int nvc_ui_notification_action_redraw(nvc_ui_context_t *ctx, int i
             if (unlikely(p == nvc_ui_redraw_actions.end())) {
                 NVLogW("nvc ui unknown redraw action: %s", action.c_str());
             } else if (p->second != NULL) {
+                //NVLogW("nvc ui redraw action: %s", action.c_str());
                 narg = p->second(ctx, narg);
             }
             nvc_rpc_read_skip_items(&ctx->rpc, narg);

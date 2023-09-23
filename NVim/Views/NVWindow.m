@@ -32,8 +32,9 @@
         self.backgroundColor = NSColor.windowBackgroundColor;
         self.titlebarAppearsTransparent = YES;
         self.minSize = NSMakeSize(kNVWindowMinWidth, kNVWindowMinHeight);
-        
-        _client = [[NVSTDClient alloc] initWithPath:@"/usr/local/bin/nvim"];
+
+        _client = [NVSTDClient new];
+        //_client = [[NVSTDClient alloc] initWithPath:@"/usr/local/bin/nvim"];
         //_client = [[NVTCPClient alloc] initWithHost:@"127.0.0.1" port:6666];
         self.client.delegate = self;
         _editView = [NVEditView new];

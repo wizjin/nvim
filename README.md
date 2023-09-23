@@ -25,6 +25,11 @@ $ pod install
 $ open NVim.xcworkspace
 ```
 
+Delete quarantine attribute:
+```bash
+$ xattr -dr com.apple.quarantine ./Venders/NeoVim/nvim
+```
+
 ## Acknowledgements
 
 This application makes use of the following third party libraries:

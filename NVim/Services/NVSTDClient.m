@@ -19,6 +19,10 @@
 
 @implementation NVSTDClient
 
+- (instancetype)init {
+    return [self initWithPath:@""];
+}
+
 - (instancetype)initWithPath:(NSString *)path {
     if (self = [super init]) {
         _path = path;
@@ -34,11 +38,16 @@
 - (void)open {
     [self close];
     
+    NSString *executablePath = self.path;
+    if (![NSFileManager.defaultManager fileExistsAtPath:executablePath]) {
+        executablePath = [NSBundle.mainBundle pathForAuxiliaryExecutable:@"bin/nvim"];
+    }
+    
     NSError *error = nil;
     _inPipe = [NSPipe pipe];
     _outPipe = [NSPipe pipe];
     _task = [NSTask new];
-    self.task.executableURL = [NSURL fileURLWithPath:self.path];
+    self.task.executableURL = [NSURL fileURLWithPath:executablePath];
     self.task.arguments = @[@"--embed"];
     self.task.environment = getEnvironment();
     self.task.standardInput = self.inPipe;
