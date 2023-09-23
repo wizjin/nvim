@@ -8,6 +8,7 @@
 #import "NVWindow.h"
 #import "NVEditView.h"
 #import "NVTCPClient.h"
+#import "NVSTDClient.h"
 
 #define kNVWindowDefaultStyleMask    (\
     NSWindowStyleMaskTitled|\
@@ -32,7 +33,8 @@
         self.titlebarAppearsTransparent = YES;
         self.minSize = NSMakeSize(kNVWindowMinWidth, kNVWindowMinHeight);
         
-        _client = [[NVTCPClient alloc] initWithHost:@"127.0.0.1" port:6666];
+        _client = [[NVSTDClient alloc] initWithPath:@"/usr/local/bin/nvim"];
+        //_client = [[NVTCPClient alloc] initWithHost:@"127.0.0.1" port:6666];
         self.client.delegate = self;
         _editView = [NVEditView new];
         self.contentView = self.editView;

@@ -3,7 +3,7 @@ source 'https://github.com/CocoaPods/Specs.git'
 inhibit_all_warnings!
 
 $project_name = 'NVim'
-$osx_version = '13.3'
+$osx_version = '13.5'
 
 platform :osx, $osx_version
 

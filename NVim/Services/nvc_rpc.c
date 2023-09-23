@@ -22,7 +22,7 @@
 #define NVC_RPC_TYPE_RESPONSE               1
 #define NVC_RPC_TYPE_NOTIFICATION           2
 
-#define nvc_rpc_to_context(_ptr, _member)   (nvc_rpc_context_t *)((uint8_t *)(_ptr) - __offsetof(nvc_rpc_context_t, _member))
+#define nvc_rpc_to_context(_ptr, _member)   nv_member_to_struct(nvc_rpc_context_t, _ptr, _member)
 
 static inline size_t nvc_msgpack_memory_best_size(size_t kept, size_t more) {
     size_t datalen = kept;

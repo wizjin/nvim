@@ -20,12 +20,12 @@ typedef struct nvc_rpc_context nvc_rpc_context_t;
 typedef int (*nvc_rpc_handler)(nvc_rpc_context_t *ctx, int items);
 
 struct nvc_rpc_context {
-    uint64_t            uuid;
-    pthread_t           worker;
     void                *userdata;
     nvc_rpc_handler     response_handler;
     nvc_rpc_handler     notification_handler;
-    
+    uint64_t            uuid;
+    pthread_t           worker;
+
     cw_unpack_context   cin;
     int                 inskt;
     size_t              inlen;

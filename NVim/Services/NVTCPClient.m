@@ -26,7 +26,6 @@
     if (self = [super init]) {
         _host = host;
         _port = port;
-
         [self open];
     }
     return self;
@@ -53,7 +52,7 @@
         NVLogW("TCP Client lookup failed - %s: %s", self.host.cstr, gai_strerror(err));
     } else {
         for (struct addrinfo *p = infos; p != NULL; p = p->ai_next) {
-            int s = nv_config_socket(socket(p->ai_family, p->ai_socktype, p->ai_protocol));
+            int s = nv_tcp_client_config_socket(socket(p->ai_family, p->ai_socktype, p->ai_protocol));
             if (s != INVALID_SOCKET) {
                 switch (p->ai_family) {
                     case AF_INET:
@@ -82,28 +81,40 @@
     }
 }
 
-#pragma mark - Work Helper
-static inline int nv_config_socket_linger(int skt) {
+#pragma mark - Socket Helper
+static inline int nv_tcp_client_config_socket_linger(int skt) {
     static const struct linger so_linger = { 1, 1 };
     return setsockopt(skt, SOL_SOCKET, SO_LINGER, &so_linger, sizeof(so_linger));
 }
 
-static inline int nv_config_socket_keepalive(int skt) {
+static inline int nv_tcp_client_config_socket_nosigpipe(int skt) {
+    static const int on = 1;
+    return setsockopt(skt, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+}
+
+static inline int nv_tcp_client_config_socket_keepalive(int skt) {
     static const int on = 1;
     return setsockopt(skt, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on));
 }
 
-typedef int (*nv_config_socket_handler)(int);
+static inline int nv_tcp_client_config_socket_tcp_nodelay(int skt) {
+    static const int on = 1;
+    return setsockopt(skt, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
+}
 
-static const nv_config_socket_handler nv_config_socket_handlers[] = {
-    nv_config_socket_linger,
-    nv_config_socket_keepalive,
+typedef int (*nv_tcp_client_config_socket_handler)(int);
+
+static const nv_tcp_client_config_socket_handler nv_tcp_client_config_socket_handlers[] = {
+    nv_tcp_client_config_socket_linger,
+    nv_tcp_client_config_socket_nosigpipe,
+    nv_tcp_client_config_socket_keepalive,
+    nv_tcp_client_config_socket_tcp_nodelay,
 };
 
-static inline int nv_config_socket(int skt) {
+static inline int nv_tcp_client_config_socket(int skt) {
     if (skt != INVALID_SOCKET) {
-        for (int i = 0; i < countof(nv_config_socket_handlers); i++) {
-            if (nv_config_socket_handlers[i](skt) != 0) {
+        for (int i = 0; i < countof(nv_tcp_client_config_socket_handlers); i++) {
+            if (nv_tcp_client_config_socket_handlers[i](skt) != 0) {
                 NVLogW("TCP Client config(%d) socket failed: %s", i, strerror(errno));
                 close(skt);
                 skt = INVALID_SOCKET;

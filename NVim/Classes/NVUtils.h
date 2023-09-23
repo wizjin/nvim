@@ -74,6 +74,8 @@ static inline void dispatch_main_after(double delta, dispatch_block_t block) {
 #define likely(x)               __builtin_expect(!!(x), 1)
 #define unlikely(x)             __builtin_expect(!!(x), 0)
 
+#define nv_member_to_struct(_struct, _ptr, _member) (_struct *)((intptr_t)(_ptr) - __offsetof(_struct, _member))
+
 #ifdef __cplusplus
 }
 #endif

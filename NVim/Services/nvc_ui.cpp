@@ -10,17 +10,29 @@
 #import <map>
 #include "nvc_rpc.h"
 
-#define nvc_ui_to_context(_ptr, _member)    (nvc_ui_context_t *)((uint8_t *)(_ptr) - __offsetof(nvc_ui_context_t, _member))
+#define nvc_ui_to_context(_ptr, _member)    nv_member_to_struct(nvc_ui_context_t, _ptr, _member)
 #define nvc_ui_get_userdata(_ctx)           nvc_rpc_get_userdata(&(_ctx)->rpc)
 
-static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items);
-static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items);
+typedef int (*nvc_ui_action_t)(nvc_ui_context_t *ctx, int narg);
 
 struct nvc_ui_context {
     nvc_rpc_context_t   rpc;
     nvc_ui_callback_t   cb;
 };
 
+static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items);
+static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items);
+
+static inline const std::string nvc_rpc_read_str(nvc_rpc_context_t *ctx) {
+    uint32_t len = 0;
+    auto str = nvc_rpc_read_str(ctx, &len);
+    if (likely(str != NULL)) {
+        return std::string(str, len);
+    }
+    return std::string();
+}
+
+#pragma mark - NVC UI API
 nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_callback_t *callback, void *userdata) {
     nvc_ui_context_t *ctx = NULL;
     if (inskt != INVALID_SOCKET && outskt != INVALID_SOCKET && callback != NULL) {
@@ -41,7 +53,6 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_callback_t *
     }
     return ctx;
 }
-
 
 void nvc_ui_destory(nvc_ui_context_t *ctx) {
     if (ctx != NULL) {
@@ -70,39 +81,8 @@ void nvc_ui_detach(nvc_ui_context_t *ctx) {
     }
 }
 
-typedef int (*nvc_ui_action_t)(nvc_ui_context_t *ctx, int narg);
-
-static inline const std::string nvc_rpc_read_str(nvc_rpc_context_t *ctx) {
-    uint32_t len = 0;
-    auto str = nvc_rpc_read_str(ctx, &len);
-    if (likely(str != NULL)) {
-        return std::string(str, len);
-    }
-    return std::string();
-}
-
-static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items) {
-    if (likely(items-- > 0)) {
-        uint64_t msgid = nvc_rpc_read_uint64(ctx);
-        NVLogI("nvc ui recive response msgid: %lu", msgid);
-        if (likely(items-- > 0)) {
-            int n = nvc_rpc_read_array_size(ctx);
-            if (n >= 2) {
-                n -= 2;
-                int64_t code = nvc_rpc_read_int64(ctx);
-                auto msg = nvc_rpc_read_str(ctx);
-                NVLogE("nvc ui match request %d failed(%lu): %s", msgid, code, msg.c_str());
-            }
-            nvc_rpc_read_skip_items(ctx, n);
-        }
-        if (likely(items-- > 0)) {
-            nvc_rpc_read_skip_items(ctx, nvc_rpc_read_map_size(ctx) * 2);
-        }
-    }
-    return items;
-}
-
-static inline int nv_redraw_action_set_title(nvc_ui_context_t *ctx, int count) {
+#pragma mark - NVC UI Redraw Actions
+static inline int nvc_ui_redraw_action_set_title(nvc_ui_context_t *ctx, int count) {
     if (likely(count-- > 0)) {
         int items = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(items-- > 0)) {
@@ -114,7 +94,7 @@ static inline int nv_redraw_action_set_title(nvc_ui_context_t *ctx, int count) {
     return count;
 }
 
-static inline int nv_redraw_action_option_set(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_redraw_action_option_set(nvc_ui_context_t *ctx, int items) {
     while (items-- > 0) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg-- > 0)) {
@@ -147,12 +127,12 @@ static inline int nv_redraw_action_option_set(nvc_ui_context_t *ctx, int items) 
     return items;
 }
 
-static inline int nv_redraw_action_flush(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_redraw_action_flush(nvc_ui_context_t *ctx, int items) {
     ctx->cb.flush(nvc_ui_get_userdata(ctx));
     return items;
 }
 
-static inline int nv_redraw_action_grid_resize(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_redraw_action_grid_resize(nvc_ui_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg >= 3)) {
@@ -168,23 +148,24 @@ static inline int nv_redraw_action_grid_resize(nvc_ui_context_t *ctx, int items)
     return items;
 }
 
-static inline int nv_redraw_action_default_colors_set(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_redraw_action_default_colors_set(nvc_ui_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg >= 3)) {
             narg -= 3;
             uint32_t foreground = nvc_rpc_read_uint32(&ctx->rpc);
+            foreground++;
             uint32_t background = nvc_rpc_read_uint32(&ctx->rpc);
             uint32_t special = nvc_rpc_read_uint32(&ctx->rpc);
+            special++;
             ctx->cb.update_background(nvc_ui_get_userdata(ctx), background);
-            //NVLogI("nvc ui default colors: foreground=%06x, background=%06x, special=%06x", foreground, background, special);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
     return items;
 }
 
-static inline int nv_redraw_action_hl_attr_define(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_redraw_action_hl_attr_define(nvc_ui_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         // TODO: update highlight colors
@@ -193,7 +174,7 @@ static inline int nv_redraw_action_hl_attr_define(nvc_ui_context_t *ctx, int ite
     return items;
 }
 
-static inline int nv_redraw_action_hl_group_set(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_redraw_action_hl_group_set(nvc_ui_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         // TODO: update highlight group
@@ -202,7 +183,7 @@ static inline int nv_redraw_action_hl_group_set(nvc_ui_context_t *ctx, int items
     return items;
 }
 
-static inline int nv_redraw_action_grid_line(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int items) {
     if (items-- > 0) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg > 4)) {
@@ -238,7 +219,7 @@ static inline int nv_redraw_action_grid_line(nvc_ui_context_t *ctx, int items) {
     return items;
 }
 
-static inline int nv_redraw_action_grid_clear(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_redraw_action_grid_clear(nvc_ui_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg-- > 0)) {
@@ -251,7 +232,7 @@ static inline int nv_redraw_action_grid_clear(nvc_ui_context_t *ctx, int items) 
     return items;
 }
 
-#define NV_REDRAW_ACTION(action)        { #action, nv_redraw_action_##action }
+#define NV_REDRAW_ACTION(action)        { #action, nvc_ui_redraw_action_##action }
 #define NV_REDRAW_ACTION_IGNORE(action) { #action, NULL }
 // NOTE: https://neovim.io/doc/user/ui.html
 static const std::map<const std::string, nvc_ui_action_t> nvc_ui_redraw_actions = {
@@ -313,7 +294,9 @@ static const std::map<const std::string, nvc_ui_action_t> nvc_ui_redraw_actions 
     NV_REDRAW_ACTION_IGNORE(msg_history_clear),
 };
 
-static inline int nv_notification_action_redraw(nvc_ui_context_t *ctx, int items) {
+
+#pragma mark - NVC UI Notification Actions
+static inline int nvc_ui_notification_action_redraw(nvc_ui_context_t *ctx, int items) {
     NVLogD("nvc ui redraw: %d", items);
     while (items-- > 0) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
@@ -331,10 +314,32 @@ static inline int nv_notification_action_redraw(nvc_ui_context_t *ctx, int items
     return items;
 }
 
-#define NV_NOTIFICATION_ACTION(action)   { #action, nv_notification_action_##action}
+#define NV_NOTIFICATION_ACTION(action)   { #action, nvc_ui_notification_action_##action}
 static const std::map<const std::string, nvc_ui_action_t> nvc_ui_notification_actions = {
     NV_NOTIFICATION_ACTION(redraw),
 };
+
+#pragma mark - NVC UI Helper
+static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        uint64_t msgid = nvc_rpc_read_uint64(ctx);
+        NVLogI("nvc ui recive response msgid: %lu", msgid);
+        if (likely(items-- > 0)) {
+            int n = nvc_rpc_read_array_size(ctx);
+            if (n >= 2) {
+                n -= 2;
+                int64_t code = nvc_rpc_read_int64(ctx);
+                auto msg = nvc_rpc_read_str(ctx);
+                NVLogE("nvc ui match request %d failed(%lu): %s", msgid, code, msg.c_str());
+            }
+            nvc_rpc_read_skip_items(ctx, n);
+        }
+        if (likely(items-- > 0)) {
+            nvc_rpc_read_skip_items(ctx, nvc_rpc_read_map_size(ctx) * 2);
+        }
+    }
+    return items;
+}
 
 static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
