@@ -27,21 +27,21 @@
 - (void)openWithRead:(int)read write:(int)write {
     nvc_ui_config_t config;
     bzero(&config, sizeof(config));
-    config.familyName = kNVDefaultFamilyName;
-    config.fontSize = kNVDefaultFontSize;
+    config.family_name = kNVDefaultFamilyName;
+    config.font_size = kNVDefaultFontSize;
     ui_ctx = nvc_ui_create(read, write, &config, &nvclient_ui_callbacks, (__bridge void *)self);
 }
 
 - (void)close {
     if (ui_ctx != NULL) {
         NVLogD("TCP Client close connect success - %s", self.info.cstr);
-        nvc_ui_destory(ui_ctx);
+        nvc_ui_destroy(ui_ctx);
         ui_ctx = NULL;
     }
 }
 
 - (void)attachUIWithSize:(CGSize)size {
-    nvc_ui_attach(ui_ctx, (__bridge CGContextRef)NSGraphicsContext.currentContext, size);
+    nvc_ui_attach(ui_ctx, size);
 }
 
 - (void)detachUI {
@@ -67,11 +67,25 @@ static inline void nvclient_ui_update_title(void *userdata, const char *str, uin
     });
 }
 
-static inline void nvclient_ui_update_background(void *userdata, uint32_t rgb) {
+static inline void nvclient_ui_update_background(void *userdata, nvc_ui_color_t rgb) {
     NVClient *client = (__bridge NVClient *)userdata;
     NSColor *color = [NSColor colorWithRGB:rgb];
     dispatch_main_async(^{
         [client.delegate client:client updateBackground:color];
+    });
+}
+
+static inline void nvclient_ui_mouse_on(void *userdata) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    dispatch_main_async(^{
+        [client.delegate client:client updateMouse:YES];
+    });
+}
+
+static inline void nvclient_ui_mouse_off(void *userdata) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    dispatch_main_async(^{
+        [client.delegate client:client updateMouse:NO];
     });
 }
 
@@ -80,6 +94,8 @@ static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(flush),
     NVCLIENT_CALLBACK(update_title),
     NVCLIENT_CALLBACK(update_background),
+    NVCLIENT_CALLBACK(mouse_on),
+    NVCLIENT_CALLBACK(mouse_off),
 };
 
 

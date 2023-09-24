@@ -60,6 +60,10 @@
 }
 
 #pragma mark - NVClientDelegate
+- (void)clientFlush:(NVClient *)client {
+    [self.editView displayIfNeeded];
+}
+
 - (void)client:(NVClient *)client updateTitle:(NSString *)title {
     self.title = title != nil ? title : @"";
 }
@@ -68,8 +72,9 @@
     self.editView.backgroundColor = color;
 }
 
-- (void)clientFlush:(NVClient *)client {
-    [self.editView displayIfNeeded];
+- (void)client:(NVClient *)client updateMouse:(BOOL)enabled {
+    self.view.window.ignoresMouseEvents = !enabled;
 }
+
 
 @end

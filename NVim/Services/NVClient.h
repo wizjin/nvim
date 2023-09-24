@@ -13,9 +13,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol NVClientDelegate <NSObject>
 @optional
+- (void)clientFlush:(NVClient *)client;
 - (void)client:(NVClient *)client updateTitle:(NSString *)title;
 - (void)client:(NVClient *)client updateBackground:(NSColor *)color;
-- (void)clientFlush:(NVClient *)client;
+- (void)client:(NVClient *)client updateMouse:(BOOL)enabled;
+
 @end
 
 @interface NVClient : NSObject

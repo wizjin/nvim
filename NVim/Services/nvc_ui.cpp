@@ -8,140 +8,122 @@
 #include "nvc_ui.h"
 #include <CoreText/CoreText.h>
 #include <string>
+#include <vector>
 #include <map>
 #include "nvc_rpc.h"
 
 #define nvc_ui_to_context(_ptr, _member)    nv_member_to_struct(nvc_ui_context_t, _ptr, _member)
 #define nvc_ui_get_userdata(_ctx)           nvc_rpc_get_userdata(&(_ctx)->rpc)
 
-typedef int (*nvc_ui_action_t)(nvc_ui_context_t *ctx, int narg);
-
-typedef enum nvc_ui_color_code {
-    nvc_ui_color_code_foreground    = 1,
-    nvc_ui_color_code_background    = 2,
-    nvc_ui_color_code_special       = 3,
-    nvc_ui_color_code_reverse       = 4,
-    nvc_ui_color_code_italic        = 5,
-    nvc_ui_color_code_bold          = 6,
-    nvc_ui_color_code_strikethrough = 7,
-    nvc_ui_color_code_underline     = 8,
-    nvc_ui_color_code_undercurl     = 9,
-    nvc_ui_color_code_underdouble   = 10,
-    nvc_ui_color_code_underdotted   = 11,
-    nvc_ui_color_code_underdashed   = 12,
-    nvc_ui_color_code_altfont       = 13,
-    nvc_ui_color_code_blend         = 14,
-} nvc_ui_color_code_t;
-
-#define NVC_UI_COLOR_NAME(_code) { #_code, nvc_ui_color_code_##_code }
-static const std::map<const std::string, nvc_ui_color_code_t> nvc_ui_color_name_table = {
-    NVC_UI_COLOR_NAME(foreground),
-    NVC_UI_COLOR_NAME(background),
-    NVC_UI_COLOR_NAME(special),
-    NVC_UI_COLOR_NAME(reverse),
-    NVC_UI_COLOR_NAME(italic),
-    NVC_UI_COLOR_NAME(bold),
-    NVC_UI_COLOR_NAME(strikethrough),
-    NVC_UI_COLOR_NAME(underline),
-    NVC_UI_COLOR_NAME(undercurl),
-    NVC_UI_COLOR_NAME(underdouble),
-    NVC_UI_COLOR_NAME(underdotted),
-    NVC_UI_COLOR_NAME(underdashed),
-    NVC_UI_COLOR_NAME(altfont),
-    NVC_UI_COLOR_NAME(blend),
-};
-
-typedef struct nvc_ui_cell_size {
-    uint32_t width;
-    uint32_t height;
-} nvc_ui_cell_size_t;
-
-class NVCUIGrid;
-
-typedef std::map<nvc_ui_color_code_t, uint32_t> nvc_ui_colors_set_t;
-typedef std::map<int, nvc_ui_colors_set_t>      nvc_ui_colors_set_map_t;
-typedef std::map<std::string, int>              nvc_ui_group_map_t;
-typedef std::map<int, NVCUIGrid*>               nvc_ui_grid_map_t;
-
-struct nvc_ui_context {
-    nvc_rpc_context_t       rpc;
-    nvc_ui_callback_t       cb;
-    bool                    attached;
-    CTFontRef               font;
-    CGLayerRef              layer;
-    CGSize                  cell_size;
-    nvc_ui_cell_size_t      window_size;
-    nvc_ui_colors_set_t     default_colors;
-    nvc_ui_colors_set_map_t hl_attrs;
-    nvc_ui_group_map_t      hl_groups;
-    nvc_ui_grid_map_t       grids;
-};
-
-static inline CGLayerRef nvc_ui_create_layer(nvc_ui_context_t *ctx, CGContextRef context, int width ,int height) {
-    if (context == nullptr && ctx->layer != nullptr) {
-        context = CGLayerGetContext(ctx->layer);
-    }
-    CGLayerRef layer = CGLayerCreateWithContext(context, CGSizeMake(ctx->cell_size.width * width, ctx->cell_size.height * height), nullptr);
-    if (layer != nullptr) {
-        CGContextRef context = CGLayerGetContext(layer);
-        CGContextSetShouldAntialias(context, true);
-        CGContextSetShouldSmoothFonts(context, true);
-    }
-    return layer;
-}
-
-class NVCUIGrid {
-private:
-    CGLayerRef  m_layer;
-public:
-    NVCUIGrid(nvc_ui_context_t *ctx, int width, int height) {
-        m_layer = nvc_ui_create_layer(ctx, nullptr, width, height);
-    }
-
-    virtual ~NVCUIGrid() {
-        if (m_layer != nullptr) {
-            CFRelease(m_layer);
-            m_layer = nullptr;
-        }
-    }
-
-    inline void clear() {
-        if (m_layer != nullptr) {
-            CGRect bounds = CGRectZero;
-            CGContextRef context = CGLayerGetContext(m_layer);
-            bounds.size = CGLayerGetSize(m_layer);
-            CGContextClearRect(context, bounds);
-        }
-    }
-
-    inline void resize(nvc_ui_context_t *ctx, int width, int height) {
-        
-    }
-};
-
-static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items);
-static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items);
-
-static const std::string nvc_rpc_empty_str = "";
-static const nvc_ui_cell_size_t nvc_ui_cell_size_zero = { 0, 0 };
-
 #pragma mark - NVC RPC Helper
+static const std::string nvc_rpc_empty_str = "";
 static inline const std::string nvc_rpc_read_str(nvc_rpc_context_t *ctx) {
     uint32_t len = 0;
     auto str = nvc_rpc_read_str(ctx, &len);
     return likely(str != nullptr) ? std::string(str, len) : nvc_rpc_empty_str;
 }
 
+#pragma mark - NVC UI Struct
+typedef int (*nvc_ui_action_t)(nvc_ui_context_t *ctx, int narg);
+
+#define NVC_UI_COLOR_CODE_LIST              \
+    NVC_UI_COLOR_CODE(foreground),          \
+    NVC_UI_COLOR_CODE(background),          \
+    NVC_UI_COLOR_CODE(special),             \
+    NVC_UI_COLOR_CODE(reverse),             \
+    NVC_UI_COLOR_CODE(italic),              \
+    NVC_UI_COLOR_CODE(bold),                \
+    NVC_UI_COLOR_CODE(strikethrough),       \
+    NVC_UI_COLOR_CODE(underline),           \
+    NVC_UI_COLOR_CODE(undercurl),           \
+    NVC_UI_COLOR_CODE(underdouble),         \
+    NVC_UI_COLOR_CODE(underdotted),         \
+    NVC_UI_COLOR_CODE(underdashed),         \
+    NVC_UI_COLOR_CODE(altfont),             \
+    NVC_UI_COLOR_CODE(blend)
+
+#define NVC_UI_COLOR_CODE(_code)            nvc_ui_color_code_##_code
+typedef enum nvc_ui_color_code { NVC_UI_COLOR_CODE_LIST } nvc_ui_color_code_t;
+
+#undef NVC_UI_COLOR_CODE
+#define NVC_UI_COLOR_CODE(_code)            { #_code, nvc_ui_color_code_##_code }
+static const std::map<const std::string, nvc_ui_color_code_t> nvc_ui_color_name_table = { NVC_UI_COLOR_CODE_LIST };
+
+typedef struct nvc_ui_cell_size {
+    uint32_t width;
+    uint32_t height;
+} nvc_ui_cell_size_t;
+
+typedef std::map<nvc_ui_color_code_t, nvc_ui_color_t>   nvc_ui_colors_set_t;
+typedef std::map<int, nvc_ui_colors_set_t>              nvc_ui_colors_set_map_t;
+typedef std::map<std::string, int>                      nvc_ui_group_map_t;
+
+typedef struct mode_info {
+    std::string name;
+    std::string short_name;
+    std::string cursor_shape;
+    std::string mouse_shape;
+    int         cell_percentage;
+    int         blinkwait;
+    int         blinkon;
+    int         blinkoff;
+    int         hl_id;
+    int         id_lm;
+    int         attr_id;
+    int         attr_id_lm;
+} mode_info_t;
+
+typedef void (*nvc_ui_set_mode_info)(mode_info_t &info, nvc_rpc_context_t *ctx);
+
+#define NVC_UI_SET_MODE_INFO_STR(_action)   { #_action, [](mode_info_t &info, nvc_rpc_context_t *ctx) { info._action = nvc_rpc_read_str(ctx); } }
+#define NVC_UI_SET_MODE_INFO_INT(_action)   { #_action, [](mode_info_t &info, nvc_rpc_context_t *ctx) { info._action = nvc_rpc_read_int(ctx); } }
+static const std::map<const std::string, nvc_ui_set_mode_info> nvc_ui_set_mode_info_actions = {
+    NVC_UI_SET_MODE_INFO_STR(name),
+    NVC_UI_SET_MODE_INFO_STR(short_name),
+    NVC_UI_SET_MODE_INFO_STR(cursor_shape),
+    NVC_UI_SET_MODE_INFO_STR(mouse_shape),
+    NVC_UI_SET_MODE_INFO_INT(cell_percentage),
+    NVC_UI_SET_MODE_INFO_INT(blinkwait),
+    NVC_UI_SET_MODE_INFO_INT(blinkon),
+    NVC_UI_SET_MODE_INFO_INT(blinkoff),
+    NVC_UI_SET_MODE_INFO_INT(hl_id),
+    NVC_UI_SET_MODE_INFO_INT(id_lm),
+    NVC_UI_SET_MODE_INFO_INT(attr_id),
+    NVC_UI_SET_MODE_INFO_INT(attr_id_lm),
+};
+
+typedef std::vector<mode_info_t>    mode_info_list_t;
+
+struct nvc_ui_context {
+    nvc_rpc_context_t       rpc;
+    nvc_ui_callback_t       cb;
+    bool                    attached;
+    CTFontRef               font;
+    std::string             mode;
+    int                     mode_idx;
+    CGSize                  cell_size;
+    nvc_ui_cell_size_t      window_size;
+    nvc_ui_colors_set_t     default_colors;
+    nvc_ui_colors_set_map_t hl_attrs;
+    nvc_ui_group_map_t      hl_groups;
+    mode_info_list_t        mode_infos;
+};
+
+static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items);
+static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items);
+
+static const nvc_ui_cell_size_t nvc_ui_cell_size_zero = { 0, 0 };
+
 #pragma mark - NVC UI Helper
 static inline int nvc_ui_init_font(nvc_ui_context_t *ctx, const nvc_ui_config_t *config) {
     int res = NVC_RC_ILLEGAL_CALL;
-    CFStringRef name = CFStringCreateWithCString(nullptr, config->familyName, CFStringGetSystemEncoding());
+    CFStringRef name = CFStringCreateWithCString(nullptr, config->family_name, CFStringGetSystemEncoding());
     if (name == nullptr) {
         res = NVC_RC_MALLOC_ERROR;
     } else {
-        ctx->font = CTFontCreateWithName(name, config->fontSize, nullptr);
-        if (ctx->font == nullptr) {
-            NVLogW("nvc ui create font failed: %s (%lf)", config->familyName, config->fontSize);
+        ctx->font = CTFontCreateWithName(name, config->font_size, nullptr);
+        if (unlikely(ctx->font == nullptr)) {
+            NVLogW("nvc ui create font failed: %s (%lf)", config->family_name, config->font_size);
         } else {
             CGFloat ascent = CTFontGetAscent(ctx->font);
             CGFloat descent = CTFontGetDescent(ctx->font);
@@ -172,16 +154,11 @@ static inline bool nvc_ui_size_equals(const nvc_ui_cell_size_t& s1, const nvc_ui
     return s1.width == s2.width && s1.height == s2.height;
 }
 
-static inline bool nvc_ui_update_size(nvc_ui_context_t *ctx, CGContextRef context, CGSize size) {
+static inline bool nvc_ui_update_size(nvc_ui_context_t *ctx, CGSize size) {
     bool res = false;
     nvc_ui_cell_size_t wnd_size = nvc_ui_size2cell(ctx, size);
     if (!nvc_ui_size_equals(ctx->window_size, wnd_size)) {
         ctx->window_size = wnd_size;
-        CGLayer *layer = nvc_ui_create_layer(ctx, context, ctx->window_size.width, ctx->window_size.height);
-        if (ctx->layer != nullptr) {
-            CFRelease(ctx->layer);
-        }
-        ctx->layer = layer;
         res = true;
     }
     return res;
@@ -198,7 +175,7 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
             ctx->attached = false;
             ctx->cb = *callback;
             ctx->font = nullptr;
-            ctx->layer = nullptr;
+            ctx->mode_idx = 0;
             ctx->cell_size = CGSizeZero;
             ctx->window_size = nvc_ui_cell_size_zero;
             int res = nvc_rpc_init(&ctx->rpc, inskt, outskt, userdata, nvc_ui_response_handler, nvc_ui_notification_handler);
@@ -206,7 +183,7 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
                 res = nvc_ui_init_font(ctx, config);
             }
             if (res != NVC_RC_OK) {
-                nvc_ui_destory(ctx);
+                nvc_ui_destroy(ctx);
                 NVLogE("nvc ui init context failed");
                 free(ctx);
                 ctx = nullptr;
@@ -216,17 +193,9 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
     return ctx;
 }
 
-void nvc_ui_destory(nvc_ui_context_t *ctx) {
+void nvc_ui_destroy(nvc_ui_context_t *ctx) {
     if (ctx != nullptr) {
         nvc_rpc_final(&ctx->rpc);
-        for (auto p = ctx->grids.begin(); p != ctx->grids.end(); p++) {
-            delete p->second;
-        }
-        ctx->grids.clear();
-        if (ctx->layer != nullptr) {
-            CFRelease(ctx->layer);
-            ctx->layer = nullptr;
-        }
         if (ctx->font != nullptr) {
             CFRelease(ctx->font);
             ctx->font = nullptr;
@@ -235,11 +204,10 @@ void nvc_ui_destory(nvc_ui_context_t *ctx) {
     }
 }
 
-void nvc_ui_attach(nvc_ui_context_t *ctx, CGContextRef context, CGSize size) {
+void nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
     if (likely(ctx != nullptr && !ctx->attached)) {
         ctx->attached = true;
-        nvc_ui_update_size(ctx, context, size);
-
+        nvc_ui_update_size(ctx, size);
         nvc_rpc_call_const_begin(&ctx->rpc, "nvim_ui_attach", 3);
         nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.width);
         nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.height);
@@ -262,7 +230,7 @@ void nvc_ui_detach(nvc_ui_context_t *ctx) {
 
 void nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size) {
     if (likely(ctx != nullptr && ctx->attached)) {
-        if (nvc_ui_update_size(ctx, nullptr, size)) {
+        if (nvc_ui_update_size(ctx, size)) {
             nvc_rpc_call_const_begin(&ctx->rpc, "nvim_ui_try_resize", 2);
             nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.width);
             nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.height);
@@ -282,6 +250,37 @@ static inline int nvc_ui_redraw_action_set_title(nvc_ui_context_t *ctx, int coun
         nvc_rpc_read_skip_items(&ctx->rpc, items);
     }
     return count;
+}
+
+static inline int nvc_ui_redraw_action_mode_info_set(nvc_ui_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(&ctx->rpc);
+        if (likely(narg >= 2)) {
+            narg -= 2;
+            bool enabled = nvc_rpc_read_bool(&ctx->rpc);
+            int n = nvc_rpc_read_array_size(&ctx->rpc);
+            mode_info_list_t mode_infos;
+            for (int i = 0; i < n; i++) {
+                int mn = nvc_rpc_read_map_size(&ctx->rpc);
+                mode_info_t info;
+                for (int j = 0; j < mn; j++) {
+                    auto name = nvc_rpc_read_str(&ctx->rpc);
+                    auto p = nvc_ui_set_mode_info_actions.find(name);
+                    if (likely(p != nvc_ui_set_mode_info_actions.end())) {
+                        p->second(info, &ctx->rpc);
+                    } else {
+                        nvc_rpc_read_skip_items(&ctx->rpc, 1);
+                        NVLogW("nvc ui unknown mode info: %s", name.c_str());
+                    }
+                }
+                mode_infos.push_back(info);
+            }
+            ctx->mode_infos = mode_infos;
+            NVLogD("nvc ui mode info set: enabled=%d, size=%d", (int)enabled, n);
+        }
+        nvc_rpc_read_skip_items(&ctx->rpc, narg);
+    }
+    return items;
 }
 
 static inline int nvc_ui_redraw_action_option_set(nvc_ui_context_t *ctx, int items) {
@@ -309,10 +308,38 @@ static inline int nvc_ui_redraw_action_option_set(nvc_ui_context_t *ctx, int ite
                         NVLogW("nvc ui find unknown option value type: %s", key.c_str());
                 }
             }
-            // TODO: Apply options
             //NVLogD("Set option: %s = %s", key.c_str(), value.c_str());
             nvc_rpc_read_skip_items(&ctx->rpc, narg);
         }
+    }
+    return items;
+}
+
+static inline int nvc_ui_redraw_action_mode_change(nvc_ui_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(&ctx->rpc);
+        if (likely(narg >= 2)) {
+            narg -= 2;
+            ctx->mode = nvc_rpc_read_str(&ctx->rpc);
+            ctx->mode_idx = nvc_rpc_read_int(&ctx->rpc);
+            NVLogD("nvc ui change mode: %s %d", ctx->mode.c_str(), ctx->mode_idx);
+        }
+        nvc_rpc_read_skip_items(&ctx->rpc, narg);
+    }
+    return items;
+}
+
+
+static inline int nvc_ui_redraw_action_mouse_on(nvc_ui_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        ctx->cb.mouse_on(nvc_ui_get_userdata(ctx));
+    }
+    return items;
+}
+
+static inline int nvc_ui_redraw_action_mouse_off(nvc_ui_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        ctx->cb.mouse_off(nvc_ui_get_userdata(ctx));
     }
     return items;
 }
@@ -330,16 +357,7 @@ static inline int nvc_ui_redraw_action_grid_resize(nvc_ui_context_t *ctx, int it
             int grid_id = nvc_rpc_read_int(&ctx->rpc);
             int width = nvc_rpc_read_int(&ctx->rpc);
             int height = nvc_rpc_read_int(&ctx->rpc);
-            auto p = ctx->grids.find(grid_id);
-            if (p != ctx->grids.end()) {
-                p->second->resize(ctx, width, height);
-            } else {
-                NVCUIGrid *grid = new NVCUIGrid(ctx, width, height);;
-                if (likely(grid)) {
-                    ctx->grids[grid_id] = grid;
-                }
-            }
-            NVLogI("nvc ui grid resize %d - %dx%d", grid_id, width, height);
+            NVLogD("nvc ui grid resize %d - %dx%d", grid_id, width, height);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
@@ -404,7 +422,7 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg > 4)) {
             narg -= 4;
-            int grid = nvc_rpc_read_int(&ctx->rpc);
+            int grid_id = nvc_rpc_read_int(&ctx->rpc);
             int row = nvc_rpc_read_int(&ctx->rpc);
             int col_start = nvc_rpc_read_int(&ctx->rpc);
             int cells = nvc_rpc_read_array_size(&ctx->rpc);
@@ -426,8 +444,7 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                 nvc_rpc_read_skip_items(&ctx->rpc, cnum);
             }
             nvc_rpc_read_skip_items(&ctx->rpc, cells);
-            // TODO: Update grid lines
-            NVLogI("nvc ui grid line %d row = %d, col_start = %d", grid, row, col_start);
+            NVLogD("nvc ui grid line %d row = %d, col_start = %d", grid_id, row, col_start);
             //NVLogD("Grid line: %s", output.c_str());
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
@@ -440,10 +457,7 @@ static inline int nvc_ui_redraw_action_grid_clear(nvc_ui_context_t *ctx, int ite
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg-- > 0)) {
             int grid_id = nvc_rpc_read_int(&ctx->rpc);
-            auto p = ctx->grids.find(grid_id);
-            if (p != ctx->grids.end()) {
-                p->second->clear();
-            }
+            NVLogD("nvc ui grid %d clear", grid_id);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
@@ -455,79 +469,110 @@ static inline int nvc_ui_redraw_action_grid_destroy(nvc_ui_context_t *ctx, int i
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg-- > 0)) {
             int grid_id = nvc_rpc_read_int(&ctx->rpc);
-            auto p = ctx->grids.find(grid_id);
-            if (p != ctx->grids.end()) {
-                ctx->grids.erase(p);
-                delete p->second;
-            }
+            NVLogD("nvc ui grid %d destroy", grid_id);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
     return items;
 }
 
-#define NV_REDRAW_ACTION(action)        { #action, nvc_ui_redraw_action_##action }
-#define NV_REDRAW_ACTION_IGNORE(action) { #action, nullptr }
+static inline int nvc_ui_redraw_action_grid_cursor_goto(nvc_ui_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(&ctx->rpc);
+        if (likely(narg >= 3)) {
+            narg -= 3;
+            int grid_id = nvc_rpc_read_int(&ctx->rpc);
+            int width = nvc_rpc_read_int(&ctx->rpc);
+            int height = nvc_rpc_read_int(&ctx->rpc);
+            NVLogD("nvc ui grid cursor goto %d - %dx%d", grid_id, width, height);
+        }
+        nvc_rpc_read_skip_items(&ctx->rpc, narg);
+    }
+    return items;
+}
+
+static inline int nvc_ui_redraw_action_grid_scroll(nvc_ui_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(&ctx->rpc);
+        if (likely(narg-- > 0)) {
+            int grid_id = nvc_rpc_read_int(&ctx->rpc);
+            NVLogD("nvc ui grid scroll %d", grid_id);
+        }
+        nvc_rpc_read_skip_items(&ctx->rpc, narg);
+    }
+    return items;
+}
+
+static inline int nvc_ui_redraw_action_tabline_update(nvc_ui_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(&ctx->rpc);
+        NVLogD("nvc ui update tabline");
+        nvc_rpc_read_skip_items(&ctx->rpc, narg);
+    }
+    return items;
+}
+
+#define NVC_REDRAW_ACTION(action)           { #action, nvc_ui_redraw_action_##action }
+#define NVC_REDRAW_ACTION_IGNORE(action)    { #action, nullptr }
 // NOTE: https://neovim.io/doc/user/ui.html
 static const std::map<const std::string, nvc_ui_action_t> nvc_ui_redraw_actions = {
     // Global Events
-    NV_REDRAW_ACTION_IGNORE(set_icon),
-    NV_REDRAW_ACTION(set_title),
-    NV_REDRAW_ACTION_IGNORE(mode_info_set),
-    NV_REDRAW_ACTION(option_set),
-    NV_REDRAW_ACTION_IGNORE(mode_change),
-    NV_REDRAW_ACTION_IGNORE(mouse_on),
-    NV_REDRAW_ACTION_IGNORE(mouse_off),
-    NV_REDRAW_ACTION_IGNORE(busy_start),
-    NV_REDRAW_ACTION_IGNORE(busy_stop),
-    NV_REDRAW_ACTION_IGNORE(suspend),
-    NV_REDRAW_ACTION_IGNORE(update_menu),
-    NV_REDRAW_ACTION_IGNORE(bell),
-    NV_REDRAW_ACTION_IGNORE(visual_bell),
-    NV_REDRAW_ACTION(flush),
+    NVC_REDRAW_ACTION_IGNORE(set_icon),
+    NVC_REDRAW_ACTION(set_title),
+    NVC_REDRAW_ACTION(mode_info_set),
+    NVC_REDRAW_ACTION(option_set),
+    NVC_REDRAW_ACTION(mode_change),
+    NVC_REDRAW_ACTION(mouse_on),
+    NVC_REDRAW_ACTION(mouse_off),
+    NVC_REDRAW_ACTION_IGNORE(busy_start),
+    NVC_REDRAW_ACTION_IGNORE(busy_stop),
+    NVC_REDRAW_ACTION_IGNORE(suspend),
+    NVC_REDRAW_ACTION_IGNORE(update_menu),
+    NVC_REDRAW_ACTION_IGNORE(bell),
+    NVC_REDRAW_ACTION_IGNORE(visual_bell),
+    NVC_REDRAW_ACTION(flush),
     // Grid Events (line-based)
-    NV_REDRAW_ACTION(grid_resize),
-    NV_REDRAW_ACTION(default_colors_set),
-    NV_REDRAW_ACTION(hl_attr_define),
-    NV_REDRAW_ACTION(hl_group_set),
-    NV_REDRAW_ACTION(grid_line),
-    NV_REDRAW_ACTION(grid_clear),
-    NV_REDRAW_ACTION(grid_destroy),
-    NV_REDRAW_ACTION_IGNORE(grid_cursor_goto),
-    NV_REDRAW_ACTION_IGNORE(grid_scroll),
+    NVC_REDRAW_ACTION(grid_resize),
+    NVC_REDRAW_ACTION(default_colors_set),
+    NVC_REDRAW_ACTION(hl_attr_define),
+    NVC_REDRAW_ACTION(hl_group_set),
+    NVC_REDRAW_ACTION(grid_line),
+    NVC_REDRAW_ACTION(grid_clear),
+    NVC_REDRAW_ACTION(grid_destroy),
+    NVC_REDRAW_ACTION(grid_cursor_goto),
+    NVC_REDRAW_ACTION(grid_scroll),
     // Multigrid Events
-    NV_REDRAW_ACTION_IGNORE(win_pos),
-    NV_REDRAW_ACTION_IGNORE(win_float_pos),
-    NV_REDRAW_ACTION_IGNORE(win_external_pos),
-    NV_REDRAW_ACTION_IGNORE(win_hide),
-    NV_REDRAW_ACTION_IGNORE(win_close),
-    NV_REDRAW_ACTION_IGNORE(msg_set_pos),
-    NV_REDRAW_ACTION_IGNORE(win_viewport),
-    NV_REDRAW_ACTION_IGNORE(win_extmark),
+    NVC_REDRAW_ACTION_IGNORE(win_pos),
+    NVC_REDRAW_ACTION_IGNORE(win_float_pos),
+    NVC_REDRAW_ACTION_IGNORE(win_external_pos),
+    NVC_REDRAW_ACTION_IGNORE(win_hide),
+    NVC_REDRAW_ACTION_IGNORE(win_close),
+    NVC_REDRAW_ACTION_IGNORE(msg_set_pos),
+    NVC_REDRAW_ACTION_IGNORE(win_viewport),
+    NVC_REDRAW_ACTION_IGNORE(win_extmark),
     // Popupmenu Events
-    NV_REDRAW_ACTION_IGNORE(popupmenu_show),
-    NV_REDRAW_ACTION_IGNORE(popupmenu_select),
-    NV_REDRAW_ACTION_IGNORE(popupmenu_hide),
+    NVC_REDRAW_ACTION_IGNORE(popupmenu_show),
+    NVC_REDRAW_ACTION_IGNORE(popupmenu_select),
+    NVC_REDRAW_ACTION_IGNORE(popupmenu_hide),
     // Tabline Events
-    NV_REDRAW_ACTION_IGNORE(tabline_update),
+    NVC_REDRAW_ACTION(tabline_update),
     // Cmdline Events
-    NV_REDRAW_ACTION_IGNORE(cmdline_show),
-    NV_REDRAW_ACTION_IGNORE(cmdline_pos),
-    NV_REDRAW_ACTION_IGNORE(cmdline_special_char),
-    NV_REDRAW_ACTION_IGNORE(cmdline_hide),
-    NV_REDRAW_ACTION_IGNORE(cmdline_block_show),
-    NV_REDRAW_ACTION_IGNORE(cmdline_block_append),
-    NV_REDRAW_ACTION_IGNORE(cmdline_block_hide),
+    NVC_REDRAW_ACTION_IGNORE(cmdline_show),
+    NVC_REDRAW_ACTION_IGNORE(cmdline_pos),
+    NVC_REDRAW_ACTION_IGNORE(cmdline_special_char),
+    NVC_REDRAW_ACTION_IGNORE(cmdline_hide),
+    NVC_REDRAW_ACTION_IGNORE(cmdline_block_show),
+    NVC_REDRAW_ACTION_IGNORE(cmdline_block_append),
+    NVC_REDRAW_ACTION_IGNORE(cmdline_block_hide),
     // Message/Dialog Events
-    NV_REDRAW_ACTION_IGNORE(msg_show),
-    NV_REDRAW_ACTION_IGNORE(msg_clear),
-    NV_REDRAW_ACTION_IGNORE(msg_showmode),
-    NV_REDRAW_ACTION_IGNORE(msg_showcmd),
-    NV_REDRAW_ACTION_IGNORE(msg_ruler),
-    NV_REDRAW_ACTION_IGNORE(msg_history_show),
-    NV_REDRAW_ACTION_IGNORE(msg_history_clear),
+    NVC_REDRAW_ACTION_IGNORE(msg_show),
+    NVC_REDRAW_ACTION_IGNORE(msg_clear),
+    NVC_REDRAW_ACTION_IGNORE(msg_showmode),
+    NVC_REDRAW_ACTION_IGNORE(msg_showcmd),
+    NVC_REDRAW_ACTION_IGNORE(msg_ruler),
+    NVC_REDRAW_ACTION_IGNORE(msg_history_show),
+    NVC_REDRAW_ACTION_IGNORE(msg_history_clear),
 };
-
 
 #pragma mark - NVC UI Notification Actions
 static inline int nvc_ui_notification_action_redraw(nvc_ui_context_t *ctx, int items) {
@@ -549,16 +594,16 @@ static inline int nvc_ui_notification_action_redraw(nvc_ui_context_t *ctx, int i
     return items;
 }
 
-#define NV_NOTIFICATION_ACTION(action)   { #action, nvc_ui_notification_action_##action}
+#define NVC_NOTIFICATION_ACTION(action) { #action, nvc_ui_notification_action_##action}
 static const std::map<const std::string, nvc_ui_action_t> nvc_ui_notification_actions = {
-    NV_NOTIFICATION_ACTION(redraw),
+    NVC_NOTIFICATION_ACTION(redraw),
 };
 
 #pragma mark - NVC UI Helper
 static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
         uint64_t msgid = nvc_rpc_read_uint64(ctx);
-        NVLogI("nvc ui recive response msgid: %lu", msgid);
+        NVLogD("nvc ui recive response msgid: %lu", msgid);
         if (likely(items-- > 0)) {
             int n = nvc_rpc_read_array_size(ctx);
             if (n >= 2) {
