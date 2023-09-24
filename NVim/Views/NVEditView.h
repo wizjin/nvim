@@ -9,10 +9,16 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class NVEditView;
+
+@protocol NVEditViewDelegate <NSObject>
+- (void)redrawEditView:(NVEditView *)editView;
+@end
+
 @interface NVEditView : NSView
 
-@property (nonatomic, readonly, strong) NSFont *font;
 @property (nonatomic, readwrite, strong) NSColor *backgroundColor;
+@property (nonatomic, nullable, weak) id<NVEditViewDelegate> delegate;
 
 
 @end

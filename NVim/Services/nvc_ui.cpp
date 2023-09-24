@@ -7,6 +7,7 @@
 
 #include "nvc_ui.h"
 #include <CoreText/CoreText.h>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <map>
@@ -14,6 +15,7 @@
 
 #define nvc_ui_to_context(_ptr, _member)    nv_member_to_struct(nvc_ui_context_t, _ptr, _member)
 #define nvc_ui_get_userdata(_ctx)           nvc_rpc_get_userdata(&(_ctx)->rpc)
+#define nvc_lock_guard_t                    std::lock_guard<std::mutex>
 
 #pragma mark - NVC RPC Helper
 static const std::string nvc_rpc_empty_str = "";
@@ -54,10 +56,6 @@ typedef struct nvc_ui_cell_size {
     uint32_t height;
 } nvc_ui_cell_size_t;
 
-typedef std::map<nvc_ui_color_code_t, nvc_ui_color_t>   nvc_ui_colors_set_t;
-typedef std::map<int, nvc_ui_colors_set_t>              nvc_ui_colors_set_map_t;
-typedef std::map<std::string, int>                      nvc_ui_group_map_t;
-
 typedef struct mode_info {
     std::string name;
     std::string short_name;
@@ -92,7 +90,11 @@ static const std::map<const std::string, nvc_ui_set_mode_info> nvc_ui_set_mode_i
     NVC_UI_SET_MODE_INFO_INT(attr_id_lm),
 };
 
-typedef std::vector<mode_info_t>    mode_info_list_t;
+typedef std::map<nvc_ui_color_code_t, nvc_ui_color_t>   nvc_ui_colors_set_t;
+typedef std::map<int, nvc_ui_colors_set_t>              nvc_ui_colors_set_map_t;
+typedef std::map<std::string, int>                      nvc_ui_group_map_t;
+typedef std::map<int, CGLayerRef, std::less<int>>       nvc_ui_layer_map_t;
+typedef std::vector<mode_info_t>                        mode_info_list_t;
 
 struct nvc_ui_context {
     nvc_rpc_context_t       rpc;
@@ -107,6 +109,8 @@ struct nvc_ui_context {
     nvc_ui_colors_set_map_t hl_attrs;
     nvc_ui_group_map_t      hl_groups;
     mode_info_list_t        mode_infos;
+    nvc_ui_layer_map_t      layers;
+    std::mutex              locker;
 };
 
 static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items);
@@ -148,6 +152,10 @@ static inline nvc_ui_cell_size_t nvc_ui_size2cell(nvc_ui_context_t *ctx, CGSize 
     cell.width = floor(size.width/ctx->cell_size.width);
     cell.height = floor(size.height/ctx->cell_size.height);
     return cell;
+}
+
+static inline CGSize nvc_ui_cell2size(nvc_ui_context_t *ctx, int width, int height) {
+    return CGSizeMake(ctx->cell_size.width * width, ctx->cell_size.height * height);
 }
 
 static inline bool nvc_ui_size_equals(const nvc_ui_cell_size_t& s1, const nvc_ui_cell_size_t& s2) {
@@ -196,6 +204,10 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
 void nvc_ui_destroy(nvc_ui_context_t *ctx) {
     if (ctx != nullptr) {
         nvc_rpc_final(&ctx->rpc);
+        for (const auto& p : ctx->layers) {
+            CGLayerRelease(p.second);
+        }
+        ctx->layers.clear();
         if (ctx->font != nullptr) {
             CFRelease(ctx->font);
             ctx->font = nullptr;
@@ -204,7 +216,7 @@ void nvc_ui_destroy(nvc_ui_context_t *ctx) {
     }
 }
 
-void nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
+CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
     if (likely(ctx != nullptr && !ctx->attached)) {
         ctx->attached = true;
         nvc_ui_update_size(ctx, size);
@@ -217,7 +229,9 @@ void nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
         nvc_rpc_write_const_str(&ctx->rpc, "ext_linegrid");
         nvc_rpc_write_true(&ctx->rpc);
         nvc_rpc_call_end(&ctx->rpc);
+        size = nvc_ui_cell2size(ctx, ctx->window_size.width, ctx->window_size.height);
     }
+    return size;
 }
 
 void nvc_ui_detach(nvc_ui_context_t *ctx) {
@@ -228,15 +242,26 @@ void nvc_ui_detach(nvc_ui_context_t *ctx) {
     }
 }
 
-void nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size) {
+void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context) {
+    if (likely(ctx != nullptr && ctx->attached && context != nullptr)) {
+        nvc_lock_guard_t guard(ctx->locker);
+        for (const auto& [key, layer] : ctx->layers) {
+            CGContextDrawLayerAtPoint(context, CGPointZero, layer);
+        }
+    }
+}
+
+CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size) {
     if (likely(ctx != nullptr && ctx->attached)) {
         if (nvc_ui_update_size(ctx, size)) {
             nvc_rpc_call_const_begin(&ctx->rpc, "nvim_ui_try_resize", 2);
             nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.width);
             nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.height);
             nvc_rpc_call_end(&ctx->rpc);
+            size = nvc_ui_cell2size(ctx, ctx->window_size.width, ctx->window_size.height);
         }
     }
+    return size;
 }
 
 #pragma mark - NVC UI Redraw Actions
@@ -331,14 +356,14 @@ static inline int nvc_ui_redraw_action_mode_change(nvc_ui_context_t *ctx, int it
 
 
 static inline int nvc_ui_redraw_action_mouse_on(nvc_ui_context_t *ctx, int items) {
-    if (likely(items-- > 0)) {
+    if (likely(items > 0)) {
         ctx->cb.mouse_on(nvc_ui_get_userdata(ctx));
     }
     return items;
 }
 
 static inline int nvc_ui_redraw_action_mouse_off(nvc_ui_context_t *ctx, int items) {
-    if (likely(items-- > 0)) {
+    if (likely(items > 0)) {
         ctx->cb.mouse_off(nvc_ui_get_userdata(ctx));
     }
     return items;
@@ -358,6 +383,22 @@ static inline int nvc_ui_redraw_action_grid_resize(nvc_ui_context_t *ctx, int it
             int width = nvc_rpc_read_int(&ctx->rpc);
             int height = nvc_rpc_read_int(&ctx->rpc);
             NVLogD("nvc ui grid resize %d - %dx%d", grid_id, width, height);
+            CGLayerRef layer = CGLayerCreateWithContext(nullptr, nvc_ui_cell2size(ctx, width, height), nullptr);
+            if (layer != nullptr) {
+                CGContextRef context = CGLayerGetContext(layer);
+                CGContextSetShouldAntialias(context, true);
+                CGContextSetShouldSmoothFonts(context, true);
+            }
+            nvc_lock_guard_t guard(ctx->locker);
+            auto p = ctx->layers.find(grid_id);
+            if (p != ctx->layers.end()) {
+                CGLayerRef layer = p->second;
+                ctx->layers.erase(p);
+                CGLayerRelease(layer);
+            }
+            if (layer != nullptr) {
+                ctx->layers[grid_id] = layer;
+            }
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
@@ -417,6 +458,16 @@ static inline int nvc_ui_redraw_action_hl_group_set(nvc_ui_context_t *ctx, int i
     return items;
 }
 
+static inline CGLayerRef nvc_ui_find_grid_copy_layer(nvc_ui_context_t *ctx, int grid_id) {
+    CGLayerRef layer = nullptr;
+    nvc_lock_guard_t guard(ctx->locker);
+    auto p = ctx->layers.find(grid_id);
+    if (p != ctx->layers.end()) {
+        layer = CGLayerRetain(p->second);
+    }
+    return layer;
+}
+
 static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int items) {
     if (items-- > 0) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
@@ -426,22 +477,26 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
             int row = nvc_rpc_read_int(&ctx->rpc);
             int col_start = nvc_rpc_read_int(&ctx->rpc);
             int cells = nvc_rpc_read_array_size(&ctx->rpc);
-            std::string output;
-            while (cells-- > 0) {
-                int cnum = nvc_rpc_read_array_size(&ctx->rpc);
-                if (likely(cnum-- > 0)) {
-                    auto text = nvc_rpc_read_str(&ctx->rpc);
-                    output += text;
-                    if (cnum >= 2) {
-                        cnum -= 2;
-                        nvc_rpc_read_int(&ctx->rpc); // hl
-                        int repeat = nvc_rpc_read_int(&ctx->rpc);
-                        while (--repeat > 0) {
-                            output += text;
+            CGLayerRef layer = nvc_ui_find_grid_copy_layer(ctx, grid_id);
+            if (layer != nullptr) {
+                std::string output;
+                while (cells-- > 0) {
+                    int cnum = nvc_rpc_read_array_size(&ctx->rpc);
+                    if (likely(cnum-- > 0)) {
+                        auto text = nvc_rpc_read_str(&ctx->rpc);
+                        output += text;
+                        if (cnum >= 2) {
+                            cnum -= 2;
+                            nvc_rpc_read_int(&ctx->rpc); // hl
+                            int repeat = nvc_rpc_read_int(&ctx->rpc);
+                            while (--repeat > 0) {
+                                output += text;
+                            }
                         }
                     }
+                    nvc_rpc_read_skip_items(&ctx->rpc, cnum);
                 }
-                nvc_rpc_read_skip_items(&ctx->rpc, cnum);
+                CGLayerRelease(layer);
             }
             nvc_rpc_read_skip_items(&ctx->rpc, cells);
             NVLogD("nvc ui grid line %d row = %d, col_start = %d", grid_id, row, col_start);
@@ -458,6 +513,15 @@ static inline int nvc_ui_redraw_action_grid_clear(nvc_ui_context_t *ctx, int ite
         if (likely(narg-- > 0)) {
             int grid_id = nvc_rpc_read_int(&ctx->rpc);
             NVLogD("nvc ui grid %d clear", grid_id);
+            nvc_lock_guard_t guard(ctx->locker);
+            auto p = ctx->layers.find(grid_id);
+            if (p != ctx->layers.end()) {
+                CGRect bounds = CGRectZero;
+                CGLayerRef layer = p->second;
+                bounds.size = CGLayerGetSize(layer);
+                CGContextRef context = CGLayerGetContext(layer);
+                CGContextClearRect(context, bounds);
+            }
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
@@ -470,6 +534,13 @@ static inline int nvc_ui_redraw_action_grid_destroy(nvc_ui_context_t *ctx, int i
         if (likely(narg-- > 0)) {
             int grid_id = nvc_rpc_read_int(&ctx->rpc);
             NVLogD("nvc ui grid %d destroy", grid_id);
+            nvc_lock_guard_t guard(ctx->locker);
+            auto p = ctx->layers.find(grid_id);
+            if (p != ctx->layers.end()) {
+                CGLayerRef layer = p->second;
+                ctx->layers.erase(p);
+                CGLayerRelease(layer);
+            }
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }

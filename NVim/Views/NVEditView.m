@@ -15,7 +15,6 @@
 
 - (instancetype)initWithFrame:(NSRect)frameRect {
     if (self = [super initWithFrame:frameRect]) {
-        _font = [NSFont monospacedSystemFontOfSize:20 weight:NSFontWeightRegular];
         _backgroundColor = NSColor.clearColor;
     }
     return self;
@@ -26,6 +25,14 @@
         _backgroundColor = backgroundColor;
         self.layer.backgroundColor = self.backgroundColor.CGColor;
     }
+}
+
+- (BOOL)isFlipped {
+    return YES;
+}
+
+-(void)drawRect:(NSRect)dirtyRect {
+    [self.delegate redrawEditView:self];
 }
 
 

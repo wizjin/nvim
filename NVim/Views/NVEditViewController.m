@@ -10,7 +10,7 @@
 #import "NVTCPClient.h"
 #import "NVSTDClient.h"
 
-@interface NVEditViewController () <NVClientDelegate>
+@interface NVEditViewController () <NVClientDelegate, NVEditViewDelegate>
 
 @property (nonatomic, readonly, strong) NVClient *client;
 @property (nonatomic, readonly, strong) NVEditView *editView;
@@ -32,6 +32,7 @@
 - (void)loadView {
     _editView = [NVEditView new];
     self.view = self.editView;
+    self.editView.delegate = self;
 }
 
 - (void)viewDidLoad {
@@ -39,7 +40,7 @@
     @weakify(self);
     dispatch_main_async(^{
         @strongify(self);
-        [self.client attachUIWithSize:self.editView.bounds.size];
+        [self.view.window setContentSize:[self.client attachUIWithSize:self.editView.bounds.size]];
     });
 }
 
@@ -55,13 +56,13 @@
     [self.client detachUI];
 }
 
-- (void)windowDidResize:(NSNotification *)notification {
-    [self.client resizeUIWithSize:self.editView.bounds.size];
+- (void)windowDidEndLiveResize:(NSNotification *)notification {
+    [self.view.window setContentSize:[self.client resizeUIWithSize:self.editView.bounds.size]];
 }
 
 #pragma mark - NVClientDelegate
 - (void)clientFlush:(NVClient *)client {
-    [self.editView displayIfNeeded];
+    [self.editView setNeedsDisplayInRect:self.editView.bounds];
 }
 
 - (void)client:(NVClient *)client updateTitle:(NSString *)title {
@@ -74,6 +75,11 @@
 
 - (void)client:(NVClient *)client updateMouse:(BOOL)enabled {
     self.view.window.ignoresMouseEvents = !enabled;
+}
+
+#pragma mark - NVEditViewDelegate
+- (void)redrawEditView:(NVEditView *)editView; {
+    [self.client redrawUI];
 }
 
 

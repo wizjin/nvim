@@ -40,16 +40,20 @@
     }
 }
 
-- (void)attachUIWithSize:(CGSize)size {
-    nvc_ui_attach(ui_ctx, size);
+- (CGSize)attachUIWithSize:(CGSize)size {
+    return nvc_ui_attach(ui_ctx, size);
 }
 
 - (void)detachUI {
     nvc_ui_detach(ui_ctx);
 }
 
-- (void)resizeUIWithSize:(CGSize)size {
-    nvc_ui_resize(ui_ctx, size);
+- (void)redrawUI {
+    nvc_ui_redraw(ui_ctx, NSGraphicsContext.currentContext.CGContext);
+}
+
+- (CGSize)resizeUIWithSize:(CGSize)size {
+    return nvc_ui_resize(ui_ctx, size);
 }
 
 static inline void nvclient_ui_flush(void *userdata) {

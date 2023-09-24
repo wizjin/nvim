@@ -15,6 +15,6 @@
 #define kNVWindowDefaultWidth   800
 #define kNVWindowDefaultHeight  560
 #define kNVDefaultFamilyName    ".AppleSystemUIFontMonospaced-Regular"
-#define kNVDefaultFontSize      20
+#define kNVDefaultFontSize      18
 
 #endif /* __NVCONFIG_H__ */
