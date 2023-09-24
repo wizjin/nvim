@@ -27,8 +27,8 @@
 - (void)openWithRead:(int)read write:(int)write {
     nvc_ui_config_t config;
     bzero(&config, sizeof(config));
-    config.familyName = ".AppleSystemUIFontMonospaced-Regular";
-    config.fontSize = 20;
+    config.familyName = kNVDefaultFamilyName;
+    config.fontSize = kNVDefaultFontSize;
     ui_ctx = nvc_ui_create(read, write, &config, &nvclient_ui_callbacks, (__bridge void *)self);
 }
 
@@ -41,7 +41,7 @@
 }
 
 - (void)attachUIWithSize:(CGSize)size {
-    nvc_ui_attach(ui_ctx, size);
+    nvc_ui_attach(ui_ctx, (__bridge CGContextRef)NSGraphicsContext.currentContext, size);
 }
 
 - (void)detachUI {

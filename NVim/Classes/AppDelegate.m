@@ -42,7 +42,7 @@
     window.backgroundColor = NSColor.windowBackgroundColor;
     window.contentViewController = controller;
     window.delegate = controller;
-    window.minSize = NSMakeSize(kNVWindowMinWidth, kNVWindowMinHeight);
+    window.contentMinSize = NSMakeSize(kNVWindowMinWidth, kNVWindowMinHeight);
     [window setContentSize:NSMakeSize(kNVWindowDefaultWidth, kNVWindowDefaultHeight)];
     [window center];
     [window becomeKeyWindow];
