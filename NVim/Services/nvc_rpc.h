@@ -82,7 +82,19 @@ NVC_API void nvc_rpc_call_end(nvc_rpc_context_t *ctx);
 #define NVC_RPC_ITEM_EXT                    CWP_ITEM_EXT
 #define NVC_RPC_NOT_AN_ITEM                 CWP_NOT_AN_ITEM
 
-#define NVC_RPC_RC_OK                       CWP_RC_OK
+#define NVC_RC_OK                           CWP_RC_OK
+#define NVC_RC_END_OF_INPUT                 CWP_RC_END_OF_INPUT
+#define NVC_RC_BUFFER_OVERFLOW              CWP_RC_BUFFER_OVERFLOW
+#define NVC_RC_BUFFER_UNDERFLOW             CWP_RC_BUFFER_UNDERFLOW
+#define NVC_RC_MALFORMED_INPUT              CWP_RC_MALFORMED_INPUT
+#define NVC_RC_WRONG_BYTE_ORDER             CWP_RC_WRONG_BYTE_ORDER
+#define NVC_RC_ERROR_IN_HANDLER             CWP_RC_ERROR_IN_HANDLER
+#define NVC_RC_ILLEGAL_CALL                 CWP_RC_ILLEGAL_CALL
+#define NVC_RC_MALLOC_ERROR                 CWP_RC_MALLOC_ERROR
+#define NVC_RC_STOPPED                      CWP_RC_STOPPED
+#define NVC_RC_TYPE_ERROR                   CWP_RC_TYPE_ERROR
+#define NVC_RC_VALUE_ERROR                  CWP_RC_VALUE_ERROR
+#define NVC_RC_WRONG_TIMESTAMP_LENGTH       CWP_RC_WRONG_TIMESTAMP_LENGTH
 
 #ifdef __cplusplus
 }

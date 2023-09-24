@@ -12,8 +12,6 @@
 
 @property (nonatomic, readonly, strong) NSString *path;
 @property (nonatomic, readonly, strong) NSTask *task;
-@property (nonatomic, readonly, strong) NSPipe *inPipe;
-@property (nonatomic, readonly, strong) NSPipe *outPipe;
 
 @end
 
@@ -32,31 +30,33 @@
 }
 
 - (NSString *)info {
-    return self.path;
+    return self.path.length > 0 ? self.path : @"<embedded nvim>";
 }
 
 - (void)open {
     [self close];
-    
+
     NSString *executablePath = self.path;
     if (![NSFileManager.defaultManager fileExistsAtPath:executablePath]) {
         executablePath = [NSBundle.mainBundle pathForAuxiliaryExecutable:@"bin/nvim"];
     }
-    
+
     NSError *error = nil;
-    _inPipe = [NSPipe pipe];
-    _outPipe = [NSPipe pipe];
-    _task = [NSTask new];
-    self.task.executableURL = [NSURL fileURLWithPath:executablePath];
-    self.task.arguments = @[@"--embed"];
-    self.task.environment = getEnvironment();
-    self.task.standardInput = self.inPipe;
-    self.task.standardOutput = self.outPipe;
-    if (![self.task launchAndReturnError:&error]) {
+    NSPipe *inPipe = [NSPipe pipe];
+    NSPipe *outPipe = [NSPipe pipe];
+    NSTask *task = [NSTask new];
+    _task = task;
+    task.executableURL = [NSURL fileURLWithPath:executablePath];
+    task.arguments = @[@"--embed"];
+    task.environment = getEnvironment();
+    task.standardInput = inPipe;
+    task.standardOutput = outPipe;
+    task.standardError = nil;
+    if (![task launchAndReturnError:&error]) {
         NVLogW("Launch neovim failed: %s", error.description.cstr);
     } else {
-        NVLogI("Launch neovim success: %s", self.path.cstr);
-        [self openWithRead:self.outPipe.fileHandleForReading.fileDescriptor write:self.inPipe.fileHandleForWriting.fileDescriptor];
+        NVLogI("Launch neovim success - %s", self.info.cstr);
+        [self openWithRead:outPipe.fileHandleForReading.fileDescriptor write:inPipe.fileHandleForWriting.fileDescriptor];
     }
 }
 
@@ -67,8 +67,6 @@
         [self.task waitUntilExit];
         _task = nil;
     }
-    _inPipe = nil;
-    _outPipe = nil;
 }
 
 static inline NSDictionary<NSString *, NSString *> *getEnvironment(void) {

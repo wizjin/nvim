@@ -9,6 +9,7 @@
 #import "nvc_ui.h"
 
 @interface NVClient () {
+@private
     nvc_ui_context_t *ui_ctx;
 }
 
@@ -24,7 +25,11 @@
 }
 
 - (void)openWithRead:(int)read write:(int)write {
-    ui_ctx = nvc_ui_create(read, write, &nvclient_ui_callbacks, (__bridge void *)self);
+    nvc_ui_config_t config;
+    bzero(&config, sizeof(config));
+    config.familyName = ".AppleSystemUIFontMonospaced-Regular";
+    config.fontSize = 20;
+    ui_ctx = nvc_ui_create(read, write, &config, &nvclient_ui_callbacks, (__bridge void *)self);
 }
 
 - (void)close {
@@ -35,12 +40,16 @@
     }
 }
 
-- (void)attachUI {
-    nvc_ui_attach(ui_ctx);
+- (void)attachUIWithSize:(CGSize)size {
+    nvc_ui_attach(ui_ctx, size);
 }
 
 - (void)detachUI {
     nvc_ui_detach(ui_ctx);
+}
+
+- (void)resizeUIWithSize:(CGSize)size {
+    nvc_ui_resize(ui_ctx, size);
 }
 
 static inline void nvclient_ui_flush(void *userdata) {

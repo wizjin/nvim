@@ -6,8 +6,9 @@
 //
 
 #include "nvc_ui.h"
-#import <string>
-#import <map>
+#include <CoreText/CoreText.h>
+#include <string>
+#include <map>
 #include "nvc_rpc.h"
 
 #define nvc_ui_to_context(_ptr, _member)    nv_member_to_struct(nvc_ui_context_t, _ptr, _member)
@@ -15,39 +16,92 @@
 
 typedef int (*nvc_ui_action_t)(nvc_ui_context_t *ctx, int narg);
 
+typedef struct nvc_ui_cell_size {
+    uint32_t width;
+    uint32_t height;
+} nvc_ui_cell_size_t;
+
 struct nvc_ui_context {
     nvc_rpc_context_t   rpc;
     nvc_ui_callback_t   cb;
+    bool                attached;
+    CTFontRef           font;
+    CGSize              cell_size;
+    nvc_ui_cell_size_t  window_size;
 };
 
 static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items);
 static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items);
 
+static const std::string nvc_rpc_empty_str;
+
+#pragma mark - NVC RPC Helper
 static inline const std::string nvc_rpc_read_str(nvc_rpc_context_t *ctx) {
     uint32_t len = 0;
     auto str = nvc_rpc_read_str(ctx, &len);
-    if (likely(str != NULL)) {
-        return std::string(str, len);
+    return likely(str != nullptr) ? std::string(str, len) : nvc_rpc_empty_str;
+}
+
+#pragma mark - NVC UI Helper
+static inline int nvc_ui_init_font(nvc_ui_context_t *ctx, const nvc_ui_config_t *config) {
+    int res = NVC_RC_ILLEGAL_CALL;
+    CFStringRef name = CFStringCreateWithCString(nullptr, config->familyName, CFStringGetSystemEncoding());
+    if (name == nullptr) {
+        res = NVC_RC_MALLOC_ERROR;
+    } else {
+        ctx->font = CTFontCreateWithName(name, config->fontSize, nullptr);
+        if (ctx->font == nullptr) {
+            NVLogW("nvc ui create font failed: %s (%lf)", config->familyName, config->fontSize);
+        } else {
+            CGFloat ascent = CTFontGetAscent(ctx->font);
+            CGFloat descent = CTFontGetDescent(ctx->font);
+            CGFloat leading = CTFontGetLeading(ctx->font);
+            CGFloat height = ceil(ascent + descent + leading);
+            CGGlyph glyph = 0;
+            UniChar capitalM = (UniChar) 0x004D;
+            CGSize advancement = CGSizeZero;
+            CTFontGetGlyphsForCharacters(ctx->font, &capitalM, &glyph, 1);
+            CTFontGetAdvancesForGlyphs(ctx->font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
+            CGFloat width = advancement.width;
+            ctx->cell_size = CGSizeMake(width, height);
+            res = NVC_RC_OK;
+        }
+        CFRelease(name);
     }
-    return std::string();
+    return res;
+}
+
+static inline nvc_ui_cell_size_t nvc_ui_size2cell(nvc_ui_context_t *ctx, CGSize size) {
+    nvc_ui_cell_size_t cell;
+    cell.width = floor(size.width/ctx->cell_size.width);
+    cell.height = floor(size.height/ctx->cell_size.height);
+    return cell;
+}
+
+static inline bool nvc_ui_size_equals(const nvc_ui_cell_size_t& s1, const nvc_ui_cell_size_t& s2) {
+    return s1.width == s2.width && s1.height == s2.height;
 }
 
 #pragma mark - NVC UI API
-nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_callback_t *callback, void *userdata) {
-    nvc_ui_context_t *ctx = NULL;
-    if (inskt != INVALID_SOCKET && outskt != INVALID_SOCKET && callback != NULL) {
+nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *config, const nvc_ui_callback_t *callback, void *userdata) {
+    nvc_ui_context_t *ctx = nullptr;
+    if (inskt != INVALID_SOCKET && outskt != INVALID_SOCKET && config != NULL && callback != NULL) {
         ctx = (nvc_ui_context_t *)malloc(sizeof(nvc_ui_context_t));
-        if (unlikely(ctx == NULL)) {
+        if (unlikely(ctx == nullptr)) {
             NVLogE("nvc ui create context failed");
         } else {
             bzero(ctx, sizeof(nvc_ui_context_t));
             int res = nvc_rpc_init(&ctx->rpc, inskt, outskt, userdata, nvc_ui_response_handler, nvc_ui_notification_handler);
-            if (res == NVC_RPC_RC_OK) {
+            if (res == NVC_RC_OK) {
                 ctx->cb = *callback;
-            } else {
+                ctx->attached = false;
+                res = nvc_ui_init_font(ctx, config);
+            }
+            if (res != NVC_RC_OK) {
+                nvc_ui_destory(ctx);
                 NVLogE("nvc ui init context failed");
                 free(ctx);
-                ctx = NULL;
+                ctx = nullptr;
             }
         }
     }
@@ -55,16 +109,23 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_callback_t *
 }
 
 void nvc_ui_destory(nvc_ui_context_t *ctx) {
-    if (ctx != NULL) {
+    if (ctx != nullptr) {
         nvc_rpc_final(&ctx->rpc);
+        if (ctx->font != nullptr) {
+            CFRelease(ctx->font);
+            ctx->font = nullptr;
+        }
     }
 }
 
-void nvc_ui_attach(nvc_ui_context_t *ctx) {
-    if (likely(ctx != NULL)) {
+void nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
+    if (likely(ctx != nullptr && !ctx->attached)) {
+        ctx->attached = true;
+        ctx->window_size = nvc_ui_size2cell(ctx, size);
+
         nvc_rpc_call_const_begin(&ctx->rpc, "nvim_ui_attach", 3);
-        nvc_rpc_write_unsigned(&ctx->rpc, 80);
-        nvc_rpc_write_unsigned(&ctx->rpc, 40);
+        nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.width);
+        nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.height);
         nvc_rpc_write_map_size(&ctx->rpc, 2);
         nvc_rpc_write_const_str(&ctx->rpc, "override");
         nvc_rpc_write_true(&ctx->rpc);
@@ -75,9 +136,24 @@ void nvc_ui_attach(nvc_ui_context_t *ctx) {
 }
 
 void nvc_ui_detach(nvc_ui_context_t *ctx) {
-    if (likely(ctx != NULL)) {
+    if (likely(ctx != nullptr && ctx->attached)) {
+        ctx->attached = false;
         nvc_rpc_call_const_begin(&ctx->rpc, "nvim_ui_detach", 0);
         nvc_rpc_call_end(&ctx->rpc);
+    }
+}
+
+void nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size) {
+    if (likely(ctx != nullptr && ctx->attached)) {
+        nvc_ui_cell_size_t wnd_size = nvc_ui_size2cell(ctx, size);
+        if (!nvc_ui_size_equals(ctx->window_size, wnd_size)) {
+            ctx->window_size = wnd_size;
+
+            nvc_rpc_call_const_begin(&ctx->rpc, "nvim_ui_try_resize", 2);
+            nvc_rpc_write_unsigned(&ctx->rpc, wnd_size.width);
+            nvc_rpc_write_unsigned(&ctx->rpc, wnd_size.height);
+            nvc_rpc_call_end(&ctx->rpc);
+        }
     }
 }
 
@@ -233,7 +309,7 @@ static inline int nvc_ui_redraw_action_grid_clear(nvc_ui_context_t *ctx, int ite
 }
 
 #define NV_REDRAW_ACTION(action)        { #action, nvc_ui_redraw_action_##action }
-#define NV_REDRAW_ACTION_IGNORE(action) { #action, NULL }
+#define NV_REDRAW_ACTION_IGNORE(action) { #action, nullptr }
 // NOTE: https://neovim.io/doc/user/ui.html
 static const std::map<const std::string, nvc_ui_action_t> nvc_ui_redraw_actions = {
     // Global Events

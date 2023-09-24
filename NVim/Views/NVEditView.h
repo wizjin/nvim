@@ -12,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface NVEditView : NSView
 
 @property (nonatomic, readonly, strong) NSFont *font;
-@property (nonatomic, nullable, strong) NSColor *backgroundColor;
+@property (nonatomic, readwrite, strong) NSColor *backgroundColor;
 
 
 @end

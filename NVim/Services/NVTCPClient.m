@@ -115,7 +115,7 @@ static inline int nv_tcp_client_config_socket(int skt) {
     if (skt != INVALID_SOCKET) {
         for (int i = 0; i < countof(nv_tcp_client_config_socket_handlers); i++) {
             if (nv_tcp_client_config_socket_handlers[i](skt) != 0) {
-                NVLogW("TCP Client config(%d) socket failed: %s", i, strerror(errno));
+                NVLogW("TCP Client config (%d) socket failed: %s", i, strerror(errno));
                 close(skt);
                 skt = INVALID_SOCKET;
                 break;

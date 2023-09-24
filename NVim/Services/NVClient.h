@@ -24,8 +24,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, strong) NSString *info;
 
 - (void)openWithRead:(int)read write:(int)write;
-- (void)attachUI;
+- (void)attachUIWithSize:(CGSize)size;
 - (void)detachUI;
+- (void)resizeUIWithSize:(CGSize)size;
 - (void)close;
 
 

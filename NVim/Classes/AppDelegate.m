@@ -7,11 +7,18 @@
 
 #import "AppDelegate.h"
 #import "NVMainMenu.h"
-#import "NVWindow.h"
+#import "NVEditViewController.h"
+
+#define kNVWindowDefaultStyleMask    (\
+    NSWindowStyleMaskTitled|\
+    NSWindowStyleMaskClosable|\
+    NSWindowStyleMaskMiniaturizable|\
+    NSWindowStyleMaskResizable\
+)
 
 @interface AppDelegate ()
 
-@property (nonatomic, readonly, strong) NVWindow *window;
+@property (nonatomic, readonly, strong) NSWindow *window;
 @property (nonatomic, readonly, strong) NSStatusItem *statusItem;
 
 @end
@@ -26,14 +33,24 @@
     
     NSApp.mainMenu = [NVMainMenu new];
 
-    _window = [NVWindow new];
-    [self.window center];
-    [self.window becomeKeyWindow];
-    [self.window orderFrontRegardless];
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSZeroRect styleMask:kNVWindowDefaultStyleMask backing:NSBackingStoreBuffered defer:NO];
+    _window = window;
+
+    NVEditViewController *controller = [NVEditViewController new];
+    window.releasedWhenClosed = NO;
+    window.titlebarAppearsTransparent = YES;
+    window.backgroundColor = NSColor.windowBackgroundColor;
+    window.contentViewController = controller;
+    window.delegate = controller;
+    window.minSize = NSMakeSize(kNVWindowMinWidth, kNVWindowMinHeight);
+    [window setContentSize:NSMakeSize(kNVWindowDefaultWidth, kNVWindowDefaultHeight)];
+    [window center];
+    [window becomeKeyWindow];
+    [window orderFrontRegardless];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification {
-    [self.window cleanup];
+    [(NVEditViewController *)self.window.contentViewController cleanup];
     if (self.statusItem != nil) {
         [NSStatusBar.systemStatusBar removeStatusItem:self.statusItem];
         _statusItem = nil;

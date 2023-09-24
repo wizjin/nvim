@@ -13,7 +13,6 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 
-
 #define NVC_RPC_KBYTES_BITS                 10 // 1 << 10 == 1KB
 #define NVC_RPC_BUFFER_INIT                 (4   << NVC_RPC_KBYTES_BITS)
 #define NVC_RPC_BUFFER_PREREAD              (16  << NVC_RPC_KBYTES_BITS)
@@ -37,10 +36,10 @@ static inline size_t nvc_msgpack_memory_best_size(size_t kept, size_t more) {
 }
 
 static inline int nvc_unpack_underflow_handler(cw_unpack_context *ptr, size_t more) {
-    int res = CWP_RC_ERROR_IN_HANDLER;
+    int res = NVC_RC_ERROR_IN_HANDLER;
     nvc_rpc_context_t *ctx = nvc_rpc_to_context(ptr, cin);
     if (ctx->cin.return_code == CWP_RC_OK) {
-        res = CWP_RC_OK;
+        res = NVC_RC_OK;
         size_t used = ctx->cin.current - ctx->cin.start;
         size_t remains = ctx->cin.end - ctx->cin.current;
 
@@ -70,7 +69,7 @@ static inline int nvc_unpack_underflow_handler(cw_unpack_context *ptr, size_t mo
             size_t new_inlen = nvc_msgpack_memory_best_size(ctx->inlen, target);
             void *new_indata = realloc(ctx->indata, new_inlen);
             if (unlikely(new_indata == NULL)) {
-                res = CWP_RC_BUFFER_UNDERFLOW;
+                res = NVC_RC_BUFFER_UNDERFLOW;
             } else {
                 ctx->inlen = new_inlen;
                 ctx->indata = (uint8_t *)new_indata;
@@ -79,7 +78,7 @@ static inline int nvc_unpack_underflow_handler(cw_unpack_context *ptr, size_t mo
                 ctx->cin.end = ctx->cin.current + remains;
             }
         }
-        if (likely(res == CWP_RC_OK)) {
+        if (likely(res == NVC_RC_OK)) {
             while (more > 0) {
                 ssize_t n = read(ctx->inskt, ctx->cin.end, more);
                 if (n > 0) {
@@ -88,13 +87,13 @@ static inline int nvc_unpack_underflow_handler(cw_unpack_context *ptr, size_t mo
                     continue;
                 }
                 if (n == 0) {
-                    res = CWP_RC_END_OF_INPUT;
+                    res = NVC_RC_END_OF_INPUT;
                 } else if (n < 0) {
                     if (errno != EBADF) {
                         NVLogW("nvc rpc read data failed: %s", strerror(errno));
                     }
                     ctx->cin.err_no = errno;
-                    res = CWP_RC_ERROR_IN_HANDLER;
+                    res = NVC_RC_ERROR_IN_HANDLER;
                 }
                 break;
             }
@@ -104,10 +103,10 @@ static inline int nvc_unpack_underflow_handler(cw_unpack_context *ptr, size_t mo
 }
 
 static inline int nvc_pack_flush_handler(cw_pack_context *ptr) {
-    int res = CWP_RC_ERROR_IN_HANDLER;
+    int res = NVC_RC_ERROR_IN_HANDLER;
     nvc_rpc_context_t *ctx = nvc_rpc_to_context(ptr, cout);
-    if (ctx->cout.return_code == CWP_RC_OK) {
-        res = CWP_RC_OK;
+    if (ctx->cout.return_code == NVC_RC_OK) {
+        res = NVC_RC_OK;
         size_t contains = ctx->cout.current - ctx->cout.start;
         if (contains > 0) {
             size_t i = 0;
@@ -119,13 +118,13 @@ static inline int nvc_pack_flush_handler(cw_pack_context *ptr) {
                     continue;
                 }
                 if (n == 0) {
-                    res = CWP_RC_END_OF_INPUT;
+                    res = NVC_RC_END_OF_INPUT;
                 } else {
                     if (errno != EBADF) {
                         NVLogW("nvc rpc write data failed: %s", strerror(errno));
                     }
                     ctx->cout.err_no = errno;
-                    res = CWP_RC_ERROR_IN_HANDLER;
+                    res = NVC_RC_ERROR_IN_HANDLER;
                 }
                 break;
             }
@@ -141,7 +140,7 @@ static inline int nvc_pack_flush_handler(cw_pack_context *ptr) {
 
 static inline int nvc_pack_overflow_handler(cw_pack_context *ptr, size_t more) {
     int res = nvc_pack_flush_handler(ptr);
-    if (res == CWP_RC_OK) {
+    if (res == NVC_RC_OK) {
         nvc_rpc_context_t *ctx = nvc_rpc_to_context(ptr, cout);
         size_t kept = ctx->cout.current - ctx->cout.start;
         size_t target = kept + more;
@@ -159,7 +158,7 @@ static inline int nvc_pack_overflow_handler(cw_pack_context *ptr, size_t more) {
             size_t new_datalen = nvc_msgpack_memory_best_size(ctx->outlen, more);
             void *new_outdata = realloc(ctx->outdata, new_datalen);
             if (unlikely(new_outdata == NULL)) {
-                res = CWP_RC_BUFFER_OVERFLOW;
+                res = NVC_RC_BUFFER_OVERFLOW;
             } else {
                 ctx->outlen = new_datalen;
                 ctx->outdata = (uint8_t *)new_outdata;
@@ -174,7 +173,7 @@ static inline int nvc_pack_overflow_handler(cw_pack_context *ptr, size_t more) {
 
 static void *nvc_rpc_routine(void *ptr) {
     nvc_rpc_context_t *ctx = (nvc_rpc_context_t *)ptr;
-    while (likely(ctx->cin.return_code == CWP_RC_OK)) {
+    while (likely(ctx->cin.return_code == NVC_RC_OK)) {
         int items = nvc_rpc_read_array_size(ctx);
         if (likely(items-- > 0)) {
             int rpc_type = nvc_rpc_read_int(ctx);
@@ -196,7 +195,7 @@ static void *nvc_rpc_routine(void *ptr) {
 }
 
 int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *userdata, nvc_rpc_handler response_handler, nvc_rpc_handler notification_handler) {
-    int res = CWP_RC_ILLEGAL_CALL;
+    int res = NVC_RC_ILLEGAL_CALL;
     if (ctx != NULL &&inskt != INVALID_SOCKET && outskt != INVALID_SOCKET && response_handler != NULL && notification_handler != NULL) {
         bzero(ctx, sizeof(nvc_rpc_context_t));
         ctx->uuid = 0;
@@ -209,9 +208,9 @@ int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *userdata, 
         ctx->outlen = NVC_RPC_BUFFER_INIT;
         ctx->indata = (uint8_t *)malloc(ctx->inlen);
         ctx->outdata = (uint8_t *)malloc(ctx->outlen);
-        res = CWP_RC_OK;
+        res = NVC_RC_OK;
         if (unlikely(ctx->indata == NULL || ctx->outdata == NULL)) {
-            res = CWP_RC_MALLOC_ERROR;
+            res = NVC_RC_MALLOC_ERROR;
         }
         if (likely(res == CWP_RC_OK)) {
             res = cw_unpack_context_init(&ctx->cin, ctx->indata, 0, nvc_unpack_underflow_handler);
@@ -227,7 +226,7 @@ int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *userdata, 
                 ctx->worker = NULL;
             }
         }
-        if (res != CWP_RC_OK) {
+        if (res != NVC_RC_OK) {
             nvc_rpc_final(ctx);
         }
     }
