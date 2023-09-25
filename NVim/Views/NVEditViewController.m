@@ -35,13 +35,11 @@
     self.editView.delegate = self;
 }
 
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    @weakify(self);
-    dispatch_main_async(^{
-        @strongify(self);
-        [self.view.window setContentSize:[self.client attachUIWithSize:self.editView.bounds.size]];
-    });
+- (void)viewDidAppear {
+    [super viewDidAppear];
+    if (!self.client.isAttached) {
+        [self updateContentSize:[self.client attachUIWithSize:self.editView.bounds.size]];
+    }
 }
 
 - (void)cleanup {
@@ -51,13 +49,17 @@
     }
 }
 
+- (void)updateContentSize:(CGSize)size {
+    [self.view.window setContentSize:CGSizeMake(size.width + 2, size.height + 8)];
+}
+
 #pragma mark - NSWindowDelegate
 - (void)windowWillClose:(NSNotification *)notification {
     [self.client detachUI];
 }
 
 - (void)windowDidEndLiveResize:(NSNotification *)notification {
-    [self.view.window setContentSize:[self.client resizeUIWithSize:self.editView.bounds.size]];
+    [self updateContentSize:[self.client resizeUIWithSize:self.editView.bounds.size]];
 }
 
 #pragma mark - NVClientDelegate

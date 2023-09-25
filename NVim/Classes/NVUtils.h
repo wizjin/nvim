@@ -53,6 +53,10 @@ extern "C" {
 
 dispatch_queue_t dispatch_queue_create_for(id obj, dispatch_queue_attr_t attr);
 
+static inline void dispatch_main_sync(dispatch_block_t block) {
+    dispatch_sync(dispatch_get_main_queue(), block);
+}
+
 static inline void dispatch_main_async(dispatch_block_t block) {
     dispatch_async(dispatch_get_main_queue(), block);
 }

@@ -24,6 +24,10 @@
     return self;
 }
 
+- (BOOL)isAttached {
+    return nvc_ui_is_attached(ui_ctx);;
+}
+
 - (void)openWithRead:(int)read write:(int)write {
     nvc_ui_config_t config;
     bzero(&config, sizeof(config));
@@ -49,7 +53,8 @@
 }
 
 - (void)redrawUI {
-    nvc_ui_redraw(ui_ctx, NSGraphicsContext.currentContext.CGContext);
+    NSGraphicsContext *context = NSGraphicsContext.currentContext;
+    nvc_ui_redraw(ui_ctx, context.CGContext);
 }
 
 - (CGSize)resizeUIWithSize:(CGSize)size {
@@ -58,7 +63,9 @@
 
 static inline void nvclient_ui_flush(void *userdata) {
     NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
     dispatch_main_async(^{
+        @strongify(client);
         [client.delegate clientFlush:client];
     });
 }
@@ -66,7 +73,9 @@ static inline void nvclient_ui_flush(void *userdata) {
 static inline void nvclient_ui_update_title(void *userdata, const char *str, uint32_t len) {
     NVClient *client = (__bridge NVClient *)userdata;
     NSString *title = [[NSString alloc] initWithBytes:str length:len encoding:NSUTF8StringEncoding];
+    @weakify(client);
     dispatch_main_async(^{
+        @strongify(client);
         [client.delegate client:client updateTitle:title];
     });
 }
@@ -74,21 +83,27 @@ static inline void nvclient_ui_update_title(void *userdata, const char *str, uin
 static inline void nvclient_ui_update_background(void *userdata, nvc_ui_color_t rgb) {
     NVClient *client = (__bridge NVClient *)userdata;
     NSColor *color = [NSColor colorWithRGB:rgb];
+    @weakify(client);
     dispatch_main_async(^{
+        @strongify(client);
         [client.delegate client:client updateBackground:color];
     });
 }
 
 static inline void nvclient_ui_mouse_on(void *userdata) {
     NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
     dispatch_main_async(^{
+        @strongify(client);
         [client.delegate client:client updateMouse:YES];
     });
 }
 
 static inline void nvclient_ui_mouse_off(void *userdata) {
     NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
     dispatch_main_async(^{
+        @strongify(client);
         [client.delegate client:client updateMouse:NO];
     });
 }

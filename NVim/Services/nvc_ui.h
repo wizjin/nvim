@@ -35,6 +35,7 @@ typedef struct nvc_ui_context nvc_ui_context_t;
 
 NVC_API nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *config, const nvc_ui_callback_t *callback, void *userdata);
 NVC_API void nvc_ui_destroy(nvc_ui_context_t *ctx);
+NVC_API bool nvc_ui_is_attached(nvc_ui_context_t *ctx);
 NVC_API CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size);
 NVC_API void nvc_ui_detach(nvc_ui_context_t *ctx);
 NVC_API void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context);

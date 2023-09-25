@@ -25,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, nullable, weak) id<NVClientDelegate> delegate;
 @property (nonatomic, readonly, strong) NSString *info;
 
+- (BOOL)isAttached;
 - (void)openWithRead:(int)read write:(int)write;
 - (CGSize)attachUIWithSize:(CGSize)size;
 - (void)detachUI;

@@ -101,6 +101,7 @@ struct nvc_ui_context {
     nvc_ui_callback_t       cb;
     bool                    attached;
     CTFontRef               font;
+    CGFloat                 font_size;
     std::string             mode;
     int                     mode_idx;
     CGSize                  cell_size;
@@ -125,6 +126,7 @@ static inline int nvc_ui_init_font(nvc_ui_context_t *ctx, const nvc_ui_config_t 
     if (name == nullptr) {
         res = NVC_RC_MALLOC_ERROR;
     } else {
+        ctx->font_size = config->font_size;
         ctx->font = CTFontCreateWithName(name, config->font_size, nullptr);
         if (unlikely(ctx->font == nullptr)) {
             NVLogW("nvc ui create font failed: %s (%lf)", config->family_name, config->font_size);
@@ -216,6 +218,14 @@ void nvc_ui_destroy(nvc_ui_context_t *ctx) {
     }
 }
 
+bool nvc_ui_is_attached(nvc_ui_context_t *ctx) {
+    bool res = false;
+    if (likely(ctx != nullptr)) {
+        res = ctx->attached;
+    }
+    return res;
+}
+
 CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
     if (likely(ctx != nullptr && !ctx->attached)) {
         ctx->attached = true;
@@ -248,6 +258,7 @@ void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context) {
         for (const auto& [key, layer] : ctx->layers) {
             CGContextDrawLayerAtPoint(context, CGPointZero, layer);
         }
+        CGContextFlush(context);
     }
 }
 
@@ -383,11 +394,15 @@ static inline int nvc_ui_redraw_action_grid_resize(nvc_ui_context_t *ctx, int it
             int width = nvc_rpc_read_int(&ctx->rpc);
             int height = nvc_rpc_read_int(&ctx->rpc);
             NVLogD("nvc ui grid resize %d - %dx%d", grid_id, width, height);
-            CGLayerRef layer = CGLayerCreateWithContext(nullptr, nvc_ui_cell2size(ctx, width, height), nullptr);
+            CGSize size = nvc_ui_cell2size(ctx, width, height);
+            CGLayerRef layer = CGLayerCreateWithContext(nullptr, size, nullptr);
             if (layer != nullptr) {
                 CGContextRef context = CGLayerGetContext(layer);
                 CGContextSetShouldAntialias(context, true);
                 CGContextSetShouldSmoothFonts(context, true);
+                CGContextSetTextDrawingMode(context, kCGTextFill);
+                CGContextTranslateCTM(context, 0, size.height);
+                CGContextScaleCTM(context, 1, -1);
             }
             nvc_lock_guard_t guard(ctx->locker);
             auto p = ctx->layers.find(grid_id);
@@ -458,14 +473,51 @@ static inline int nvc_ui_redraw_action_hl_group_set(nvc_ui_context_t *ctx, int i
     return items;
 }
 
-static inline CGLayerRef nvc_ui_find_grid_copy_layer(nvc_ui_context_t *ctx, int grid_id) {
-    CGLayerRef layer = nullptr;
-    nvc_lock_guard_t guard(ctx->locker);
-    auto p = ctx->layers.find(grid_id);
-    if (p != ctx->layers.end()) {
-        layer = CGLayerRetain(p->second);
+static inline UniChar nvc_ui_utf82unicode(const uint8_t *str, uint8_t len) {
+    UniChar unicode = 0;
+    switch (len) {
+        case 1:
+            unicode = str[0];
+            break;
+        case 2:
+            if (str[1] == 0x80) {
+                unicode = ((str[0] << 6) + (str[1]&0x3F))
+                        | (((str[0] >> 2)&0x07) << 8);
+            }
+            break;
+        case 3:
+            if (((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80)) {
+                unicode = ((str[1] << 6) + (str[2]&0x3F))
+                        | (((str[0] << 4) + ((str[1] >> 2)&0x0F)) << 8);
+            }
+            break;
+        case 4:
+            if (((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80) && ((str[3]&0xC0) == 0x80)) {
+                unicode = ((str[2] << 6) + (str[3]&0x3F))
+                        | (((str[1] << 4) + ((str[2] >> 2)&0x0F)) << 8)
+                        | ((((str[0] << 2)&0x1C) + ((str[1] >> 4)&0x03)) << 16);
+            }
+            break;
+        default:
+            NVLogW("nvc ui invalid utf8 %d", len);
+            break;
     }
-    return layer;
+    return unicode;
+}
+
+static inline void nvc_ui_set_fill_color(CGContextRef context, uint32_t rgb) {
+    const uint8_t *c = (const uint8_t *)&rgb;
+    CGFloat color[] = { c[2]/255.0, c[1]/255.0, c[0]/255.0, 1.0 };
+    CGContextSetFillColor(context, color);
+}
+
+static inline uint32_t nvc_ui_get_default_color(nvc_ui_context_t *ctx, nvc_ui_color_code_t code) {
+    uint32_t c = 0;
+    auto p = ctx->default_colors.find(code);
+    if (p != ctx->default_colors.end()) {
+        c = p->second;
+    }
+    return c;
 }
 
 static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int items) {
@@ -477,30 +529,41 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
             int row = nvc_rpc_read_int(&ctx->rpc);
             int col_start = nvc_rpc_read_int(&ctx->rpc);
             int cells = nvc_rpc_read_array_size(&ctx->rpc);
-            CGLayerRef layer = nvc_ui_find_grid_copy_layer(ctx, grid_id);
-            if (layer != nullptr) {
-                std::string output;
+            nvc_lock_guard_t guard(ctx->locker);
+            auto p = ctx->layers.find(grid_id);
+            if (likely(p != ctx->layers.end())) {
+                CGLayerRef layer = p->second;
+                CGContextRef context = CGLayerGetContext(layer);
+                CGPoint pt = CGPointMake(col_start * ctx->cell_size.width, (ctx->window_size.height - row) * ctx->cell_size.height);
+                uint32_t fg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_foreground);
+                nvc_ui_set_fill_color(context, fg);
                 while (cells-- > 0) {
                     int cnum = nvc_rpc_read_array_size(&ctx->rpc);
                     if (likely(cnum-- > 0)) {
-                        auto text = nvc_rpc_read_str(&ctx->rpc);
-                        output += text;
-                        if (cnum >= 2) {
-                            cnum -= 2;
-                            nvc_rpc_read_int(&ctx->rpc); // hl
-                            int repeat = nvc_rpc_read_int(&ctx->rpc);
-                            while (--repeat > 0) {
-                                output += text;
+                        uint32_t len = 0;
+                        const uint8_t *str = (const uint8_t *)nvc_rpc_read_str(&ctx->rpc, &len);
+                        UniChar ch = nvc_ui_utf82unicode(str, len);
+                        if (likely(ch != 0)) {
+                            CGGlyph glyph = 0;
+                            if (likely(CTFontGetGlyphsForCharacters(ctx->font, &ch, &glyph, 1))) {
+                                int repeat = 1;
+                                if (cnum >= 2) {
+                                    cnum -= 2;
+                                    nvc_rpc_read_int(&ctx->rpc); // hl
+                                    repeat = nvc_rpc_read_int(&ctx->rpc);
+                                }
+                                while (--repeat >= 0) {
+                                    CTFontDrawGlyphs(ctx->font, &glyph, &pt, 1, context);
+                                    pt.x += ctx->cell_size.width;
+                                }
                             }
                         }
                     }
                     nvc_rpc_read_skip_items(&ctx->rpc, cnum);
                 }
-                CGLayerRelease(layer);
             }
             nvc_rpc_read_skip_items(&ctx->rpc, cells);
             NVLogD("nvc ui grid line %d row = %d, col_start = %d", grid_id, row, col_start);
-            //NVLogD("Grid line: %s", output.c_str());
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
@@ -686,7 +749,10 @@ static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items) {
             nvc_rpc_read_skip_items(ctx, n);
         }
         if (likely(items-- > 0)) {
-            nvc_rpc_read_skip_items(ctx, nvc_rpc_read_map_size(ctx) * 2);
+            int n = nvc_rpc_read_map_size(ctx);
+            if (n > 0) {
+                nvc_rpc_read_skip_items(ctx, n * 2);
+            }
         }
     }
     return items;
