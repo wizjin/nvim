@@ -543,20 +543,23 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                         uint32_t len = 0;
                         const uint8_t *str = (const uint8_t *)nvc_rpc_read_str(&ctx->rpc, &len);
                         UniChar ch = nvc_ui_utf82unicode(str, len);
+                        int repeat = 1;
+                        if (cnum >= 2) {
+                            cnum -= 2;
+                            nvc_rpc_read_int(&ctx->rpc); // hl
+                            repeat = nvc_rpc_read_int(&ctx->rpc);
+                        }
                         if (likely(ch != 0)) {
                             CGGlyph glyph = 0;
                             if (likely(CTFontGetGlyphsForCharacters(ctx->font, &ch, &glyph, 1))) {
-                                int repeat = 1;
-                                if (cnum >= 2) {
-                                    cnum -= 2;
-                                    nvc_rpc_read_int(&ctx->rpc); // hl
-                                    repeat = nvc_rpc_read_int(&ctx->rpc);
-                                }
                                 while (--repeat >= 0) {
                                     CTFontDrawGlyphs(ctx->font, &glyph, &pt, 1, context);
                                     pt.x += ctx->cell_size.width;
                                 }
                             }
+                        }
+                        if (repeat > 0) {
+                            pt.x += ctx->cell_size.width * repeat;
                         }
                     }
                     nvc_rpc_read_skip_items(&ctx->rpc, cnum);

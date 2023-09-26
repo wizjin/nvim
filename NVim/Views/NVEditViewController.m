@@ -50,7 +50,7 @@
 }
 
 - (void)updateContentSize:(CGSize)size {
-    [self.view.window setContentSize:CGSizeMake(size.width + 2, size.height + 8)];
+    [self.view.window setContentSize:CGSizeMake(size.width, size.height + 8)];
 }
 
 #pragma mark - NSWindowDelegate
