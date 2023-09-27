@@ -15,7 +15,7 @@ NVim GUI For Mac OS X
 
 ### Requirements
 
-- macOS >= v13.3
+- macOS >= v14.0
 - NeoVim >= v0.9.02
 
 ### For developer

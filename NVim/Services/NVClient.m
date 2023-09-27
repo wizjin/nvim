@@ -53,8 +53,7 @@
 }
 
 - (void)redrawUI {
-    NSGraphicsContext *context = NSGraphicsContext.currentContext;
-    nvc_ui_redraw(ui_ctx, context.CGContext);
+    nvc_ui_redraw(ui_ctx, NSGraphicsContext.currentContext.CGContext);
 }
 
 - (CGSize)resizeUIWithSize:(CGSize)size {

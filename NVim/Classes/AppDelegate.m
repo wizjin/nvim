@@ -9,11 +9,11 @@
 #import "NVMainMenu.h"
 #import "NVEditViewController.h"
 
-#define kNVWindowDefaultStyleMask    (\
-    NSWindowStyleMaskTitled|\
-    NSWindowStyleMaskClosable|\
-    NSWindowStyleMaskMiniaturizable|\
-    NSWindowStyleMaskResizable\
+#define kNVWindowDefaultStyleMask    (  \
+    NSWindowStyleMaskTitled |           \
+    NSWindowStyleMaskClosable |         \
+    NSWindowStyleMaskMiniaturizable |   \
+    NSWindowStyleMaskResizable          \
 )
 
 @interface AppDelegate ()

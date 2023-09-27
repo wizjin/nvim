@@ -549,7 +549,7 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                             nvc_rpc_read_int(&ctx->rpc); // hl
                             repeat = nvc_rpc_read_int(&ctx->rpc);
                         }
-                        if (likely(ch != 0)) {
+                        if (likely(ch != 0) && ch != 0x0020) {
                             CGGlyph glyph = 0;
                             if (likely(CTFontGetGlyphsForCharacters(ctx->font, &ch, &glyph, 1))) {
                                 while (--repeat >= 0) {

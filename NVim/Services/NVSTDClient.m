@@ -47,7 +47,7 @@
     NSTask *task = [NSTask new];
     _task = task;
     task.executableURL = [NSURL fileURLWithPath:executablePath];
-    task.arguments = @[@"--embed"];
+    task.arguments = @[@"--headless", @"--embed"];
     task.environment = getEnvironment();
     task.standardInput = inPipe;
     task.standardOutput = outPipe;

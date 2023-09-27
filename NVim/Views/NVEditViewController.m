@@ -80,7 +80,7 @@
 }
 
 #pragma mark - NVEditViewDelegate
-- (void)redrawEditView:(NVEditView *)editView; {
+- (void)redrawEditView:(NVEditView *)editView {
     [self.client redrawUI];
 }
 
