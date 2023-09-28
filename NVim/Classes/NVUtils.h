@@ -80,6 +80,15 @@ static inline void dispatch_main_after(double delta, dispatch_block_t block) {
 
 #define nv_member_to_struct(_struct, _ptr, _member) (_struct *)((intptr_t)(_ptr) - __offsetof(_struct, _member))
 
+#include <stdint.h>
+#include <sys/time.h>
+
+static inline uint64_t get_now_usec(void) {
+    struct timeval  tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1e9) + tv.tv_usec;
+}
+
 #ifdef __cplusplus
 }
 #endif

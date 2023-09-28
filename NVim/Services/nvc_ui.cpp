@@ -35,6 +35,7 @@ typedef int (*nvc_ui_action_t)(nvc_ui_context_t *ctx, int narg);
     NVC_UI_COLOR_CODE(reverse),             \
     NVC_UI_COLOR_CODE(italic),              \
     NVC_UI_COLOR_CODE(bold),                \
+    NVC_UI_COLOR_CODE(nocombine),           \
     NVC_UI_COLOR_CODE(strikethrough),       \
     NVC_UI_COLOR_CODE(underline),           \
     NVC_UI_COLOR_CODE(undercurl),           \
@@ -65,8 +66,6 @@ typedef struct mode_info {
     int         blinkwait;
     int         blinkon;
     int         blinkoff;
-    int         hl_id;
-    int         id_lm;
     int         attr_id;
     int         attr_id_lm;
 } mode_info_t;
@@ -75,6 +74,7 @@ typedef void (*nvc_ui_set_mode_info)(mode_info_t &info, nvc_rpc_context_t *ctx);
 
 #define NVC_UI_SET_MODE_INFO_STR(_action)   { #_action, [](mode_info_t &info, nvc_rpc_context_t *ctx) { info._action = nvc_rpc_read_str(ctx); } }
 #define NVC_UI_SET_MODE_INFO_INT(_action)   { #_action, [](mode_info_t &info, nvc_rpc_context_t *ctx) { info._action = nvc_rpc_read_int(ctx); } }
+#define NVC_UI_SET_MODE_INFO_NULL(_action)  { #_action, nullptr }
 static const std::map<const std::string, nvc_ui_set_mode_info> nvc_ui_set_mode_info_actions = {
     NVC_UI_SET_MODE_INFO_STR(name),
     NVC_UI_SET_MODE_INFO_STR(short_name),
@@ -84,8 +84,8 @@ static const std::map<const std::string, nvc_ui_set_mode_info> nvc_ui_set_mode_i
     NVC_UI_SET_MODE_INFO_INT(blinkwait),
     NVC_UI_SET_MODE_INFO_INT(blinkon),
     NVC_UI_SET_MODE_INFO_INT(blinkoff),
-    NVC_UI_SET_MODE_INFO_INT(hl_id),
-    NVC_UI_SET_MODE_INFO_INT(id_lm),
+    NVC_UI_SET_MODE_INFO_NULL(hl_id),
+    NVC_UI_SET_MODE_INFO_NULL(id_lm),
     NVC_UI_SET_MODE_INFO_INT(attr_id),
     NVC_UI_SET_MODE_INFO_INT(attr_id_lm),
 };
@@ -105,6 +105,7 @@ struct nvc_ui_context {
     std::string             mode;
     int                     mode_idx;
     CGSize                  cell_size;
+    CGFloat                 font_offset;
     nvc_ui_cell_size_t      window_size;
     nvc_ui_colors_set_t     default_colors;
     nvc_ui_colors_set_map_t hl_attrs;
@@ -140,8 +141,9 @@ static inline int nvc_ui_init_font(nvc_ui_context_t *ctx, const nvc_ui_config_t 
             CGSize advancement = CGSizeZero;
             CTFontGetGlyphsForCharacters(ctx->font, &capitalM, &glyph, 1);
             CTFontGetAdvancesForGlyphs(ctx->font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
-            CGFloat width = advancement.width;
+            CGFloat width = ceil(advancement.width);
             ctx->cell_size = CGSizeMake(width, height);
+            ctx->font_offset = descent;
             res = NVC_RC_OK;
         }
         CFRelease(name);
@@ -294,25 +296,27 @@ static inline int nvc_ui_redraw_action_mode_info_set(nvc_ui_context_t *ctx, int 
         if (likely(narg >= 2)) {
             narg -= 2;
             bool enabled = nvc_rpc_read_bool(&ctx->rpc);
-            int n = nvc_rpc_read_array_size(&ctx->rpc);
             mode_info_list_t mode_infos;
-            for (int i = 0; i < n; i++) {
-                int mn = nvc_rpc_read_map_size(&ctx->rpc);
+            for (int n = nvc_rpc_read_array_size(&ctx->rpc); n > 0; n--) {
                 mode_info_t info;
-                for (int j = 0; j < mn; j++) {
+                for (int mn = nvc_rpc_read_map_size(&ctx->rpc); mn > 0; mn--) {
                     auto name = nvc_rpc_read_str(&ctx->rpc);
                     auto p = nvc_ui_set_mode_info_actions.find(name);
-                    if (likely(p != nvc_ui_set_mode_info_actions.end())) {
-                        p->second(info, &ctx->rpc);
-                    } else {
+                    if (unlikely(p == nvc_ui_set_mode_info_actions.end())) {
                         nvc_rpc_read_skip_items(&ctx->rpc, 1);
                         NVLogW("nvc ui unknown mode info: %s", name.c_str());
+                    } else {
+                        if (p->second != nullptr) {
+                            p->second(info, &ctx->rpc);
+                        } else {
+                            nvc_rpc_read_skip_items(&ctx->rpc, 1);
+                        }
                     }
                 }
                 mode_infos.push_back(info);
             }
             ctx->mode_infos = mode_infos;
-            NVLogD("nvc ui mode info set: enabled=%d, size=%d", (int)enabled, n);
+            NVLogD("nvc ui mode info set: enabled=%d", (int)enabled);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
@@ -399,7 +403,7 @@ static inline int nvc_ui_redraw_action_grid_resize(nvc_ui_context_t *ctx, int it
             if (layer != nullptr) {
                 CGContextRef context = CGLayerGetContext(layer);
                 CGContextSetShouldAntialias(context, true);
-                CGContextSetShouldSmoothFonts(context, true);
+                CGContextSetShouldSmoothFonts(context, false);
                 CGContextSetTextDrawingMode(context, kCGTextFill);
                 CGContextTranslateCTM(context, 0, size.height);
                 CGContextScaleCTM(context, 1, -1);
@@ -436,14 +440,13 @@ static inline int nvc_ui_redraw_action_default_colors_set(nvc_ui_context_t *ctx,
 }
 
 static inline int nvc_ui_redraw_action_hl_attr_define(nvc_ui_context_t *ctx, int items) {
-    if (likely(items-- > 0)) {
+    while (items-- > 0) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg >= 2)) {
             narg -= 2;
             int hl_id = nvc_rpc_read_int(&ctx->rpc);
             nvc_ui_colors_set_t colors;
-            int items = nvc_rpc_read_map_size(&ctx->rpc);
-            for (int i = 0; i < items; i++) {
+            for (int mn = nvc_rpc_read_map_size(&ctx->rpc); mn > 0; mn--) {
                 auto key = nvc_rpc_read_str(&ctx->rpc);
                 auto p = nvc_ui_color_name_table.find(key);
                 if (unlikely(p != nvc_ui_color_name_table.end())) {
@@ -461,7 +464,7 @@ static inline int nvc_ui_redraw_action_hl_attr_define(nvc_ui_context_t *ctx, int
 }
 
 static inline int nvc_ui_redraw_action_hl_group_set(nvc_ui_context_t *ctx, int items) {
-    if (likely(items-- > 0)) {
+    while (items-- > 0) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg >= 2)) {
             narg -= 2;
@@ -507,8 +510,7 @@ static inline UniChar nvc_ui_utf82unicode(const uint8_t *str, uint8_t len) {
 
 static inline void nvc_ui_set_fill_color(CGContextRef context, uint32_t rgb) {
     const uint8_t *c = (const uint8_t *)&rgb;
-    CGFloat color[] = { c[2]/255.0, c[1]/255.0, c[0]/255.0, 1.0 };
-    CGContextSetFillColor(context, color);
+    CGContextSetRGBFillColor(context, c[2]/255.0, c[1]/255.0, c[0]/255.0, 1.0);
 }
 
 static inline uint32_t nvc_ui_get_default_color(nvc_ui_context_t *ctx, nvc_ui_color_code_t code) {
@@ -520,8 +522,19 @@ static inline uint32_t nvc_ui_get_default_color(nvc_ui_context_t *ctx, nvc_ui_co
     return c;
 }
 
+static inline uint32_t nvc_ui_find_hl_color(nvc_ui_context_t *ctx, int hl, nvc_ui_color_code_t code) {
+    auto p = ctx->hl_attrs.find(hl);
+    if (p != ctx->hl_attrs.end()) {
+        auto q = p->second.find(code);
+        if (q != p->second.end()) {
+            return q->second;
+        }
+    }
+    return nvc_ui_get_default_color(ctx, code);
+}
+
 static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int items) {
-    if (items-- > 0) {
+    while (items-- > 0) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg > 4)) {
             narg -= 4;
@@ -536,7 +549,7 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                 CGContextRef context = CGLayerGetContext(layer);
                 CGPoint pt = CGPointMake(col_start * ctx->cell_size.width, (ctx->window_size.height - row) * ctx->cell_size.height);
                 uint32_t fg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_foreground);
-                nvc_ui_set_fill_color(context, fg);
+                uint32_t bg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_background);
                 while (cells-- > 0) {
                     int cnum = nvc_rpc_read_array_size(&ctx->rpc);
                     if (likely(cnum-- > 0)) {
@@ -544,15 +557,21 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                         const uint8_t *str = (const uint8_t *)nvc_rpc_read_str(&ctx->rpc, &len);
                         UniChar ch = nvc_ui_utf82unicode(str, len);
                         int repeat = 1;
-                        if (cnum >= 2) {
-                            cnum -= 2;
-                            nvc_rpc_read_int(&ctx->rpc); // hl
+                        if (cnum-- > 0) {
+                            int hl = nvc_rpc_read_int(&ctx->rpc);
+                            fg = nvc_ui_find_hl_color(ctx, hl, nvc_ui_color_code_foreground);
+                            bg = nvc_ui_find_hl_color(ctx, hl, nvc_ui_color_code_background);
+                        }
+                        if (cnum-- > 0) {
                             repeat = nvc_rpc_read_int(&ctx->rpc);
                         }
+                        nvc_ui_set_fill_color(context, bg);
+                        CGContextFillRect(context, CGRectMake(pt.x, pt.y - ctx->font_offset, ceil(ctx->cell_size.width * repeat), ctx->cell_size.height));
                         if (likely(ch != 0) && ch != 0x0020) {
                             CGGlyph glyph = 0;
                             if (likely(CTFontGetGlyphsForCharacters(ctx->font, &ch, &glyph, 1))) {
-                                while (--repeat >= 0) {
+                                nvc_ui_set_fill_color(context, fg);
+                                while (repeat-- > 0) {
                                     CTFontDrawGlyphs(ctx->font, &glyph, &pt, 1, context);
                                     pt.x += ctx->cell_size.width;
                                 }
@@ -564,9 +583,9 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                     }
                     nvc_rpc_read_skip_items(&ctx->rpc, cnum);
                 }
+                CGContextFlush(context);
             }
             nvc_rpc_read_skip_items(&ctx->rpc, cells);
-            NVLogD("nvc ui grid line %d row = %d, col_start = %d", grid_id, row, col_start);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
@@ -721,7 +740,7 @@ static inline int nvc_ui_notification_action_redraw(nvc_ui_context_t *ctx, int i
             auto p = nvc_ui_redraw_actions.find(action);
             if (unlikely(p == nvc_ui_redraw_actions.end())) {
                 NVLogW("nvc ui unknown redraw action: %s", action.c_str());
-            } else if (p->second != NULL) {
+            } else if (p->second != nullptr) {
                 //NVLogW("nvc ui redraw action: %s", action.c_str());
                 narg = p->second(ctx, narg);
             }
