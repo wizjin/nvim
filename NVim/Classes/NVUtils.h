@@ -65,6 +65,16 @@ static inline void dispatch_main_after(double delta, dispatch_block_t block) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delta * NSEC_PER_SEC)), dispatch_get_main_queue(), block);
 }
 
+#else
+
+#ifndef MIN
+#   define MIN(A,B)                         ({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __a : __b; })
+#endif
+
+#ifndef MAX
+#   define MAX(A,B)                         ({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __b : __a; })
+#endif
+
 #endif /* __OBJC__ */
 
 #define likely(x)               __builtin_expect(!!(x), 1)

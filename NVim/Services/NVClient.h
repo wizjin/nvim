@@ -13,7 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol NVClientDelegate <NSObject>
 @optional
-- (void)clientFlush:(NVClient *)client;
+- (void)client:(NVClient *)client flush:(CGRect)dirty;
 - (void)client:(NVClient *)client updateTitle:(NSString *)title;
 - (void)client:(NVClient *)client updateBackground:(NSColor *)color;
 - (void)client:(NVClient *)client updateMouse:(BOOL)enabled;
@@ -29,7 +29,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)openWithRead:(int)read write:(int)write;
 - (CGSize)attachUIWithSize:(CGSize)size;
 - (void)detachUI;
-- (void)redrawUI:(CGContextRef)ctx;
+- (void)redrawUI:(CGContextRef)ctx dirty:(CGRect)dirty;
 - (CGSize)resizeUIWithSize:(CGSize)size;
 - (void)close;
 

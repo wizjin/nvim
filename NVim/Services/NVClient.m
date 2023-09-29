@@ -52,20 +52,20 @@
     nvc_ui_detach(ui_ctx);
 }
 
-- (void)redrawUI:(CGContextRef)ctx {
-    nvc_ui_redraw(ui_ctx, ctx);
+- (void)redrawUI:(CGContextRef)ctx dirty:(CGRect)dirty {
+    nvc_ui_redraw(ui_ctx, ctx, dirty);
 }
 
 - (CGSize)resizeUIWithSize:(CGSize)size {
     return nvc_ui_resize(ui_ctx, size);
 }
 
-static inline void nvclient_ui_flush(void *userdata) {
+static inline void nvclient_ui_flush(void *userdata, CGRect dirty) {
     NVClient *client = (__bridge NVClient *)userdata;
     @weakify(client);
     dispatch_main_async(^{
         @strongify(client);
-        [client.delegate clientFlush:client];
+        [client.delegate client:client flush:dirty];
     });
 }
 

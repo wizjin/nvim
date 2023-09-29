@@ -14,7 +14,7 @@
 #define kNVWindowMinHeight      240
 #define kNVWindowDefaultWidth   800
 #define kNVWindowDefaultHeight  560
-#define kNVContentMarginWidth   2
+#define kNVContentMarginWidth   4
 #define kNVContentMarginHeight  8
 //#define kNVDefaultFamilyName    ".AppleSystemUIFontMonospaced-Regular"
 #define kNVDefaultFamilyName    "MesloLGS NF"

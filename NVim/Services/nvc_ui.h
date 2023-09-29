@@ -19,7 +19,7 @@ extern "C" {
 typedef uint32_t    nvc_ui_color_t;
 
 typedef struct nvc_ui_callback {
-    void (*flush)(void *userdata);
+    void (*flush)(void *userdata, CGRect dirty);
     void (*update_title)(void *userdata, const char *str, uint32_t len);
     void (*update_background)(void *userdata, nvc_ui_color_t rgb);
     void (*mouse_on)(void *userdata);
@@ -38,7 +38,7 @@ NVC_API void nvc_ui_destroy(nvc_ui_context_t *ctx);
 NVC_API bool nvc_ui_is_attached(nvc_ui_context_t *ctx);
 NVC_API CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size);
 NVC_API void nvc_ui_detach(nvc_ui_context_t *ctx);
-NVC_API void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context);
+NVC_API void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context, CGRect dirty);
 NVC_API CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size);
 
 #ifdef __cplusplus

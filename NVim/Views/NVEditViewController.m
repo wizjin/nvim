@@ -30,10 +30,9 @@
 }
 
 - (void)loadView {
-    NVEditView *editView = [NVEditView new];
-    self.view = editView;
-    _editView = editView;
-    editView.delegate = self;
+    _editView = [NVEditView new];
+    self.view = self.editView;
+    self.editView.delegate = self;
 }
 
 - (void)viewDidAppear {
@@ -64,8 +63,8 @@
 }
 
 #pragma mark - NVClientDelegate
-- (void)clientFlush:(NVClient *)client {
-    [self.editView setNeedsDisplayInRect:self.editView.bounds];
+- (void)client:(NVClient *)client flush:(CGRect)dirty {
+    [self.editView setNeedsDisplayInRect:dirty];
 }
 
 - (void)client:(NVClient *)client updateTitle:(NSString *)title {
@@ -73,16 +72,16 @@
 }
 
 - (void)client:(NVClient *)client updateBackground:(NSColor *)color {
-    self.view.window.backgroundColor = color;
+    self.editView.layer.backgroundColor = color.CGColor;
 }
 
 - (void)client:(NVClient *)client updateMouse:(BOOL)enabled {
-    self.view.window.ignoresMouseEvents = !enabled;
+    self.editView.window.ignoresMouseEvents = !enabled;
 }
 
 #pragma mark - NVEditViewDelegate
-- (void)redrawEditView:(NVEditView *)editView inContext:(CGContextRef)ctx {
-    [self.client redrawUI:ctx];
+- (void)redrawEditView:(NVEditView *)editView inContext:(CGContextRef)ctx dirty:(CGRect)dirty {
+    [self.client redrawUI:ctx dirty:dirty];
 }
 
 #pragma mark - Helper
