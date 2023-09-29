@@ -12,5 +12,17 @@
 #include "NVLogger.h"
 #include "NVUtils.h"
 
+#ifdef __OBJC__
+
+#if __has_include(<Foundation/NSString.h>)
+#   import "NSString+Localized.h"
+#   import "NSString+NVExt.h"
+#endif
+
+#if __has_include(<AppKit/NSColor.h>)
+#   import "NSColor+NVExt.h"
+#endif
+
+#endif /* __OBJC__ */
 
 #endif /* __NVIM_PCH__ */

@@ -1,0 +1,122 @@
+//
+//  NVEditViewController.m
+//  NVim
+//
+//  Created by wizjin on 2023/9/24.
+//
+
+#import "NVEditViewController.h"
+#import "NVEditView.h"
+#import "NVTabView.h"
+#import "NVTCPClient.h"
+#import "NVSTDClient.h"
+
+@interface NVEditViewController () <NVClientDelegate, NVEditViewDelegate>
+
+@property (nonatomic, readonly, strong) NVClient *client;
+@property (nonatomic, readonly, strong) NVTabView *tabView;
+@property (nonatomic, readonly, strong) NVEditView *editView;
+
+@end
+
+@implementation NVEditViewController
+
+- (instancetype)init {
+    if (self = [super initWithNibName:nil bundle:nil]) {
+        _client = [NVSTDClient new];
+        //_client = [[NVSTDClient alloc] initWithPath:@"/usr/local/bin/nvim"];
+        //_client = [[NVTCPClient alloc] initWithHost:@"127.0.0.1" port:6666];
+        self.client.delegate = self;
+    }
+    return self;
+}
+
+- (void)loadView {
+    self.view = [NVView new];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    NVTabView *tabView = [[NVTabView alloc] initWithFrame:NSMakeRect(0, 0, NSWidth(self.view.bounds), kNVTabViewDefaultHeight)];
+    [self.view addSubview:(_tabView = tabView)];
+    NVEditView *editView = [NVEditView new];
+    [self.view addSubview:(_editView = editView)];
+    editView.delegate = self;
+}
+
+- (void)viewDidAppear {
+    [super viewDidAppear];
+    if (!self.client.isAttached) {
+        [self updateContentSize:[self.client attachUIWithSize:self.contentUISize]];
+    }
+}
+
+- (void)viewDidLayout {
+    [super viewDidLayout];
+    CGRect bounds = self.view.bounds;
+    CGFloat tabHeight = NSHeight(self.tabView.bounds);
+    CGFloat width = NSWidth(bounds) - kNVContentMarginWidth;
+    self.tabView.frame = CGRectMake(kNVContentMarginWidth/2, 0, width, tabHeight);
+    self.editView.frame = CGRectMake(kNVContentMarginWidth/2, tabHeight, width, NSHeight(bounds) - tabHeight);;
+}
+
+- (void)cleanup {
+    if (self.client != nil) {
+        [self.client close];
+        _client = nil;
+    }
+}
+
+- (void)updateContentSize:(CGSize)size {
+    self.editView.contentSize = size;
+}
+
+#pragma mark - NSWindowDelegate
+- (void)windowWillClose:(NSNotification *)notification {
+    [self.client detachUI];
+}
+
+- (void)windowDidEndLiveResize:(NSNotification *)notification {
+    [self updateContentSize:[self.client resizeUIWithSize:self.contentUISize]];
+}
+
+#pragma mark - NVClientDelegate
+- (void)client:(NVClient *)client flush:(CGRect)dirty {
+    [self.editView setNeedsDisplayInRect:dirty];
+}
+
+- (void)client:(NVClient *)client updateTitle:(NSString *)title {
+    self.title = (title != nil ? title : @"");
+}
+
+- (void)client:(NVClient *)client updateBackground:(NSColor *)color {
+    self.editView.backgroundColor = color;
+}
+
+- (void)client:(NVClient *)client updateTabBackground:(NSColor *)color {
+    self.tabView.backgroundColor = color;
+}
+
+- (void)client:(NVClient *)client updateTabList:(BOOL)listUpdated {
+    // TODO: Notify tab changed
+}
+
+- (void)client:(NVClient *)client updateMouse:(BOOL)enabled {
+    self.editView.window.ignoresMouseEvents = !enabled;
+}
+
+#pragma mark - NVEditViewDelegate
+- (void)redrawEditView:(NVEditView *)editView inContext:(CGContextRef)ctx dirty:(CGRect)dirty {
+    [self.client redrawUI:ctx dirty:dirty];
+}
+
+#pragma mark - Helper
+- (CGSize)contentUISize {
+    CGSize size = self.view.bounds.size;
+    size.width -= kNVContentMarginWidth;
+    size.height -= kNVContentMarginHeight + NSHeight(self.tabView.bounds);
+    return size;
+}
+
+
+@end
