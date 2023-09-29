@@ -323,6 +323,30 @@ int nvc_rpc_read_map_size(nvc_rpc_context_t *ctx) {
     return items;
 }
 
+static inline nvc_rpc_object_handler_t nvc_rpc_parse_ext_handle(const uint8_t *data, uint32_t len) {
+    nvc_rpc_object_handler_t res = 0;
+    for (int i = 0; i < len; i++) {
+        res |= data[i] << (i*8);
+    }
+    return res;
+}
+
+nvc_rpc_object_handler_t nvc_rpc_read_ext_handle(nvc_rpc_context_t *ctx) {
+    nvc_rpc_object_handler_t handle = 0;
+    switch (cw_look_ahead(&ctx->cin)) {
+        case CWP_ITEM_USER_EXT_0:
+        case CWP_ITEM_USER_EXT_1:
+        case CWP_ITEM_USER_EXT_2:
+            cw_unpack_next(&ctx->cin);
+            handle = nvc_rpc_parse_ext_handle(ctx->cin.item.as.ext.start, ctx->cin.item.as.ext.length);
+            break;
+        default:
+            cw_skip_items(&ctx->cin, 1);
+            break;
+    }
+    return handle;
+}
+
 uint64_t nvc_rpc_call_begin(nvc_rpc_context_t *ctx, const char *method, int method_len, int narg) {
     uint64_t uuid = nvc_rpc_get_next_uuid(ctx);
     nvc_rpc_write_array_size(ctx, 4);

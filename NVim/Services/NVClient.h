@@ -16,6 +16,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)client:(NVClient *)client flush:(CGRect)dirty;
 - (void)client:(NVClient *)client updateTitle:(NSString *)title;
 - (void)client:(NVClient *)client updateBackground:(NSColor *)color;
+- (void)client:(NVClient *)client updateTabBackground:(NSColor *)color;
+- (void)client:(NVClient *)client updateTabList:(BOOL)listUpdated;
 - (void)client:(NVClient *)client updateMouse:(BOOL)enabled;
 
 @end

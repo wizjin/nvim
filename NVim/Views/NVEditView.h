@@ -5,7 +5,7 @@
 //  Created by wizjin on 2023/9/12.
 //
 
-#import <AppKit/AppKit.h>
+#import "NVView.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -15,9 +15,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)redrawEditView:(NVEditView *)editView inContext:(CGContextRef)ctx dirty:(CGRect)dirty;
 @end
 
-@interface NVEditView : NSView
+@interface NVEditView : NVView
 
-@property (nonatomic, readwrite, assign) CGRect contentRect;
+@property (nonatomic, readwrite, assign) CGSize contentSize;
 @property (nonatomic, readwrite, strong) NSColor *backgroundColor;
 @property (nonatomic, nullable, weak) id<NVEditViewDelegate> delegate;
 

@@ -16,14 +16,17 @@
     return self;
 }
 
-- (BOOL)isFlipped {
-    return YES;
+- (void)setBackgroundColor:(NSColor *)backgroundColor {
+    if (![self.backgroundColor isEqualTo:backgroundColor]) {
+        _backgroundColor = backgroundColor;
+        self.layer.backgroundColor = backgroundColor.CGColor;
+    }
 }
 
 - (void)drawRect:(NSRect)dirtyRect {
     if (!self.inLiveResize) {
         CGContextRef context = NSGraphicsContext.currentContext.CGContext;
-        CGContextTranslateCTM(context, CGRectGetMinX(self.contentRect), CGRectGetHeight(self.contentRect));
+        CGContextTranslateCTM(context, 0, self.contentSize.height);
         CGContextScaleCTM(context, 1, -1);
         [self.delegate redrawEditView:self inContext:context dirty:dirtyRect];
         CGContextFlush(context);

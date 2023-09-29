@@ -49,6 +49,7 @@
     task.executableURL = [NSURL fileURLWithPath:executablePath];
     task.arguments = @[@"--embed"];
     task.environment = getEnvironment();
+    task.currentDirectoryURL = getWorkDirectoryURL(task.currentDirectoryURL);
     task.standardInput = inPipe;
     task.standardOutput = outPipe;
     task.standardError = nil;
@@ -69,11 +70,28 @@
     }
 }
 
-static inline NSDictionary<NSString *, NSString *> *getEnvironment(void) {
-    NSMutableDictionary<NSString *, NSString *> *environment = [NSMutableDictionary dictionaryWithDictionary:NSProcessInfo.processInfo.environment];
+static inline NSString *getHomeDirectory(void) {
+    NSString *home = nil;
     struct passwd* pwd = getpwuid(getuid());
     if (pwd != NULL) {
-        [environment setValue:[[NSString alloc] initWithCString:pwd->pw_dir encoding:NSUTF8StringEncoding] forKey:@"HOME"];
+        home = [[NSString alloc] initWithCString:pwd->pw_dir encoding:NSUTF8StringEncoding];
+    }
+    return home;
+}
+
+static inline NSURL *getWorkDirectoryURL(NSURL *current) {
+    NSString *home = getHomeDirectory();
+    if (home.length > 0) {
+        current = [NSURL fileURLWithPath:home];
+    }
+    return current;
+}
+
+static inline NSDictionary<NSString *, NSString *> *getEnvironment(void) {
+    NSMutableDictionary<NSString *, NSString *> *environment = [NSMutableDictionary dictionaryWithDictionary:NSProcessInfo.processInfo.environment];
+    NSString *home = getHomeDirectory();
+    if (home.length > 0) {
+        [environment setValue:home forKey:@"HOME"];
     }
     return environment;
 }

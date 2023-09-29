@@ -22,6 +22,8 @@ typedef struct nvc_ui_callback {
     void (*flush)(void *userdata, CGRect dirty);
     void (*update_title)(void *userdata, const char *str, uint32_t len);
     void (*update_background)(void *userdata, nvc_ui_color_t rgb);
+    void (*update_tab_background)(void *userdata, nvc_ui_color_t rgb);
+    void (*update_tab_list)(void *userdata, bool list_updated);
     void (*mouse_on)(void *userdata);
     void (*mouse_off)(void *userdata);
 } nvc_ui_callback_t;

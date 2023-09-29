@@ -7,12 +7,14 @@
 
 #import "NVEditViewController.h"
 #import "NVEditView.h"
+#import "NVTabView.h"
 #import "NVTCPClient.h"
 #import "NVSTDClient.h"
 
 @interface NVEditViewController () <NVClientDelegate, NVEditViewDelegate>
 
 @property (nonatomic, readonly, strong) NVClient *client;
+@property (nonatomic, readonly, strong) NVTabView *tabView;
 @property (nonatomic, readonly, strong) NVEditView *editView;
 
 @end
@@ -30,16 +32,32 @@
 }
 
 - (void)loadView {
-    _editView = [NVEditView new];
-    self.view = self.editView;
-    self.editView.delegate = self;
+    self.view = [NVView new];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    NVTabView *tabView = [[NVTabView alloc] initWithFrame:NSMakeRect(0, 0, NSWidth(self.view.bounds), kNVTabViewDefaultHeight)];
+    [self.view addSubview:(_tabView = tabView)];
+    NVEditView *editView = [NVEditView new];
+    [self.view addSubview:(_editView = editView)];
+    editView.delegate = self;
 }
 
 - (void)viewDidAppear {
     [super viewDidAppear];
     if (!self.client.isAttached) {
-        [self updateContentSize:[self.client attachUIWithSize:convertToUISize(self.editView.bounds.size)]];
+        [self updateContentSize:[self.client attachUIWithSize:self.contentUISize]];
     }
+}
+
+- (void)viewDidLayout {
+    [super viewDidLayout];
+    CGRect bounds = self.view.bounds;
+    CGFloat tabHeight = NSHeight(self.tabView.bounds);
+    CGFloat width = NSWidth(bounds) - kNVContentMarginWidth;
+    self.tabView.frame = CGRectMake(kNVContentMarginWidth/2, 0, width, tabHeight);
+    self.editView.frame = CGRectMake(kNVContentMarginWidth/2, tabHeight, width, NSHeight(bounds) - tabHeight);;
 }
 
 - (void)cleanup {
@@ -50,7 +68,7 @@
 }
 
 - (void)updateContentSize:(CGSize)size {
-    self.editView.contentRect = NSMakeRect(kNVContentMarginWidth/2, 0, size.width, size.height);
+    self.editView.contentSize = size;
 }
 
 #pragma mark - NSWindowDelegate
@@ -59,7 +77,7 @@
 }
 
 - (void)windowDidEndLiveResize:(NSNotification *)notification {
-    [self updateContentSize:[self.client resizeUIWithSize:convertToUISize(self.editView.bounds.size)]];
+    [self updateContentSize:[self.client resizeUIWithSize:self.contentUISize]];
 }
 
 #pragma mark - NVClientDelegate
@@ -72,7 +90,15 @@
 }
 
 - (void)client:(NVClient *)client updateBackground:(NSColor *)color {
-    self.editView.layer.backgroundColor = color.CGColor;
+    self.editView.backgroundColor = color;
+}
+
+- (void)client:(NVClient *)client updateTabBackground:(NSColor *)color {
+    self.tabView.backgroundColor = color;
+}
+
+- (void)client:(NVClient *)client updateTabList:(BOOL)listUpdated {
+    // TODO: Notify tab changed
 }
 
 - (void)client:(NVClient *)client updateMouse:(BOOL)enabled {
@@ -85,8 +111,11 @@
 }
 
 #pragma mark - Helper
-static inline CGSize convertToUISize(const CGSize size) {
-    return CGSizeMake(size.width - kNVContentMarginWidth, size.height - kNVContentMarginHeight);
+- (CGSize)contentUISize {
+    CGSize size = self.view.bounds.size;
+    size.width -= kNVContentMarginWidth;
+    size.height -= kNVContentMarginHeight + NSHeight(self.tabView.bounds);
+    return size;
 }
 
 

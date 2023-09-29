@@ -16,6 +16,7 @@ extern "C" {
 
 #include "cwpack.h"
 
+typedef uint64_t nvc_rpc_object_handler_t;
 typedef struct nvc_rpc_context nvc_rpc_context_t;
 typedef int (*nvc_rpc_handler)(nvc_rpc_context_t *ctx, int items);
 
@@ -44,6 +45,7 @@ NVC_API int64_t nvc_rpc_read_int64(nvc_rpc_context_t *ctx);
 NVC_API const char *nvc_rpc_read_str(nvc_rpc_context_t *ctx, uint32_t *len);
 NVC_API int nvc_rpc_read_array_size(nvc_rpc_context_t *ctx);
 NVC_API int nvc_rpc_read_map_size(nvc_rpc_context_t *ctx);
+NVC_API nvc_rpc_object_handler_t nvc_rpc_read_ext_handle(nvc_rpc_context_t *ctx);
 NVC_API uint64_t nvc_rpc_call_begin(nvc_rpc_context_t *ctx, const char *method, int method_len, int narg);
 NVC_API void nvc_rpc_call_end(nvc_rpc_context_t *ctx);
 

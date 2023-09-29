@@ -34,11 +34,14 @@
     config.family_name = kNVDefaultFamilyName;
     config.font_size = kNVDefaultFontSize;
     ui_ctx = nvc_ui_create(read, write, &config, &nvclient_ui_callbacks, (__bridge void *)self);
+    if (ui_ctx != nil) {
+        NVLogI("NV Client open connect success - %s", self.info.cstr);
+    }
 }
 
 - (void)close {
     if (ui_ctx != NULL) {
-        NVLogD("TCP Client close connect success - %s", self.info.cstr);
+        NVLogI("NV Client close connect success - %s", self.info.cstr);
         nvc_ui_destroy(ui_ctx);
         ui_ctx = NULL;
     }
@@ -89,6 +92,25 @@ static inline void nvclient_ui_update_background(void *userdata, nvc_ui_color_t 
     });
 }
 
+static inline void nvclient_ui_update_tab_background(void *userdata, nvc_ui_color_t rgb) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    NSColor *color = [NSColor colorWithRGB:rgb];
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate client:client updateTabBackground:color];
+    });
+}
+
+static inline void nvclient_ui_update_tab_list(void *userdata, bool list_updated) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate client:client updateTabList:list_updated];
+    });
+}
+
 static inline void nvclient_ui_mouse_on(void *userdata) {
     NVClient *client = (__bridge NVClient *)userdata;
     @weakify(client);
@@ -112,6 +134,8 @@ static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(flush),
     NVCLIENT_CALLBACK(update_title),
     NVCLIENT_CALLBACK(update_background),
+    NVCLIENT_CALLBACK(update_tab_background),
+    NVCLIENT_CALLBACK(update_tab_list),
     NVCLIENT_CALLBACK(mouse_on),
     NVCLIENT_CALLBACK(mouse_off),
 };

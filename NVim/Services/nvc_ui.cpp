@@ -14,6 +14,7 @@
 #include "nvc_rpc.h"
 
 #define kNvcUiCacheGlyphMax                 127
+#define kNvcUiCacheGlyphSize                512
 
 #define nvc_ui_to_context(_ptr, _member)    nv_member_to_struct(nvc_ui_context_t, _ptr, _member)
 #define nvc_ui_get_userdata(_ctx)           nvc_rpc_get_userdata(&(_ctx)->rpc)
@@ -81,9 +82,13 @@ typedef struct mode_info {
 
 typedef void (*nvc_ui_set_mode_info)(mode_info_t &info, nvc_rpc_context_t *ctx);
 
+static inline void nvc_ui_set_mode_info_null(mode_info_t &info, nvc_rpc_context_t *ctx) {
+    nvc_rpc_read_skip_items(ctx, 1);
+}
+
 #define NVC_UI_SET_MODE_INFO_STR(_action)   { #_action, [](mode_info_t &info, nvc_rpc_context_t *ctx) { info._action = nvc_rpc_read_str(ctx); } }
 #define NVC_UI_SET_MODE_INFO_INT(_action)   { #_action, [](mode_info_t &info, nvc_rpc_context_t *ctx) { info._action = nvc_rpc_read_int(ctx); } }
-#define NVC_UI_SET_MODE_INFO_NULL(_action)  { #_action, nullptr }
+#define NVC_UI_SET_MODE_INFO_NULL(_action)  { #_action, nvc_ui_set_mode_info_null }
 static const std::map<const std::string, nvc_ui_set_mode_info> nvc_ui_set_mode_info_actions = {
     NVC_UI_SET_MODE_INFO_STR(name),
     NVC_UI_SET_MODE_INFO_STR(short_name),
@@ -114,7 +119,6 @@ private:
 public:
     inline nvc_ui_grid(uint32_t width, uint32_t height) : m_width(width), m_height(height) {
         m_cells = (nvc_ui_cell_t *)malloc(sizeof(nvc_ui_cell_t) * m_width * m_height);
-        bzero(m_cells, sizeof(nvc_ui_cell_t) * m_width * m_height);
     }
     
     inline ~nvc_ui_grid() {
@@ -129,7 +133,7 @@ public:
     
     inline void resize(uint32_t width, uint32_t height) {
         void *ptr = realloc(m_cells, sizeof(nvc_ui_cell_t) * width * height);
-        if (ptr != nullptr) {
+        if (likely(ptr != nullptr)) {
             m_width = width;
             m_height = height;
             m_cells = (nvc_ui_cell_t *)ptr;
@@ -143,11 +147,12 @@ public:
     inline void update(int row, int col_start, int count, UniChar ch, CGGlyph glyph, uint32_t fg, uint32_t bg) {
         if (likely(count > 0 && row >= 0 && row < m_height && col_start >= 0 && col_start < m_width)) {
             nvc_ui_cell_t *cell = m_cells + row*m_width + col_start;
-            for (int n = MIN(count, m_width - col_start); n > 0; n--, cell++) {
+            for (int n = MIN(count, m_width - col_start); n > 0; n--) {
                 cell->ch = ch;
                 cell->glyph = glyph;
                 cell->fg = fg;
                 cell->bg = bg;
+                cell++;
             }
         }
     }
@@ -155,31 +160,54 @@ public:
     inline void draw(nvc_ui_context *ctx, CGContextRef context, const nvc_ui_cell_rect_t& dirty);
 };
 
+typedef struct nvc_ui_tab {
+    nvc_rpc_object_handler_t    tab;
+    std::string                 name;
+    
+    inline bool operator==(const struct nvc_ui_tab& rhl) const {
+        return this->tab == rhl.tab && this->name == rhl.name;
+    }
+} nvc_ui_tab_t;
+
+typedef void (*nvc_ui_set_ui_tab)(nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx);
+
+#define NVC_UI_SET_UI_TAB_EXT(_action)      { #_action, [](nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx) { tab._action = nvc_rpc_read_ext_handle(ctx); } }
+#define NVC_UI_SET_UI_TAB_STR(_action)      { #_action, [](nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx) { tab._action = nvc_rpc_read_str(ctx); } }
+static const std::map<const std::string, nvc_ui_set_ui_tab> nvc_ui_set_ui_tab_actions = {
+    NVC_UI_SET_UI_TAB_EXT(tab),
+    NVC_UI_SET_UI_TAB_STR(name),
+};
+
 typedef std::map<nvc_ui_color_code_t, nvc_ui_color_t>   nvc_ui_colors_set_t;
 typedef std::map<int, nvc_ui_colors_set_t>              nvc_ui_colors_set_map_t;
 typedef std::map<std::string, int>                      nvc_ui_group_map_t;
 typedef std::map<int, nvc_ui_grid *, std::less<int>>    nvc_ui_grid_map_t;
+typedef std::map<UniChar, CGGlyph>                      mvc_ui_glyph_table_t;
+typedef std::vector<nvc_ui_tab_t>                       nvc_ui_tab_list_t;
 typedef std::vector<mode_info_t>                        mode_info_list_t;
 
 struct nvc_ui_context {
-    nvc_rpc_context_t       rpc;
-    nvc_ui_callback_t       cb;
-    bool                    attached;
-    CTFontRef               font;
-    CGFloat                 font_size;
-    std::string             mode;
-    int                     mode_idx;
-    CGSize                  cell_size;
-    CGFloat                 font_offset;
-    CGRect                  dirty_rect;
-    std::mutex              locker;
-    nvc_ui_cell_size_t      window_size;
-    nvc_ui_colors_set_t     default_colors;
-    nvc_ui_colors_set_map_t hl_attrs;
-    nvc_ui_group_map_t      hl_groups;
-    mode_info_list_t        mode_infos;
-    nvc_ui_grid_map_t       grids;
-    CGGlyph                 glyphs[kNvcUiCacheGlyphMax];
+    nvc_rpc_context_t           rpc;
+    nvc_ui_callback_t           cb;
+    bool                        attached;
+    CTFontRef                   font;
+    CGFloat                     font_size;
+    std::string                 mode;
+    int                         mode_idx;
+    CGSize                      cell_size;
+    CGFloat                     font_offset;
+    CGRect                      dirty_rect;
+    std::mutex                  locker;
+    nvc_ui_cell_size_t          window_size;
+    nvc_ui_colors_set_t         default_colors;
+    nvc_rpc_object_handler_t    current_tab;
+    nvc_ui_tab_list_t           tabs;
+    nvc_ui_colors_set_map_t     hl_attrs;
+    nvc_ui_group_map_t          hl_groups;
+    mode_info_list_t            mode_infos;
+    nvc_ui_grid_map_t           grids;
+    mvc_ui_glyph_table_t        glyph_cache;
+    CGGlyph                     glyphs[kNvcUiCacheGlyphMax];
 };
 
 static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items);
@@ -191,7 +219,7 @@ static const nvc_ui_cell_size_t nvc_ui_cell_size_zero = { 0, 0 };
 static inline int nvc_ui_init_font(nvc_ui_context_t *ctx, const nvc_ui_config_t *config) {
     int res = NVC_RC_ILLEGAL_CALL;
     CFStringRef name = CFStringCreateWithCString(nullptr, config->family_name, CFStringGetSystemEncoding());
-    if (name == nullptr) {
+    if (unlikely(name == nullptr)) {
         res = NVC_RC_MALLOC_ERROR;
     } else {
         ctx->font_size = config->font_size;
@@ -212,10 +240,13 @@ static inline int nvc_ui_init_font(nvc_ui_context_t *ctx, const nvc_ui_config_t 
             ctx->cell_size = CGSizeMake(width, height);
             ctx->font_offset = descent;
             for (int i = 0; i < kNvcUiCacheGlyphMax; i++) {
-                UniChar ch = i;
-                CTFontGetGlyphsForCharacters(ctx->font, &ch, ctx->glyphs + i, 1);
+                if (isspace(i)) {
+                    ctx->glyphs[i] = 0;
+                } else {
+                    UniChar ch = i;
+                    CTFontGetGlyphsForCharacters(ctx->font, &ch, ctx->glyphs + i, 1);
+                }
             }
-            ctx->glyphs[0x020] = 0;
             res = NVC_RC_OK;
         }
         CFRelease(name);
@@ -257,7 +288,16 @@ static inline CGGlyph nvc_ui_ch2glyph(nvc_ui_context_t *ctx, UniChar ch) {
     if (ch < kNvcUiCacheGlyphMax) {
         glyph = ctx->glyphs[ch];
     } else {
-        CTFontGetGlyphsForCharacters(ctx->font, &ch, &glyph, 1);
+        auto p = ctx->glyph_cache.find(ch);
+        if (p != ctx->glyph_cache.end()) {
+            glyph = p->second;
+        } else {
+            CTFontGetGlyphsForCharacters(ctx->font, &ch, &glyph, 1);
+            if (ctx->glyph_cache.size() > kNvcUiCacheGlyphSize) {
+                ctx->glyph_cache.clear();
+            }
+            ctx->glyph_cache[ch] = glyph;
+        }
     }
     return glyph;
 }
@@ -381,10 +421,12 @@ CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
         nvc_rpc_call_const_begin(&ctx->rpc, "nvim_ui_attach", 3);
         nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.width);
         nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.height);
-        nvc_rpc_write_map_size(&ctx->rpc, 2);
+        nvc_rpc_write_map_size(&ctx->rpc, 3);
         nvc_rpc_write_const_str(&ctx->rpc, "override");
         nvc_rpc_write_true(&ctx->rpc);
         nvc_rpc_write_const_str(&ctx->rpc, "ext_linegrid");
+        nvc_rpc_write_true(&ctx->rpc);
+        nvc_rpc_write_const_str(&ctx->rpc, "ext_tabline");
         nvc_rpc_write_true(&ctx->rpc);
         nvc_rpc_call_end(&ctx->rpc);
         size = nvc_ui_cell2size(ctx, ctx->window_size.width, ctx->window_size.height);
@@ -455,15 +497,11 @@ static inline int nvc_ui_redraw_action_mode_info_set(nvc_ui_context_t *ctx, int 
                 for (int mn = nvc_rpc_read_map_size(&ctx->rpc); mn > 0; mn--) {
                     auto name = nvc_rpc_read_str(&ctx->rpc);
                     auto p = nvc_ui_set_mode_info_actions.find(name);
-                    if (unlikely(p == nvc_ui_set_mode_info_actions.end())) {
+                    if (likely(p != nvc_ui_set_mode_info_actions.end())) {
+                        p->second(info, &ctx->rpc);
+                    } else {
                         nvc_rpc_read_skip_items(&ctx->rpc, 1);
                         NVLogW("nvc ui unknown mode info: %s", name.c_str());
-                    } else {
-                        if (p->second != nullptr) {
-                            p->second(info, &ctx->rpc);
-                        } else {
-                            nvc_rpc_read_skip_items(&ctx->rpc, 1);
-                        }
                     }
                 }
                 mode_infos.push_back(info);
@@ -501,11 +539,10 @@ static inline int nvc_ui_redraw_action_option_set(nvc_ui_context_t *ctx, int ite
                         NVLogW("nvc ui find unknown option value type: %s", key.c_str());
                 }
             }
-            //NVLogD("Set option: %s = %s", key.c_str(), value.c_str());
             nvc_rpc_read_skip_items(&ctx->rpc, narg);
         }
     }
-    return items;
+    return 0;
 }
 
 static inline int nvc_ui_redraw_action_mode_change(nvc_ui_context_t *ctx, int items) {
@@ -609,7 +646,34 @@ static inline int nvc_ui_redraw_action_hl_attr_define(nvc_ui_context_t *ctx, int
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
-    return items;
+    return 0;
+}
+
+typedef void (*nvc_ui_hl_attrs_notification)(nvc_ui_context_t *ctx, const nvc_ui_colors_set_t &attrs);
+
+static inline void nvc_ui_hl_attrs_notification_TabLineFill(nvc_ui_context_t *ctx, const nvc_ui_colors_set_t &attrs) {
+    auto p = attrs.find(nvc_ui_color_code_background);
+    if (p != attrs.end()) {
+        ctx->cb.update_tab_background(nvc_ui_get_userdata(ctx), p->second);
+    }
+}
+
+#define NVC_UI_HL_ATTRS_NOTIFICATION(_action)    { #_action, nvc_ui_hl_attrs_notification_##_action }
+static const std::map<const std::string, nvc_ui_hl_attrs_notification> nvc_ui_hl_groups_notification = {
+    NVC_UI_HL_ATTRS_NOTIFICATION(TabLineFill),
+};
+
+static inline void nvc_ui_notify_hl_attrs(nvc_ui_context_t *ctx, const std::string& name) {
+    auto notification = nvc_ui_hl_groups_notification.find(name);
+    if (notification != nvc_ui_hl_groups_notification.end()) {
+        auto p = ctx->hl_groups.find(name);
+        if (likely(p != ctx->hl_groups.end())) {
+            auto q = ctx->hl_attrs.find(p->second);
+            if (likely(q != ctx->hl_attrs.end())) {
+                notification->second(ctx, q->second);
+            }
+        }
+    }
 }
 
 static inline int nvc_ui_redraw_action_hl_group_set(nvc_ui_context_t *ctx, int items) {
@@ -619,16 +683,17 @@ static inline int nvc_ui_redraw_action_hl_group_set(nvc_ui_context_t *ctx, int i
             narg -= 2;
             auto name = nvc_rpc_read_str(&ctx->rpc);
             ctx->hl_groups[name] = nvc_rpc_read_int(&ctx->rpc);
+            nvc_ui_notify_hl_attrs(ctx, name);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
-    return items;
+    return 0;
 }
 
 static inline uint32_t nvc_ui_get_default_color(nvc_ui_context_t *ctx, nvc_ui_color_code_t code) {
     uint32_t c = 0;
     auto p = ctx->default_colors.find(code);
-    if (p != ctx->default_colors.end()) {
+    if (likely(p != ctx->default_colors.end())) {
         c = p->second;
     }
     return c;
@@ -636,7 +701,7 @@ static inline uint32_t nvc_ui_get_default_color(nvc_ui_context_t *ctx, nvc_ui_co
 
 static inline uint32_t nvc_ui_find_hl_color(nvc_ui_context_t *ctx, int hl, nvc_ui_color_code_t code) {
     auto p = ctx->hl_attrs.find(hl);
-    if (p != ctx->hl_attrs.end()) {
+    if (likely(p != ctx->hl_attrs.end())) {
         auto q = p->second.find(code);
         if (q != p->second.end()) {
             return q->second;
@@ -666,7 +731,7 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
             }
             if (likely(grid != nullptr)) {
                 int last_hl_id = 0;
-                int offset = 0;
+                int offset = col_start;
                 uint32_t fg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_foreground);
                 uint32_t bg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_background);
                 while (cells-- > 0) {
@@ -687,18 +752,18 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                         if (cnum-- > 0) {
                             repeat = nvc_rpc_read_int(&ctx->rpc);
                         }
-                        grid->update(row, col_start + offset, repeat, ch, nvc_ui_ch2glyph(ctx, ch), fg, bg);
+                        grid->update(row, offset, repeat, ch, nvc_ui_ch2glyph(ctx, ch), fg, bg);
                         offset += repeat;
                     }
                     nvc_rpc_read_skip_items(&ctx->rpc, cnum);
                 }
-                nvc_ui_update_dirty(ctx, col_start, row, offset, 1);
+                nvc_ui_update_dirty(ctx, col_start, row, offset - col_start, 1);
             }
             nvc_rpc_read_skip_items(&ctx->rpc, cells);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
-    return items;
+    return 0;
 }
 
 static inline int nvc_ui_redraw_action_grid_clear(nvc_ui_context_t *ctx, int items) {
@@ -710,7 +775,7 @@ static inline int nvc_ui_redraw_action_grid_clear(nvc_ui_context_t *ctx, int ite
             nvc_lock_guard_t guard(ctx->locker);
             auto p = ctx->grids.find(grid_id);
             if (p != ctx->grids.end()) {
-                auto grid = p->second;
+                auto& grid = p->second;
                 grid->clear();
                 nvc_ui_update_dirty(ctx, 0, 0, grid->width(), grid->height());
             }
@@ -728,9 +793,10 @@ static inline int nvc_ui_redraw_action_grid_destroy(nvc_ui_context_t *ctx, int i
             NVLogD("nvc ui grid %d destroy", grid_id);
             nvc_lock_guard_t guard(ctx->locker);
             auto p = ctx->grids.find(grid_id);
-            if (p != ctx->grids.end()) {
+            if (likely(p != ctx->grids.end())) {
                 nvc_ui_grid *grid = p->second;
                 ctx->grids.erase(p);
+                nvc_ui_update_dirty(ctx, 0, 0, grid->width(), grid->height());
                 delete grid;
             }
         }
@@ -769,14 +835,40 @@ static inline int nvc_ui_redraw_action_grid_scroll(nvc_ui_context_t *ctx, int it
 static inline int nvc_ui_redraw_action_tabline_update(nvc_ui_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
-        NVLogD("nvc ui update tabline");
+        if (likely(narg >= 2)) {
+            narg -= 2;
+            nvc_rpc_object_handler_t handler = nvc_rpc_read_ext_handle(&ctx->rpc);
+            nvc_ui_tab_list_t tabs;
+            int tn = nvc_rpc_read_array_size(&ctx->rpc);
+            while (tn-- > 0) {
+                nvc_ui_tab_t tab;
+                int mn = nvc_rpc_read_map_size(&ctx->rpc);
+                while (mn-- > 0) {
+                    auto name = nvc_rpc_read_str(&ctx->rpc);
+                    auto p = nvc_ui_set_ui_tab_actions.find(name);
+                    if (likely(p != nvc_ui_set_ui_tab_actions.end())) {
+                        p->second(tab, &ctx->rpc);
+                    } else {
+                        nvc_rpc_read_skip_items(&ctx->rpc, 1);
+                        NVLogW("nvc ui tab info: %s", name.c_str());
+                    }
+                }
+                tabs.push_back(tab);
+            }
+            ctx->current_tab = handler;
+            bool list_updated = ctx->tabs != tabs;
+            if (list_updated) {
+                ctx->tabs = tabs;
+            }
+            ctx->cb.update_tab_list(nvc_ui_get_userdata(ctx), list_updated);
+        }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
     return items;
 }
 
-#define NVC_REDRAW_ACTION(action)           { #action, nvc_ui_redraw_action_##action }
-#define NVC_REDRAW_ACTION_IGNORE(action)    { #action, nullptr }
+#define NVC_REDRAW_ACTION(_action)          { #_action, nvc_ui_redraw_action_##_action }
+#define NVC_REDRAW_ACTION_IGNORE(_action)   { #_action, nullptr }
 // NOTE: https://neovim.io/doc/user/ui.html
 static const std::map<const std::string, nvc_ui_action_t> nvc_ui_redraw_actions = {
     // Global Events
@@ -857,7 +949,7 @@ static inline int nvc_ui_notification_action_redraw(nvc_ui_context_t *ctx, int i
     return items;
 }
 
-#define NVC_NOTIFICATION_ACTION(action) { #action, nvc_ui_notification_action_##action}
+#define NVC_NOTIFICATION_ACTION(_action)    { #_action, nvc_ui_notification_action_##_action}
 static const std::map<const std::string, nvc_ui_action_t> nvc_ui_notification_actions = {
     NVC_NOTIFICATION_ACTION(redraw),
 };
