@@ -52,8 +52,8 @@
     nvc_ui_detach(ui_ctx);
 }
 
-- (void)redrawUI {
-    nvc_ui_redraw(ui_ctx, NSGraphicsContext.currentContext.CGContext);
+- (void)redrawUI:(CGContextRef)ctx {
+    nvc_ui_redraw(ui_ctx, ctx);
 }
 
 - (CGSize)resizeUIWithSize:(CGSize)size {

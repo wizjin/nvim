@@ -405,8 +405,6 @@ static inline int nvc_ui_redraw_action_grid_resize(nvc_ui_context_t *ctx, int it
                 CGContextSetShouldAntialias(context, true);
                 CGContextSetShouldSmoothFonts(context, false);
                 CGContextSetTextDrawingMode(context, kCGTextFill);
-                CGContextTranslateCTM(context, 0, size.height);
-                CGContextScaleCTM(context, 1, -1);
             }
             nvc_lock_guard_t guard(ctx->locker);
             auto p = ctx->layers.find(grid_id);
@@ -534,6 +532,9 @@ static inline uint32_t nvc_ui_find_hl_color(nvc_ui_context_t *ctx, int hl, nvc_u
 }
 
 static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int items) {
+    CGContextRef context = nullptr;
+    int last_grid_id = -1;
+    nvc_lock_guard_t guard(ctx->locker);
     while (items-- > 0) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg > 4)) {
@@ -542,12 +543,21 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
             int row = nvc_rpc_read_int(&ctx->rpc);
             int col_start = nvc_rpc_read_int(&ctx->rpc);
             int cells = nvc_rpc_read_array_size(&ctx->rpc);
-            nvc_lock_guard_t guard(ctx->locker);
-            auto p = ctx->layers.find(grid_id);
-            if (likely(p != ctx->layers.end())) {
-                CGLayerRef layer = p->second;
-                CGContextRef context = CGLayerGetContext(layer);
+            if (last_grid_id != grid_id || context == nullptr) {
+                last_grid_id = grid_id;
+                if (context != nullptr) {
+                    CGContextFlush(context);
+                    context = nullptr;
+                }
+                auto p = ctx->layers.find(grid_id);
+                if (likely(p != ctx->layers.end())) {
+                    CGLayerRef layer = p->second;
+                    context = CGLayerGetContext(layer);
+                }
+            }
+            if (likely(context != nullptr)) {
                 CGPoint pt = CGPointMake(col_start * ctx->cell_size.width, (ctx->window_size.height - row) * ctx->cell_size.height);
+                int last_hl_id = 0;
                 uint32_t fg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_foreground);
                 uint32_t bg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_background);
                 while (cells-- > 0) {
@@ -558,9 +568,12 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                         UniChar ch = nvc_ui_utf82unicode(str, len);
                         int repeat = 1;
                         if (cnum-- > 0) {
-                            int hl = nvc_rpc_read_int(&ctx->rpc);
-                            fg = nvc_ui_find_hl_color(ctx, hl, nvc_ui_color_code_foreground);
-                            bg = nvc_ui_find_hl_color(ctx, hl, nvc_ui_color_code_background);
+                            int hl_id = nvc_rpc_read_int(&ctx->rpc);
+                            if (hl_id != last_hl_id) {
+                                last_hl_id = hl_id;
+                                fg = nvc_ui_find_hl_color(ctx, hl_id, nvc_ui_color_code_foreground);
+                                bg = nvc_ui_find_hl_color(ctx, hl_id, nvc_ui_color_code_background);
+                            }
                         }
                         if (cnum-- > 0) {
                             repeat = nvc_rpc_read_int(&ctx->rpc);
@@ -583,11 +596,13 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                     }
                     nvc_rpc_read_skip_items(&ctx->rpc, cnum);
                 }
-                CGContextFlush(context);
             }
             nvc_rpc_read_skip_items(&ctx->rpc, cells);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
+    }
+    if (context != nullptr) {
+        CGContextFlush(context);
     }
     return items;
 }

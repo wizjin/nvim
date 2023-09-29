@@ -67,14 +67,6 @@ static inline void dispatch_main_after(double delta, dispatch_block_t block) {
 
 #endif /* __OBJC__ */
 
-#if !defined(MIN)
-#   define MIN(A,B)             ({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __a : __b; })
-#endif
-
-#if !defined(MAX)
-#   define MAX(A,B)             ({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __b : __a; })
-#endif
-
 #define likely(x)               __builtin_expect(!!(x), 1)
 #define unlikely(x)             __builtin_expect(!!(x), 0)
 

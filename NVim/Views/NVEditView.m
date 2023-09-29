@@ -7,32 +7,19 @@
 
 #import "NVEditView.h"
 
-@interface NVEditView ()
-
-@end
-
 @implementation NVEditView
-
-- (instancetype)initWithFrame:(NSRect)frameRect {
-    if (self = [super initWithFrame:frameRect]) {
-        _backgroundColor = NSColor.clearColor;
-    }
-    return self;
-}
-
-- (void)setBackgroundColor:(NSColor *)backgroundColor {
-    if ([self.backgroundColor isNotEqualTo:backgroundColor]) {
-        _backgroundColor = backgroundColor;
-        self.layer.backgroundColor = self.backgroundColor.CGColor;
-    }
-}
 
 - (BOOL)isFlipped {
     return YES;
 }
 
--(void)drawRect:(NSRect)dirtyRect {
-    [self.delegate redrawEditView:self];
+- (void)drawRect:(NSRect)dirtyRect {
+    CGContextRef context = NSGraphicsContext.currentContext.CGContext;
+    CGContextTranslateCTM(context, CGRectGetMinX(self.contentRect), CGRectGetHeight(self.contentRect));
+    CGContextScaleCTM(context, 1, -1);
+    [self.delegate redrawEditView:self inContext:context];
+    CGContextFlush(context);
+
 }
 
 

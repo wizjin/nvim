@@ -29,7 +29,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)openWithRead:(int)read write:(int)write;
 - (CGSize)attachUIWithSize:(CGSize)size;
 - (void)detachUI;
-- (void)redrawUI;
+- (void)redrawUI:(CGContextRef)ctx;
 - (CGSize)resizeUIWithSize:(CGSize)size;
 - (void)close;
 

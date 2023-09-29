@@ -30,15 +30,16 @@
 }
 
 - (void)loadView {
-    _editView = [NVEditView new];
-    self.view = self.editView;
-    self.editView.delegate = self;
+    NVEditView *editView = [NVEditView new];
+    self.view = editView;
+    _editView = editView;
+    editView.delegate = self;
 }
 
 - (void)viewDidAppear {
     [super viewDidAppear];
     if (!self.client.isAttached) {
-        [self updateContentSize:[self.client attachUIWithSize:self.editView.bounds.size]];
+        [self updateContentSize:[self.client attachUIWithSize:convertToUISize(self.editView.bounds.size)]];
     }
 }
 
@@ -50,7 +51,7 @@
 }
 
 - (void)updateContentSize:(CGSize)size {
-    [self.view.window setContentSize:CGSizeMake(size.width, size.height + 8)];
+    self.editView.contentRect = NSMakeRect(kNVContentMarginWidth/2, 0, size.width, size.height);
 }
 
 #pragma mark - NSWindowDelegate
@@ -59,7 +60,7 @@
 }
 
 - (void)windowDidEndLiveResize:(NSNotification *)notification {
-    [self updateContentSize:[self.client resizeUIWithSize:self.editView.bounds.size]];
+    [self updateContentSize:[self.client resizeUIWithSize:convertToUISize(self.editView.bounds.size)]];
 }
 
 #pragma mark - NVClientDelegate
@@ -68,11 +69,11 @@
 }
 
 - (void)client:(NVClient *)client updateTitle:(NSString *)title {
-    self.title = title != nil ? title : @"";
+    self.title = (title != nil ? title : @"");
 }
 
 - (void)client:(NVClient *)client updateBackground:(NSColor *)color {
-    self.editView.backgroundColor = color;
+    self.view.window.backgroundColor = color;
 }
 
 - (void)client:(NVClient *)client updateMouse:(BOOL)enabled {
@@ -80,8 +81,13 @@
 }
 
 #pragma mark - NVEditViewDelegate
-- (void)redrawEditView:(NVEditView *)editView {
-    [self.client redrawUI];
+- (void)redrawEditView:(NVEditView *)editView inContext:(CGContextRef)ctx {
+    [self.client redrawUI:ctx];
+}
+
+#pragma mark - Helper
+static inline CGSize convertToUISize(const CGSize size) {
+    return CGSizeMake(size.width - kNVContentMarginWidth, size.height - kNVContentMarginHeight);
 }
 
 

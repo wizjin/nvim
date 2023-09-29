@@ -23,6 +23,14 @@
 
 #define nvc_rpc_to_context(_ptr, _member)   nv_member_to_struct(nvc_rpc_context_t, _ptr, _member)
 
+#ifndef MIN
+#   define MIN(A,B)                         ({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __a : __b; })
+#endif
+
+#ifndef MAX
+#   define MAX(A,B)                         ({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __b : __a; })
+#endif
+
 static inline size_t nvc_msgpack_memory_best_size(size_t kept, size_t more) {
     size_t datalen = kept;
     size_t target = kept + more;
