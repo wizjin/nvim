@@ -23,12 +23,20 @@
     }
 }
 
+- (BOOL)acceptsFirstResponder {
+    return YES;
+}
+
+- (void)keyDown:(NSEvent *)event {
+    [self.delegate editView:self keyDown:event];
+}
+
 - (void)drawRect:(NSRect)dirtyRect {
     if (!self.inLiveResize) {
         CGContextRef context = NSGraphicsContext.currentContext.CGContext;
         CGContextTranslateCTM(context, 0, self.contentSize.height);
         CGContextScaleCTM(context, 1, -1);
-        [self.delegate redrawEditView:self inContext:context dirty:dirtyRect];
+        [self.delegate editView:self redrawInContext:context dirty:dirtyRect];
         CGContextFlush(context);
     }
 }

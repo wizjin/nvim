@@ -19,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)client:(NVClient *)client updateTabBackground:(NSColor *)color;
 - (void)client:(NVClient *)client updateTabList:(BOOL)listUpdated;
 - (void)client:(NVClient *)client updateMouse:(BOOL)enabled;
-
+- (void)clientClosed:(NVClient *)client;
 @end
 
 @interface NVClient : NSObject
@@ -29,11 +29,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)isAttached;
 - (void)openWithRead:(int)read write:(int)write;
+- (void)close;
 - (CGSize)attachUIWithSize:(CGSize)size;
 - (void)detachUI;
 - (void)redrawUI:(CGContextRef)ctx dirty:(CGRect)dirty;
 - (CGSize)resizeUIWithSize:(CGSize)size;
-- (void)close;
+- (void)keyDown:(NSEvent *)event;
 
 
 @end

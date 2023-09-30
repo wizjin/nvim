@@ -24,6 +24,7 @@ struct nvc_rpc_context {
     void                *userdata;
     nvc_rpc_handler     response_handler;
     nvc_rpc_handler     notification_handler;
+    nvc_rpc_handler     close_handler;
     uint64_t            uuid;
     pthread_t           worker;
 
@@ -38,7 +39,7 @@ struct nvc_rpc_context {
     uint8_t             *outdata;
 };
 
-NVC_API int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *userdata, nvc_rpc_handler response_handler, nvc_rpc_handler notification_handler);
+NVC_API int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *userdata, nvc_rpc_handler response_handler, nvc_rpc_handler notification_handler, nvc_rpc_handler close_handler);
 NVC_API void nvc_rpc_final(nvc_rpc_context_t *ctx);
 NVC_API bool nvc_rpc_read_bool(nvc_rpc_context_t *ctx);
 NVC_API int64_t nvc_rpc_read_int64(nvc_rpc_context_t *ctx);
@@ -66,6 +67,7 @@ NVC_API void nvc_rpc_call_end(nvc_rpc_context_t *ctx);
 #define nvc_rpc_write_map_size(_ctx, _n)    cw_pack_map_size(&(_ctx)->cout, _n)
 #define nvc_rpc_write_str(_ctx, _v, _l)     cw_pack_str(&(_ctx)->cout, _v, _l)
 #define nvc_rpc_write_true(_ctx)            cw_pack_true(&(_ctx)->cout)
+#define nvc_rpc_write_false(_ctx)           cw_pack_false(&(_ctx)->cout)
 #define nvc_rpc_write_flush(_ctx)           cw_pack_flush(&(_ctx)->cout)
 
 #define nvc_rpc_write_const_str(c, str)     nvc_rpc_write_str(c, str, sizeof(str) - 1)

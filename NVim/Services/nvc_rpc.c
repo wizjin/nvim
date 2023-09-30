@@ -191,17 +191,22 @@ static void *nvc_rpc_routine(void *ptr) {
             nvc_rpc_read_skip_items(ctx, items);
         }
     }
+    nvc_rpc_handler close_handler = ctx->close_handler;
+    if (close_handler != NULL) {
+        close_handler(ctx, 0);
+    }
     return NULL;
 }
 
-int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *userdata, nvc_rpc_handler response_handler, nvc_rpc_handler notification_handler) {
+int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *userdata, nvc_rpc_handler response_handler, nvc_rpc_handler notification_handler, nvc_rpc_handler close_handler) {
     int res = NVC_RC_ILLEGAL_CALL;
-    if (ctx != NULL &&inskt != INVALID_SOCKET && outskt != INVALID_SOCKET && response_handler != NULL && notification_handler != NULL) {
+    if (ctx != NULL &&inskt != INVALID_SOCKET && outskt != INVALID_SOCKET && response_handler != NULL && notification_handler != NULL && close_handler != NULL) {
         bzero(ctx, sizeof(nvc_rpc_context_t));
         ctx->uuid = 0;
         ctx->userdata = userdata;
         ctx->response_handler = response_handler;
         ctx->notification_handler = notification_handler;
+        ctx->close_handler = close_handler;
         ctx->inskt = dup(inskt);
         ctx->outskt = dup(outskt);
         ctx->inlen = NVC_RPC_BUFFER_INIT;
@@ -235,6 +240,7 @@ int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *userdata, 
 
 void nvc_rpc_final(nvc_rpc_context_t *ctx) {
     if (ctx != NULL) {
+        ctx->close_handler = NULL;
         if (ctx->inskt != INVALID_SOCKET) {
             close(ctx->inskt);
             ctx->inskt = INVALID_SOCKET;

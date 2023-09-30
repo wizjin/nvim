@@ -13,6 +13,7 @@
 #include <map>
 #include "nvc_rpc.h"
 
+#define kNvcUiKeysMax                       64
 #define kNvcUiCacheGlyphMax                 127
 #define kNvcUiCacheGlyphSize                512
 
@@ -212,6 +213,7 @@ struct nvc_ui_context {
 
 static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items);
 static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items);
+static int nvc_ui_close_handler(nvc_rpc_context_t *ctx, int items);
 
 static const nvc_ui_cell_size_t nvc_ui_cell_size_zero = { 0, 0 };
 
@@ -313,7 +315,7 @@ inline void nvc_ui_grid::draw(nvc_ui_context *ctx, CGContextRef context, const n
     int w = MIN(m_width, dirty.x + dirty.width);
     int h = MIN(m_height, dirty.y + dirty.height);
     for (int j = dirty.y; j < h; j++) {
-        CGFloat height = size.height * (ctx->window_size.height - j);
+        CGFloat height = size.height * (ctx->window_size.height - j - 1);
         for (int i = dirty.x; i < w; i++) {
             CGPoint pt = CGPointMake(size.width * i, height);
             if (cell->bg != 0) {
@@ -376,7 +378,7 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
             ctx->cell_size = CGSizeZero;
             ctx->dirty_rect = CGRectZero;
             ctx->window_size = nvc_ui_cell_size_zero;
-            int res = nvc_rpc_init(&ctx->rpc, inskt, outskt, userdata, nvc_ui_response_handler, nvc_ui_notification_handler);
+            int res = nvc_rpc_init(&ctx->rpc, inskt, outskt, userdata, nvc_ui_response_handler, nvc_ui_notification_handler, nvc_ui_close_handler);
             if (res == NVC_RC_OK) {
                 res = nvc_ui_init_font(ctx, config);
             }
@@ -423,11 +425,11 @@ CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
         nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.height);
         nvc_rpc_write_map_size(&ctx->rpc, 3);
         nvc_rpc_write_const_str(&ctx->rpc, "override");
-        nvc_rpc_write_true(&ctx->rpc);
+        nvc_rpc_write_false(&ctx->rpc);
         nvc_rpc_write_const_str(&ctx->rpc, "ext_linegrid");
         nvc_rpc_write_true(&ctx->rpc);
         nvc_rpc_write_const_str(&ctx->rpc, "ext_tabline");
-        nvc_rpc_write_true(&ctx->rpc);
+        nvc_rpc_write_false(&ctx->rpc);
         nvc_rpc_call_end(&ctx->rpc);
         size = nvc_ui_cell2size(ctx, ctx->window_size.width, ctx->window_size.height);
     }
@@ -470,6 +472,113 @@ CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size) {
         }
     }
     return size;
+}
+
+// Note: https://neovim.io/doc/user/intro.html#keycodes
+// <HIToolbox/Events.h>
+#define NVC_UI_KEYCODE(_code, _notation)    { _code, _notation }
+static const std::map<uint16_t, const std::string> nvc_ui_keycode_table = {
+    NVC_UI_KEYCODE(0x24, "CR"),         // kVK_Return
+    NVC_UI_KEYCODE(0x30, "Tab"),        // kVK_Tab
+    NVC_UI_KEYCODE(0x31, "Space"),      // kVK_Space
+    NVC_UI_KEYCODE(0x33, "BS"),         // kVK_Delete
+    NVC_UI_KEYCODE(0x35, "Esc"),        // kVK_Escape
+    NVC_UI_KEYCODE(0x40, "F17"),        // kVK_F17
+    NVC_UI_KEYCODE(0x41, "kPoint"),     // kVK_ANSI_KeypadDecimal
+    NVC_UI_KEYCODE(0x43, "kMultiply"),  // kVK_ANSI_KeypadMultiply
+    NVC_UI_KEYCODE(0x45, "kPlus"),      // kVK_ANSI_KeypadPlus
+    NVC_UI_KEYCODE(0x47, "kDel"),       // kVK_ANSI_KeypadClear
+    NVC_UI_KEYCODE(0x4B, "kDivide"),    // kVK_ANSI_KeypadDivide
+    NVC_UI_KEYCODE(0x4C, "kEnter"),     // kVK_ANSI_KeypadEnter
+    NVC_UI_KEYCODE(0x4E, "kMinus"),     // kVK_ANSI_KeypadMinus
+    NVC_UI_KEYCODE(0x4F, "F18"),        // kVK_F18
+    NVC_UI_KEYCODE(0x50, "F19"),        // kVK_F19
+    NVC_UI_KEYCODE(0x51, "kEqual"),     // kVK_ANSI_KeypadEquals
+    NVC_UI_KEYCODE(0x52, "k0"),         // kVK_ANSI_Keypad0
+    NVC_UI_KEYCODE(0x53, "k1"),         // kVK_ANSI_Keypad1
+    NVC_UI_KEYCODE(0x54, "k2"),         // kVK_ANSI_Keypad2
+    NVC_UI_KEYCODE(0x55, "k3"),         // kVK_ANSI_Keypad3
+    NVC_UI_KEYCODE(0x56, "k4"),         // kVK_ANSI_Keypad4
+    NVC_UI_KEYCODE(0x57, "k5"),         // kVK_ANSI_Keypad5
+    NVC_UI_KEYCODE(0x58, "k6"),         // kVK_ANSI_Keypad6
+    NVC_UI_KEYCODE(0x59, "k7"),         // kVK_ANSI_Keypad7
+    NVC_UI_KEYCODE(0x5A, "F20"),        // kVK_F20
+    NVC_UI_KEYCODE(0x5B, "k8"),         // kVK_ANSI_Keypad8
+    NVC_UI_KEYCODE(0x5C, "k9"),         // kVK_ANSI_Keypad9
+    NVC_UI_KEYCODE(0x60, "F5"),         // kVK_F5
+    NVC_UI_KEYCODE(0x61, "F6"),         // kVK_F6
+    NVC_UI_KEYCODE(0x62, "F7"),         // kVK_F7
+    NVC_UI_KEYCODE(0x63, "F3"),         // kVK_F3
+    NVC_UI_KEYCODE(0x64, "F8"),         // kVK_F8
+    NVC_UI_KEYCODE(0x65, "F9"),         // kVK_F9
+    NVC_UI_KEYCODE(0x67, "F11"),        // kVK_F11
+    NVC_UI_KEYCODE(0x69, "F13"),        // kVK_F13
+    NVC_UI_KEYCODE(0x6A, "F16"),        // kVK_F16
+    NVC_UI_KEYCODE(0x6B, "F14"),        // kVK_F14
+    NVC_UI_KEYCODE(0x6D, "F10"),        // kVK_F10
+    NVC_UI_KEYCODE(0x6F, "F12"),        // kVK_F12
+    NVC_UI_KEYCODE(0x71, "F15"),        // kVK_F15
+    NVC_UI_KEYCODE(0x73, "Home"),       // kVK_Home
+    NVC_UI_KEYCODE(0x74, "PageUp"),     // kVK_PageUp
+    NVC_UI_KEYCODE(0x75, "Del"),        // kVK_ForwardDelete
+    NVC_UI_KEYCODE(0x76, "F4"),         // kVK_F4
+    NVC_UI_KEYCODE(0x77, "End"),        // kVK_End
+    NVC_UI_KEYCODE(0x78, "F2"),         // kVK_F2
+    NVC_UI_KEYCODE(0x79, "PageDown"),   // kVK_PageDown
+    NVC_UI_KEYCODE(0x7A, "F1"),         // kVK_F1
+    NVC_UI_KEYCODE(0x7B, "Left"),       // kVK_LeftArrow
+    NVC_UI_KEYCODE(0x7C, "Right"),      // kVK_RightArrow
+    NVC_UI_KEYCODE(0x7D, "Down"),       // kVK_DownArrow
+    NVC_UI_KEYCODE(0x7E, "Up"),         // kVK_UpArrow
+};
+
+bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key) {
+    bool res = false;
+    auto p = nvc_ui_keycode_table.find(key.code);
+    if (p != nvc_ui_keycode_table.end()) {
+        auto& notation = p->second;
+        char keys[kNvcUiKeysMax];
+        uint32_t len = 0;
+        keys[len++] = '<';
+        if (key.shift) {
+            keys[len++] = 'S';
+            keys[len++] = '-';
+        }
+        if (key.control) {
+            keys[len++] = 'C';
+            keys[len++] = '-';
+        }
+        if (key.option) {
+            keys[len++] = 'M';
+            keys[len++] = '-';
+        }
+        if (key.command) {
+            keys[len++] = 'D';
+            keys[len++] = '-';
+        }
+        memcpy(keys + len, notation.c_str(), notation.size());
+        len += notation.size();
+        keys[len++] = '>';
+        nvc_ui_input_rawkey(ctx, keys, len);
+        res = true;
+    }
+    return res;
+}
+
+void nvc_ui_input_keystr(nvc_ui_context_t *ctx, const char* keys, uint32_t len) {
+    if (len > 0 && keys[0] == '<') {
+        nvc_ui_input_rawkey(ctx, "<lt>", 4);
+    } else {
+        nvc_ui_input_rawkey(ctx, keys, len);
+    }
+}
+
+void nvc_ui_input_rawkey(nvc_ui_context_t *ctx, const char* keys, uint32_t len) {
+    if (likely(ctx != nullptr && ctx->attached)) {
+        nvc_rpc_call_const_begin(&ctx->rpc, "nvim_input", 1);
+        nvc_rpc_write_str(&ctx->rpc, keys, len);
+        nvc_rpc_call_end(&ctx->rpc);
+    }
 }
 
 #pragma mark - NVC UI Redraw Actions
@@ -988,6 +1097,14 @@ static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items) {
         } else if (likely(items-- > 0)) {
             nvc_rpc_read_skip_items(ctx, p->second(nvc_ui_to_context(ctx, rpc), nvc_rpc_read_array_size(ctx)));
         }
+    }
+    return items;
+}
+
+static int nvc_ui_close_handler(nvc_rpc_context_t *ctx, int items) {
+    if (ctx != nullptr) {
+        nvc_ui_context_t *ui_ctx = nvc_ui_to_context(ctx, rpc);
+        ui_ctx->cb.close(nvc_ui_get_userdata(ui_ctx));
     }
     return items;
 }

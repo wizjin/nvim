@@ -39,6 +39,7 @@
     [super viewDidLoad];
     NVTabView *tabView = [[NVTabView alloc] initWithFrame:NSMakeRect(0, 0, NSWidth(self.view.bounds), kNVTabViewDefaultHeight)];
     [self.view addSubview:(_tabView = tabView)];
+    tabView.hidden = YES;
     NVEditView *editView = [NVEditView new];
     [self.view addSubview:(_editView = editView)];
     editView.delegate = self;
@@ -54,10 +55,13 @@
 - (void)viewDidLayout {
     [super viewDidLayout];
     CGRect bounds = self.view.bounds;
-    CGFloat tabHeight = NSHeight(self.tabView.bounds);
+    CGFloat offset = 0;
     CGFloat width = NSWidth(bounds) - kNVContentMarginWidth;
-    self.tabView.frame = CGRectMake(kNVContentMarginWidth/2, 0, width, tabHeight);
-    self.editView.frame = CGRectMake(kNVContentMarginWidth/2, tabHeight, width, NSHeight(bounds) - tabHeight);;
+    if (!self.tabView.isHidden) {
+        offset = NSHeight(self.tabView.bounds);
+        self.tabView.frame = CGRectMake(kNVContentMarginWidth/2, 0, width, offset);
+    }
+    self.editView.frame = CGRectMake(kNVContentMarginWidth/2, offset, width, NSHeight(bounds) - offset);
 }
 
 - (void)cleanup {
@@ -105,16 +109,27 @@
     self.editView.window.ignoresMouseEvents = !enabled;
 }
 
+- (void)clientClosed:(NVClient *)client {
+    [self.view.window close];
+}
+
 #pragma mark - NVEditViewDelegate
-- (void)redrawEditView:(NVEditView *)editView inContext:(CGContextRef)ctx dirty:(CGRect)dirty {
+- (void)editView:(NVEditView *)editView redrawInContext:(CGContextRef)ctx dirty:(CGRect)dirty {
     [self.client redrawUI:ctx dirty:dirty];
+}
+
+- (void)editView:(NVEditView *)editView keyDown:(NSEvent *)event {
+    [self.client keyDown:event];
 }
 
 #pragma mark - Helper
 - (CGSize)contentUISize {
     CGSize size = self.view.bounds.size;
     size.width -= kNVContentMarginWidth;
-    size.height -= kNVContentMarginHeight + NSHeight(self.tabView.bounds);
+    size.height -= kNVContentMarginHeight;
+    if (!self.tabView.isHidden) {
+        size.height -= NSHeight(self.tabView.bounds);
+    }
     return size;
 }
 

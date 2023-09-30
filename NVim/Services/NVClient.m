@@ -63,6 +63,24 @@
     return nvc_ui_resize(ui_ctx, size);
 }
 
+- (void)keyDown:(NSEvent *)event {
+    NSEventModifierFlags flags = event.modifierFlags;
+    nvc_ui_key_info_t key = {
+        .code       = event.keyCode,
+        .shift      = flags & NSEventModifierFlagShift,
+        .control    = flags & NSEventModifierFlagControl,
+        .option     = flags & NSEventModifierFlagOption,
+        .command    = flags & NSEventModifierFlagCommand,
+    };
+    if (!nvc_ui_input_key(ui_ctx, key)) {
+        NSString *c = event.characters;
+        if (c.length > 0) {
+            NSData *keys = [c dataUsingEncoding:NSUTF8StringEncoding];
+            nvc_ui_input_keystr(ui_ctx, (const char *)keys.bytes, (uint32_t)keys.length);
+        }
+    }
+}
+
 static inline void nvclient_ui_flush(void *userdata, CGRect dirty) {
     NVClient *client = (__bridge NVClient *)userdata;
     @weakify(client);
@@ -129,6 +147,15 @@ static inline void nvclient_ui_mouse_off(void *userdata) {
     });
 }
 
+static inline void nvclient_ui_close(void *userdata) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate clientClosed:client];
+    });
+}
+
 #define NVCLIENT_CALLBACK(_func)    ._func = nvclient_ui_##_func
 static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(flush),
@@ -138,6 +165,7 @@ static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(update_tab_list),
     NVCLIENT_CALLBACK(mouse_on),
     NVCLIENT_CALLBACK(mouse_off),
+    NVCLIENT_CALLBACK(close),
 };
 
 

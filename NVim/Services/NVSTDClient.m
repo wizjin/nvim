@@ -57,7 +57,8 @@
         NVLogW("Launch neovim failed: %s", error.description.cstr);
     } else {
         NVLogI("Launch neovim success - %s", self.info.cstr);
-        [self openWithRead:outPipe.fileHandleForReading.fileDescriptor write:inPipe.fileHandleForWriting.fileDescriptor];
+        [self openWithRead:nv_std_client_config_fd(outPipe.fileHandleForReading.fileDescriptor)
+                     write:nv_std_client_config_fd(inPipe.fileHandleForWriting.fileDescriptor)];
     }
 }
 
@@ -68,6 +69,31 @@
         [self.task waitUntilExit];
         _task = nil;
     }
+}
+
+#pragma mark - Helper
+typedef int (*nv_std_client_config_fd_handler)(int);
+
+static inline int nv_std_client_config_fd_nosigpipe(int fd) {
+    return fcntl(fd, F_SETNOSIGPIPE, 1);
+}
+
+static const nv_std_client_config_fd_handler nv_std_client_config_fd_handlers[] = {
+    nv_std_client_config_fd_nosigpipe,
+};
+
+static inline int nv_std_client_config_fd(int fd) {
+    if (fd != INVALID_SOCKET) {
+        for (int i = 0; i < countof(nv_std_client_config_fd_handlers); i++) {
+            if (nv_std_client_config_fd_handlers[i](fd) != 0) {
+                NVLogW("STD Client config (%d) fd failed: %s", i, strerror(errno));
+                close(fd);
+                fd = INVALID_SOCKET;
+                break;
+            }
+        }
+    }
+    return fd;
 }
 
 static inline NSString *getHomeDirectory(void) {
