@@ -81,6 +81,37 @@
     }
 }
 
+- (void)mouseUp:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_left, nvc_ui_mouse_action_release);
+}
+
+- (void)mouseDown:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_left, nvc_ui_mouse_action_press);
+}
+
+- (void)mouseDragged:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_left, nvc_ui_mouse_action_drag);
+}
+
+- (void)scrollWheel:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_wheel, (event.deltaY > 0 ? nvc_ui_mouse_action_up : nvc_ui_mouse_action_down));
+}
+
+static inline void nvclient_ui_input_mouse(nvc_ui_context_t *ctx, NSEvent *event, NSView *view, nvc_ui_mouse_key_t key, nvc_ui_mouse_action_t action) {
+    NSEventModifierFlags flags = event.modifierFlags;
+    nvc_ui_mouse_info_t mouse = {
+        .key        = key,
+        .action     = action,
+        .point      = [view convertPoint:event.locationInWindow toView:nil],
+        .shift      = flags & NSEventModifierFlagShift,
+        .control    = flags & NSEventModifierFlagControl,
+        .option     = flags & NSEventModifierFlagOption,
+        .command    = flags & NSEventModifierFlagCommand,
+    };
+    nvc_ui_input_mouse(ctx, mouse);
+}
+
+#pragma mark - Callback
 static inline void nvclient_ui_flush(void *userdata, CGRect dirty) {
     NVClient *client = (__bridge NVClient *)userdata;
     @weakify(client);

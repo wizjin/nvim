@@ -36,11 +36,42 @@ typedef struct nvc_ui_config {
 
 typedef struct nvc_ui_key_info {
     uint16_t    code;
-    bool        shift: 1;
-    bool        control: 1;
-    bool        option: 1;
-    bool        command: 1;
+    bool        shift:      1;
+    bool        control:    1;
+    bool        option:     1;
+    bool        command:    1;
 } nvc_ui_key_info_t;
+
+#define NVC_UI_MOUSE_KEY_LIST       \
+    NVC_UI_MOUSE_KEY(wheel)         \
+    NVC_UI_MOUSE_KEY(left)          \
+    NVC_UI_MOUSE_KEY(right)         \
+    NVC_UI_MOUSE_KEY(middle)
+#define NVC_UI_MOUSE_KEY(_key)      nvc_ui_mouse_key_##_key,
+typedef enum nvc_ui_mouse_key {
+    NVC_UI_MOUSE_KEY_LIST
+} nvc_ui_mouse_key_t;
+
+#define NVC_UI_MOUSE_ACTION_LIST    \
+    NVC_UI_MOUSE_ACTION(press)      \
+    NVC_UI_MOUSE_ACTION(drag)       \
+    NVC_UI_MOUSE_ACTION(release)    \
+    NVC_UI_MOUSE_ACTION(up)         \
+    NVC_UI_MOUSE_ACTION(down)
+#define NVC_UI_MOUSE_ACTION(_key)   nvc_ui_mouse_action_##_key,
+typedef enum nvc_ui_mouse_action {
+    NVC_UI_MOUSE_ACTION_LIST
+} nvc_ui_mouse_action_t;
+
+typedef struct nvc_ui_mouse_info {
+    nvc_ui_mouse_key_t      key;
+    nvc_ui_mouse_action_t   action;
+    CGPoint                 point;
+    bool        shift:      1;
+    bool        control:    1;
+    bool        option:     1;
+    bool        command:    1;
+} nvc_ui_mouse_info_t;
 
 typedef struct nvc_ui_context nvc_ui_context_t;
 
@@ -54,7 +85,7 @@ NVC_API CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size);
 NVC_API bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key);
 NVC_API void nvc_ui_input_keystr(nvc_ui_context_t *ctx, const char* keys, uint32_t len);
 NVC_API void nvc_ui_input_rawkey(nvc_ui_context_t *ctx, const char* keys, uint32_t len);
-
+NVC_API void nvc_ui_input_mouse(nvc_ui_context_t *ctx, nvc_ui_mouse_info_t mouse);
 
 #ifdef __cplusplus
 }

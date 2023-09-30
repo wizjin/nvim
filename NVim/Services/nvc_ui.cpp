@@ -29,6 +29,10 @@ static inline const std::string nvc_rpc_read_str(nvc_rpc_context_t *ctx) {
     return likely(str != nullptr) ? std::string(str, len) : nvc_rpc_empty_str;
 }
 
+static inline void nvc_rpc_write_string(nvc_rpc_context_t *ctx, const std::string& str) {
+    nvc_rpc_write_str(ctx, str.c_str(), (uint32_t)str.size());
+}
+
 #pragma mark - NVC UI Struct
 typedef int (*nvc_ui_action_t)(nvc_ui_context_t *ctx, int narg);
 
@@ -678,6 +682,33 @@ void nvc_ui_input_rawkey(nvc_ui_context_t *ctx, const char* keys, uint32_t len) 
     }
 }
 
+#undef NVC_UI_MOUSE_KEY
+#define NVC_UI_MOUSE_KEY(_key)      #_key,
+static const std::string nvc_ui_mouse_key_name[]  = { NVC_UI_MOUSE_KEY_LIST };
+
+#undef NVC_UI_MOUSE_ACTION
+#define NVC_UI_MOUSE_ACTION(_key)   #_key,
+static const std::string nvc_ui_mouse_action_name[]  = { NVC_UI_MOUSE_ACTION_LIST };
+
+void nvc_ui_input_mouse(nvc_ui_context_t *ctx, nvc_ui_mouse_info_t mouse) {
+    if (likely(ctx != nullptr && ctx->attached)) {
+        nvc_rpc_call_const_begin(&ctx->rpc, "nvim_input_mouse", 6);
+        nvc_rpc_write_string(&ctx->rpc, nvc_ui_mouse_key_name[mouse.key]);
+        nvc_rpc_write_string(&ctx->rpc, nvc_ui_mouse_action_name[mouse.action]);
+        uint32_t len = 0;
+        char modifier[kNvcUiKeysMax];
+        if (mouse.shift)  modifier[len++] = 'S';
+        if (mouse.control) modifier[len++] = 'C';
+        if (mouse.option) modifier[len++] = 'M';
+        if (mouse.command) modifier[len++] = 'D';
+        nvc_rpc_write_str(&ctx->rpc, modifier, len);
+        nvc_rpc_write_unsigned(&ctx->rpc, 0);
+        nvc_rpc_write_signed(&ctx->rpc, mouse.point.y/ctx->cell_size.height);
+        nvc_rpc_write_signed(&ctx->rpc, mouse.point.x/ctx->cell_size.width);
+        nvc_rpc_call_end(&ctx->rpc);
+    }
+}
+
 #pragma mark - NVC UI Redraw Actions
 static inline int nvc_ui_redraw_action_set_title(nvc_ui_context_t *ctx, int count) {
     if (likely(count-- > 0)) {
@@ -758,7 +789,12 @@ static inline int nvc_ui_redraw_action_mode_change(nvc_ui_context_t *ctx, int it
             narg -= 2;
             ctx->mode = nvc_rpc_read_str(&ctx->rpc);
             ctx->mode_idx = nvc_rpc_read_int(&ctx->rpc);
-            nvc_ui_update_dirty(ctx, 0, 0, ctx->window_size.width, ctx->window_size.height);
+            nvc_lock_guard_t guard(ctx->locker);
+            for (const auto& [key, grid] : ctx->grids) {
+                if (grid->has_cursor()) {
+                    nvc_ui_update_dirty(ctx, grid->cursor().x, grid->cursor().y, 1, 1);
+                }
+            }
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
@@ -1167,7 +1203,7 @@ static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items) {
                 n -= 2;
                 int64_t code = nvc_rpc_read_int64(ctx);
                 const auto& msg = nvc_rpc_read_str(ctx);
-                NVLogE("nvc ui match request %d failed(%lu): %s", msgid, code, msg.c_str());
+                NVLogE("nvc ui match request %ld failed(%lu): %s", msgid, code, msg.c_str());
             }
             nvc_rpc_read_skip_items(ctx, n);
         }

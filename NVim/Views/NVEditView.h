@@ -14,6 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol NVEditViewDelegate <NSObject>
 - (void)editView:(NVEditView *)editView redrawInContext:(CGContextRef)ctx;
 - (void)editView:(NVEditView *)editView keyDown:(NSEvent *)event;
+- (void)editView:(NVEditView *)editView mouseUp:(NSEvent *)event;
+- (void)editView:(NVEditView *)editView mouseDown:(NSEvent *)event;
+- (void)editView:(NVEditView *)editView mouseDragged:(NSEvent *)event;
+- (void)editView:(NVEditView *)editView scrollWheel:(NSEvent *)event;
 @end
 
 @interface NVEditView : NVView

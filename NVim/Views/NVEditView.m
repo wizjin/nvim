@@ -21,12 +21,51 @@
         self.wantsLayer = YES;
         CALayer *drawLayer = [CALayer new];
         [self.layer addSublayer:(_drawLayer = drawLayer)];
-        drawLayer.contentsScale = NSScreen.mainScreen.backingScaleFactor;
+        drawLayer.contentsScale = self.layer.contentsScale;
+        drawLayer.allowsEdgeAntialiasing = NO;
+        drawLayer.allowsGroupOpacity = NO;
+        drawLayer.masksToBounds = YES;
+        drawLayer.doubleSided = NO;
         drawLayer.delegate = self;
     }
     return self;
 }
 
+- (void)viewWillStartLiveResize {
+    [self startContentResize];
+    [super viewWillStartLiveResize];
+}
+
+- (void)viewDidEndLiveResize {
+    [super viewDidEndLiveResize];
+    [self endContentResize];
+}
+
+- (BOOL)acceptsFirstResponder {
+    return YES;
+}
+
+- (void)keyDown:(NSEvent *)event {
+    [self.delegate editView:self keyDown:event];
+}
+
+- (void)mouseUp:(NSEvent *)event {
+    [self.delegate editView:self mouseUp:event];
+}
+
+- (void)mouseDown:(NSEvent *)event {
+    [self.delegate editView:self mouseDown:event];
+}
+
+- (void)mouseDragged:(NSEvent *)event {
+    [self.delegate editView:self mouseDragged:event];
+}
+
+- (void)scrollWheel:(NSEvent *)event {
+    [self.delegate editView:self scrollWheel:event];
+}
+
+#pragma mark - Public Methods
 - (void)setContentSize:(CGSize)contentSize {
     if (!CGSizeEqualToSize(self.contentSize, contentSize)) {
         _contentSize = contentSize;
@@ -56,24 +95,6 @@
         @strongify(self);
         [self.drawLayer setHidden:NO];
     });
-}
-
-- (BOOL)acceptsFirstResponder {
-    return YES;
-}
-
-- (void)keyDown:(NSEvent *)event {
-    [self.delegate editView:self keyDown:event];
-}
-
-- (void)viewWillStartLiveResize {
-    [self startContentResize];
-    [super viewWillStartLiveResize];
-}
-
-- (void)viewDidEndLiveResize {
-    [super viewDidEndLiveResize];
-    [self endContentResize];
 }
 
 #pragma mark - CALayerDelegate

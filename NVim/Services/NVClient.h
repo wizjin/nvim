@@ -35,6 +35,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)redrawUI:(CGContextRef)context;
 - (CGSize)resizeUIWithSize:(CGSize)size;
 - (void)keyDown:(NSEvent *)event;
+- (void)mouseUp:(NSEvent *)event inView:(NSView *)view;
+- (void)mouseDown:(NSEvent *)event inView:(NSView *)view;
+- (void)mouseDragged:(NSEvent *)event inView:(NSView *)view;
+- (void)scrollWheel:(NSEvent *)event inView:(NSView *)view;
 
 
 @end

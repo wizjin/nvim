@@ -138,6 +138,22 @@
     [self.client keyDown:event];
 }
 
+- (void)editView:(NVEditView *)editView mouseUp:(NSEvent *)event {
+    [self.client mouseUp:event inView:editView];
+}
+
+- (void)editView:(NVEditView *)editView mouseDown:(NSEvent *)event {
+    [self.client mouseDown:event inView:editView];
+}
+
+- (void)editView:(NVEditView *)editView mouseDragged:(NSEvent *)event {
+    [self.client mouseDragged:event inView:editView];
+}
+
+- (void)editView:(NVEditView *)editView scrollWheel:(NSEvent *)event {
+    [self.client scrollWheel:event inView:editView];
+}
+
 #pragma mark - Helper
 - (CGSize)contentUISize {
     CGSize size = self.view.bounds.size;
