@@ -146,6 +146,8 @@ public:
     
     inline int width(void) const { return m_width; }
     inline int height(void) const { return m_height; }
+    inline const nvc_ui_cell_pos_t& cursor(void) const { return m_cursor;   }
+    inline bool has_cursor(void) const { return m_cursor.x >= 0 && m_cursor.y >= 0; }
     
     inline void resize(uint32_t width, uint32_t height) {
         void *ptr = realloc(m_cells, sizeof(nvc_ui_cell_t) * width * height);
@@ -316,7 +318,12 @@ static inline bool nvc_ui_size_equals(const nvc_ui_cell_size_t& s1, const nvc_ui
 }
 
 static inline void nvc_ui_update_dirty(nvc_ui_context_t *ctx, int x, int y, int width, int height) {
-    ctx->dirty_rect = CGRectUnion(ctx->dirty_rect, CGRectMake(x, y, width, height));
+    CGRect rc = CGRectMake(x, y, width, height);
+    if (CGRectIsEmpty(ctx->dirty_rect)) {
+        ctx->dirty_rect = rc;
+    } else {
+        ctx->dirty_rect = CGRectUnion(ctx->dirty_rect, rc);
+    }
 }
 
 static inline bool nvc_ui_update_size(nvc_ui_context_t *ctx, CGSize size) {
@@ -374,18 +381,20 @@ static inline uint32_t nvc_ui_find_hl_color(nvc_ui_context_t *ctx, int hl, nvc_u
 }
 
 inline void nvc_ui_grid::draw(nvc_ui_context *ctx, CGContextRef context, const nvc_ui_cell_rect_t& dirty) {
+    CGPoint pt;
     CGSize size = ctx->cell_size;
-    nvc_ui_cell_t *cell = m_cells;
-    int w = MIN(m_width, dirty.x + dirty.width);
-    int h = MIN(m_height, dirty.y + dirty.height);
-    bool need_cursor = ctx->mode_enabled && dirty.contains(m_cursor);
+    CGFloat font_offset = ctx->cell_size.height - ctx->font_offset;
     int last_hl_id = 0;
+    int width = MIN(m_width, dirty.x + dirty.width);
+    int height = MIN(m_height, dirty.y + dirty.height);
+    bool need_cursor = ctx->mode_enabled && dirty.contains(m_cursor);
     uint32_t fg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_foreground);
     uint32_t bg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_background);
-    for (int j = dirty.y; j < h; j++) {
-        CGFloat height = size.height * (ctx->window_size.height - j - 1);
-        for (int i = dirty.x; i < w; i++) {
-            CGPoint pt = CGPointMake(size.width * i, height);
+    for (int j = dirty.y; j < height; j++) {
+        pt.y = size.height * j;
+        nvc_ui_cell_t *cell = m_cells + j * ctx->window_size.width + dirty.x;
+        for (int i = dirty.x; i < width; i++) {
+            pt.x = size.width * i;
             if (cell->hl_id != last_hl_id) {
                 last_hl_id = cell->hl_id;
                 fg = nvc_ui_find_hl_color(ctx, last_hl_id, nvc_ui_color_code_foreground);
@@ -393,7 +402,7 @@ inline void nvc_ui_grid::draw(nvc_ui_context *ctx, CGContextRef context, const n
             }
             if (last_hl_id != 0) {
                 nvc_ui_set_fill_color(context, bg);
-                CGContextFillRect(context, CGRectMake(pt.x, pt.y - ctx->font_offset, size.width, size.height));
+                CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, size.height));
             }
             uint32_t tc = fg;
             if (need_cursor && m_cursor.x == i && m_cursor.y == j) {
@@ -401,18 +410,19 @@ inline void nvc_ui_grid::draw(nvc_ui_context *ctx, CGContextRef context, const n
                     const auto& info = ctx->mode_infos[ctx->mode_idx];
                     nvc_ui_set_fill_color(context, nvc_ui_find_hl_color(ctx, info.attr_id, nvc_ui_color_code_foreground));
                     if (info.cursor_shape == "block") {
-                        CGContextFillRect(context, CGRectMake(pt.x, pt.y - ctx->font_offset, size.width, size.height));
+                        CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, size.height));
                         tc = nvc_ui_find_hl_color(ctx, info.attr_id, nvc_ui_color_code_background);
                     } else if (info.cursor_shape == "horizontal") {
-                        CGContextFillRect(context, CGRectMake(pt.x, pt.y - ctx->font_offset, size.width, info.calc_cell_percentage(size.height)));
+                        CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, info.calc_cell_percentage(size.height)));
                     } else if (info.cursor_shape == "vertical") {
-                        CGContextFillRect(context, CGRectMake(pt.x, pt.y - ctx->font_offset, info.calc_cell_percentage(size.width), size.height));
+                        CGContextFillRect(context, CGRectMake(pt.x, pt.y, info.calc_cell_percentage(size.width), size.height));
                     }
                 }
             }
             if (cell->glyph != 0) {
                 nvc_ui_set_fill_color(context, tc);
-                CTFontDrawGlyphs(ctx->font, &cell->glyph, &pt, 1, context);
+                CGContextSetTextPosition(context, pt.x, pt.y + font_offset);
+                CTFontDrawGlyphs(ctx->font, &cell->glyph, &CGPointZero, 1, context);
             }
             cell++;
         }
@@ -533,16 +543,14 @@ void nvc_ui_detach(nvc_ui_context_t *ctx) {
     }
 }
 
-void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context, CGRect dirty) {
+void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context) {
     if (likely(ctx != nullptr && ctx->attached && context != nullptr)) {
         nvc_ui_cell_rect_t rc;
+        CGRect dirty = CGContextGetClipBoundingBox(context);
         rc.x = MAX(floor(dirty.origin.x/ctx->cell_size.width), 0);
         rc.y = MAX(floor(dirty.origin.y/ctx->cell_size.height), 0);
         rc.width = MIN(ceil(dirty.size.width/ctx->cell_size.width), ctx->window_size.width - rc.x);
         rc.height = MIN(ceil(dirty.size.height/ctx->cell_size.height), ctx->window_size.height - rc.y);
-        CGContextSetShouldAntialias(context, true);
-        CGContextSetShouldSmoothFonts(context, false);
-        CGContextSetTextDrawingMode(context, kCGTextFill);
         nvc_lock_guard_t guard(ctx->locker);
         for (const auto& [key, grid] : ctx->grids) {
             grid->draw(ctx, context, rc);
@@ -750,6 +758,7 @@ static inline int nvc_ui_redraw_action_mode_change(nvc_ui_context_t *ctx, int it
             narg -= 2;
             ctx->mode = nvc_rpc_read_str(&ctx->rpc);
             ctx->mode_idx = nvc_rpc_read_int(&ctx->rpc);
+            nvc_ui_update_dirty(ctx, 0, 0, ctx->window_size.width, ctx->window_size.height);
         }
         nvc_rpc_read_skip_items(&ctx->rpc, narg);
     }
@@ -772,13 +781,15 @@ static inline int nvc_ui_redraw_action_mouse_off(nvc_ui_context_t *ctx, int item
 }
 
 static inline int nvc_ui_redraw_action_flush(nvc_ui_context_t *ctx, int items) {
-    CGRect dirty = ctx->dirty_rect;
-    ctx->dirty_rect = CGRectZero;
-    dirty.origin.x *= ctx->cell_size.width;
-    dirty.origin.y *= ctx->cell_size.height;
-    dirty.size.width *= ctx->cell_size.width;
-    dirty.size.height *= ctx->cell_size.height;
-    ctx->cb.flush(nvc_ui_get_userdata(ctx), dirty);
+    if (!CGRectIsEmpty(ctx->dirty_rect)) {
+        CGRect dirty = ctx->dirty_rect;
+        ctx->dirty_rect = CGRectZero;
+        dirty.origin.x *= ctx->cell_size.width;
+        dirty.origin.y *= ctx->cell_size.height;
+        dirty.size.width *= ctx->cell_size.width;
+        dirty.size.height *= ctx->cell_size.height;
+        ctx->cb.flush(nvc_ui_get_userdata(ctx), dirty);
+    }
     return items;
 }
 
@@ -989,6 +1000,9 @@ static inline int nvc_ui_redraw_action_grid_cursor_goto(nvc_ui_context_t *ctx, i
             const auto& p = ctx->grids.find(grid_id);
             if (likely(p != ctx->grids.end())) {
                 const auto& grid = p->second;
+                if (grid->has_cursor()) {
+                    nvc_ui_update_dirty(ctx, grid->cursor().x, grid->cursor().y, 1, 1);
+                }
                 grid->update_cursor(column, row);
                 nvc_ui_update_dirty(ctx, column, row, 1, 1);
             }

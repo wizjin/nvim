@@ -84,9 +84,25 @@
     [self updateContentSize:[self.client resizeUIWithSize:self.contentUISize]];
 }
 
+- (void)windowWillEnterFullScreen:(NSNotification *)notification {
+    [self.editView startContentResize];
+}
+
+- (void)windowDidEnterFullScreen:(NSNotification *)notification {
+    [self.editView endContentResize];
+}
+
+- (void)windowWillExitFullScreen:(NSNotification *)notification {
+    [self.editView startContentResize];
+}
+
+- (void)windowDidExitFullScreen:(NSNotification *)notification {
+    [self.editView endContentResize];
+}
+
 #pragma mark - NVClientDelegate
 - (void)client:(NVClient *)client flush:(CGRect)dirty {
-    [self.editView setNeedsDisplayInRect:dirty];
+    [self.editView updateDisplayRect:dirty];
 }
 
 - (void)client:(NVClient *)client updateTitle:(NSString *)title {
@@ -114,8 +130,8 @@
 }
 
 #pragma mark - NVEditViewDelegate
-- (void)editView:(NVEditView *)editView redrawInContext:(CGContextRef)ctx dirty:(CGRect)dirty {
-    [self.client redrawUI:ctx dirty:dirty];
+- (void)editView:(NVEditView *)editView redrawInContext:(CGContextRef)ctx {
+    [self.client redrawUI:ctx];
 }
 
 - (void)editView:(NVEditView *)editView keyDown:(NSEvent *)event {

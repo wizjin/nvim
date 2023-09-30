@@ -12,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class NVEditView;
 
 @protocol NVEditViewDelegate <NSObject>
-- (void)editView:(NVEditView *)editView redrawInContext:(CGContextRef)ctx dirty:(CGRect)dirty;
+- (void)editView:(NVEditView *)editView redrawInContext:(CGContextRef)ctx;
 - (void)editView:(NVEditView *)editView keyDown:(NSEvent *)event;
 @end
 
@@ -22,6 +22,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readwrite, strong) NSColor *backgroundColor;
 @property (nonatomic, nullable, weak) id<NVEditViewDelegate> delegate;
 
+- (void)updateDisplayRect:(CGRect)dirty;
+- (void)startContentResize;
+- (void)endContentResize;
 
 @end
 

@@ -55,8 +55,8 @@
     nvc_ui_detach(ui_ctx);
 }
 
-- (void)redrawUI:(CGContextRef)ctx dirty:(CGRect)dirty {
-    nvc_ui_redraw(ui_ctx, ctx, dirty);
+- (void)redrawUI:(CGContextRef)context {
+    nvc_ui_redraw(ui_ctx, context);
 }
 
 - (CGSize)resizeUIWithSize:(CGSize)size {

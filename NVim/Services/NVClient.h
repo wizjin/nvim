@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)close;
 - (CGSize)attachUIWithSize:(CGSize)size;
 - (void)detachUI;
-- (void)redrawUI:(CGContextRef)ctx dirty:(CGRect)dirty;
+- (void)redrawUI:(CGContextRef)context;
 - (CGSize)resizeUIWithSize:(CGSize)size;
 - (void)keyDown:(NSEvent *)event;
 
