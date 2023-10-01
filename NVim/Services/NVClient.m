@@ -78,19 +78,15 @@
 }
 
 - (void)keyDown:(NSEvent *)event {
-    NSEventModifierFlags flags = event.modifierFlags;
     nvc_ui_key_info_t key = {
         .code       = event.keyCode,
-        .shift      = flags & NSEventModifierFlagShift,
-        .control    = flags & NSEventModifierFlagControl,
-        .option     = flags & NSEventModifierFlagOption,
-        .command    = flags & NSEventModifierFlagCommand,
+        .flags      = nvc_ui_key_flags_init(event.modifierFlags),
     };
     if (!nvc_ui_input_key(ui_ctx, key)) {
         NSString *c = event.characters;
         if (c.length > 0) {
             NSData *keys = [c dataUsingEncoding:NSUTF8StringEncoding];
-            nvc_ui_input_keystr(ui_ctx, (const char *)keys.bytes, (uint32_t)keys.length);
+            nvc_ui_input_keystr(ui_ctx, key.flags, (const char *)keys.bytes, (uint32_t)keys.length);
         }
     }
 }
@@ -136,17 +132,23 @@
 }
 
 static inline void nvclient_ui_input_mouse(nvc_ui_context_t *ctx, NSEvent *event, NSView *view, nvc_ui_mouse_key_t key, nvc_ui_mouse_action_t action) {
-    NSEventModifierFlags flags = event.modifierFlags;
     nvc_ui_mouse_info_t mouse = {
         .key        = key,
         .action     = action,
         .point      = [view convertPoint:event.locationInWindow toView:nil],
-        .shift      = flags & NSEventModifierFlagShift,
-        .control    = flags & NSEventModifierFlagControl,
-        .option     = flags & NSEventModifierFlagOption,
-        .command    = flags & NSEventModifierFlagCommand,
+        .flags      = nvc_ui_key_flags_init(event.modifierFlags),
     };
     nvc_ui_input_mouse(ctx, mouse);
+}
+
+#pragma mark - Helper
+static inline nvc_ui_key_flags_t nvc_ui_key_flags_init(NSEventModifierFlags flags) {
+    return (nvc_ui_key_flags_t) {
+        .shift    = flags & NSEventModifierFlagShift,
+        .control  = flags & NSEventModifierFlagControl,
+        .option   = flags & NSEventModifierFlagOption,
+        .command  = flags & NSEventModifierFlagCommand,
+    };
 }
 
 #pragma mark - Callback

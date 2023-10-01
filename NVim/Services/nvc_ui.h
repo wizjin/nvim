@@ -36,12 +36,16 @@ typedef struct nvc_ui_config {
     CGFloat     font_size;
 } nvc_ui_config_t;
 
-typedef struct nvc_ui_key_info {
-    uint16_t    code;
+typedef struct nvc_ui_key_flags {
     bool        shift:      1;
     bool        control:    1;
     bool        option:     1;
     bool        command:    1;
+} nvc_ui_key_flags_t;
+
+typedef struct nvc_ui_key_info {
+    uint16_t            code;
+    nvc_ui_key_flags_t  flags;
 } nvc_ui_key_info_t;
 
 #define NVC_UI_MOUSE_KEY_LIST       \
@@ -69,10 +73,7 @@ typedef struct nvc_ui_mouse_info {
     nvc_ui_mouse_key_t      key;
     nvc_ui_mouse_action_t   action;
     CGPoint                 point;
-    bool        shift:      1;
-    bool        control:    1;
-    bool        option:     1;
-    bool        command:    1;
+    nvc_ui_key_flags_t      flags;
 } nvc_ui_mouse_info_t;
 
 typedef struct nvc_ui_context nvc_ui_context_t;
@@ -87,7 +88,7 @@ NVC_API CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size);
 NVC_API void nvc_ui_open_file(nvc_ui_context_t *ctx, const char *file, uint32_t len, bool new_tab);
 NVC_API void nvc_ui_tab_next(nvc_ui_context_t *ctx, int count);
 NVC_API bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key);
-NVC_API void nvc_ui_input_keystr(nvc_ui_context_t *ctx, const char* keys, uint32_t len);
+NVC_API void nvc_ui_input_keystr(nvc_ui_context_t *ctx, nvc_ui_key_flags_t flags, const char* keys, uint32_t len);
 NVC_API void nvc_ui_input_rawkey(nvc_ui_context_t *ctx, const char* keys, uint32_t len);
 NVC_API void nvc_ui_input_mouse(nvc_ui_context_t *ctx, nvc_ui_mouse_info_t mouse);
 

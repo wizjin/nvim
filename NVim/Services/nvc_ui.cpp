@@ -300,6 +300,26 @@ static inline void nvc_util_parse_token(const std::string& value, char delimiter
     }
 }
 
+static inline uint32_t nvc_ui_key_flags_encode(nvc_ui_key_flags_t flags, char output[], uint32_t len, bool short_code) {
+    if (flags.shift) {
+        output[len++] = 'S';
+        if (!short_code) output[len++] = '-';
+    }
+    if (flags.control) {
+        output[len++] = 'C';
+        if (!short_code) output[len++] = '-';
+    }
+    if (flags.option) {
+        output[len++] = 'M';
+        if (!short_code) output[len++] = '-';
+    }
+    if (flags.command) {
+        output[len++] = 'D';
+        if (!short_code) output[len++] = '-';
+    }
+    return len;
+}
+
 #pragma mark - NVC UI Helper
 static inline int nvc_ui_set_font(nvc_ui_context_t *ctx, CTFontRef font) {
     int res = NVC_RC_ILLEGAL_CALL;
@@ -503,6 +523,8 @@ inline void nvc_ui_grid::draw(nvc_ui_context *ctx, CGContextRef context, const n
 static inline UniChar nvc_ui_utf82unicode(const uint8_t *str, uint8_t len) {
     UniChar unicode = 0;
     switch (len) {
+        case 0:
+            break;
         case 1:
             unicode = str[0];
             break;
@@ -720,22 +742,7 @@ bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key) {
         char keys[kNvcUiKeysMax];
         uint32_t len = 0;
         keys[len++] = '<';
-        if (key.shift) {
-            keys[len++] = 'S';
-            keys[len++] = '-';
-        }
-        if (key.control) {
-            keys[len++] = 'C';
-            keys[len++] = '-';
-        }
-        if (key.option) {
-            keys[len++] = 'M';
-            keys[len++] = '-';
-        }
-        if (key.command) {
-            keys[len++] = 'D';
-            keys[len++] = '-';
-        }
+        len = nvc_ui_key_flags_encode(key.flags, keys, len, false);
         memcpy(keys + len, notation.c_str(), notation.size());
         len += notation.size();
         keys[len++] = '>';
@@ -745,11 +752,13 @@ bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key) {
     return res;
 }
 
-void nvc_ui_input_keystr(nvc_ui_context_t *ctx, const char* keys, uint32_t len) {
-    if (len > 0 && keys[0] == '<') {
-        nvc_ui_input_rawkey(ctx, "<lt>", 4);
-    } else {
-        nvc_ui_input_rawkey(ctx, keys, len);
+void nvc_ui_input_keystr(nvc_ui_context_t *ctx, nvc_ui_key_flags_t flags, const char* str, uint32_t slen) {
+    if (slen > 0) {
+        if (str[0] == '<') {
+            nvc_ui_input_rawkey(ctx, "<lt>", 4);
+        } else {
+            nvc_ui_input_rawkey(ctx, str, slen);
+        }
     }
 }
 
@@ -776,10 +785,7 @@ void nvc_ui_input_mouse(nvc_ui_context_t *ctx, nvc_ui_mouse_info_t mouse) {
         nvc_rpc_write_string(&ctx->rpc, nvc_ui_mouse_action_name[mouse.action]);
         uint32_t len = 0;
         char modifier[kNvcUiKeysMax];
-        if (mouse.shift)  modifier[len++] = 'S';
-        if (mouse.control) modifier[len++] = 'C';
-        if (mouse.option) modifier[len++] = 'M';
-        if (mouse.command) modifier[len++] = 'D';
+        len = nvc_ui_key_flags_encode(mouse.flags, modifier, len, true);
         nvc_rpc_write_str(&ctx->rpc, modifier, len);
         nvc_rpc_write_unsigned(&ctx->rpc, 0);
         nvc_rpc_write_signed(&ctx->rpc, mouse.point.y/ctx->cell_size.height);
