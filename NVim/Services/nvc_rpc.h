@@ -67,6 +67,7 @@ NVC_API void nvc_rpc_call_end(nvc_rpc_context_t *ctx);
 #define nvc_rpc_write_map_size(_ctx, _n)    cw_pack_map_size(&(_ctx)->cout, _n)
 #define nvc_rpc_write_str(_ctx, _v, _l)     cw_pack_str(&(_ctx)->cout, _v, _l)
 #define nvc_rpc_write_true(_ctx)            cw_pack_true(&(_ctx)->cout)
+#define nvc_rpc_write_nil(_ctx)             cw_pack_nil(&(_ctx)->cout)
 #define nvc_rpc_write_false(_ctx)           cw_pack_false(&(_ctx)->cout)
 #define nvc_rpc_write_flush(_ctx)           cw_pack_flush(&(_ctx)->cout)
 

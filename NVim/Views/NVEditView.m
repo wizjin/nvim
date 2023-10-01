@@ -27,8 +27,14 @@
         drawLayer.masksToBounds = YES;
         drawLayer.doubleSided = NO;
         drawLayer.delegate = self;
+        
+        [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
     }
     return self;
+}
+
+- (void)dealloc {
+    [self unregisterDraggedTypes];
 }
 
 - (void)viewWillStartLiveResize {
@@ -39,6 +45,35 @@
 - (void)viewDidEndLiveResize {
     [super viewDidEndLiveResize];
     [self endContentResize];
+}
+
+- (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender {
+    if ([sender.draggingPasteboard.types containsObject:NSPasteboardTypeFileURL]) {
+        NSDragOperation operation = sender.draggingSourceOperationMask;
+        if (operation & NSDragOperationLink) {
+            return NSDragOperationLink;
+        } else if (operation & NSDragOperationCopy) {
+            return NSDragOperationCopy;
+        }
+    }
+    return NSDragOperationGeneric;
+}
+
+- (BOOL)performDragOperation:(id <NSDraggingInfo>)sender {
+    BOOL res = NO;
+    NSPasteboard *pasteboard = sender.draggingPasteboard;
+    if ([pasteboard.types containsObject:NSPasteboardTypeFileURL]) {
+        NSFileManager *fm = NSFileManager.defaultManager;
+        NSMutableArray<NSString *> *files = [NSMutableArray new];
+        for (NSURL *url in [pasteboard readObjectsForClasses:@[NSURL.class] options:nil]) {
+            NSString *file = url.path;
+            if ([fm fileExistsAtPath:file]) {
+                [files addObject:file];
+            }
+        }
+        res = [self.client openFiles:files];
+    }
+    return res;
 }
 
 - (BOOL)acceptsFirstResponder {

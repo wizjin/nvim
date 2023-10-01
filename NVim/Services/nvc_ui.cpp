@@ -21,6 +21,9 @@
 #define nvc_lock_guard_t                    std::lock_guard<std::mutex>
 
 #pragma mark - NVC RPC Helper
+#define nvc_rpc_call_command_const_begin(_ctx, _cmd, _args)   \
+    nvc_rpc_call_command_begin(_ctx, _cmd, sizeof(_cmd) - 1, _args)
+
 static const std::string nvc_rpc_empty_str = "";
 static inline const std::string nvc_rpc_read_str(nvc_rpc_context_t *ctx) {
     uint32_t len = 0;
@@ -30,6 +33,20 @@ static inline const std::string nvc_rpc_read_str(nvc_rpc_context_t *ctx) {
 
 static inline void nvc_rpc_write_string(nvc_rpc_context_t *ctx, const std::string& str) {
     nvc_rpc_write_str(ctx, str.c_str(), (uint32_t)str.size());
+}
+
+static inline void nvc_rpc_call_command_begin(nvc_rpc_context_t *ctx, const char *cmd, uint32_t cmdlen, uint32_t args) {
+    nvc_rpc_call_const_begin(ctx, "nvim_cmd", 2);
+    nvc_rpc_write_map_size(ctx, 2);
+    nvc_rpc_write_const_str(ctx, "cmd");
+    nvc_rpc_write_str(ctx, cmd, cmdlen);
+    nvc_rpc_write_const_str(ctx, "args");
+    nvc_rpc_write_array_size(ctx, args);
+}
+
+static inline void nvc_rpc_call_command_end(nvc_rpc_context_t *ctx) {
+    nvc_rpc_write_map_size(ctx, 0);
+    nvc_rpc_call_end(ctx);
 }
 
 #pragma mark - NVC UI Struct
@@ -266,6 +283,23 @@ static int nvc_ui_close_handler(nvc_rpc_context_t *ctx, int items);
 
 static const nvc_ui_cell_size_t nvc_ui_cell_size_zero = { 0, 0 };
 
+#pragma mark - NVC Util Helper
+static inline void nvc_util_parse_token(const std::string& value, char delimiter, const std::function<bool(const std::string&)>& action) {
+    size_t last_pos = 0;
+    while (last_pos != std::string::npos) {
+        size_t pos = value.find_first_of(delimiter, last_pos);
+        auto token = value.substr(last_pos, (pos == std::string_view::npos ? std::string_view::npos : pos - last_pos));
+        if (!action(token)) {
+            break;
+        }
+        if (pos == std::string::npos) {
+            last_pos = std::string::npos;
+        } else {
+            last_pos = pos + 1;
+        }
+    }
+}
+
 #pragma mark - NVC UI Helper
 static inline int nvc_ui_set_font(nvc_ui_context_t *ctx, CTFontRef font) {
     int res = NVC_RC_ILLEGAL_CALL;
@@ -294,6 +328,40 @@ static inline int nvc_ui_set_font(nvc_ui_context_t *ctx, CTFontRef font) {
         res = NVC_RC_OK;
     }
     return res;
+}
+
+static inline CTFontRef nvc_ui_load_font(const std::string& name, CGFloat font_size) {
+    CTFontRef font = nullptr;
+    if (!name.empty()) {
+        CFStringRef font_name = CFStringCreateWithBytesNoCopy(nullptr, (const UInt8 *)name.c_str(), name.size(), kCFStringEncodingUTF8, false, kCFAllocatorNull);
+        if (font_name != nullptr) {
+            CTFontRef original_font = CTFontCreateWithName(font_name, font_size, nullptr);
+            if (original_font != nullptr) {
+                font = CTFontCreateCopyWithFamily(original_font, font_size, nullptr, font_name);
+                CFRelease(original_font);
+            }
+            CFRelease(font_name);
+        }
+    }
+    return font;
+}
+
+static inline CGFloat nvc_ui_parse_font_size(const std::string& str, CGFloat font_size) {
+    nvc_util_parse_token(str, ':', [&font_size](const std::string& value) -> bool {
+        if (!value.empty()) {
+            size_t idx = 0;
+            if (value.at(idx) == 'h') idx++;
+            if (idx != std::string::npos && isdigit(value.at(idx))) {
+                double size = atof(value.substr(idx).c_str());
+                if (size > 0) {
+                    font_size = size;
+                    return false;
+                }
+            }
+        }
+        return true;
+    });
+    return font_size;
 }
 
 static inline nvc_ui_cell_size_t nvc_ui_size2cell(nvc_ui_context_t *ctx, const CGSize& size) {
@@ -570,6 +638,22 @@ CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size) {
     return size;
 }
 
+void nvc_ui_open_file(nvc_ui_context_t *ctx, const char *file, uint32_t len, bool new_tab) {
+    if (likely(ctx != nullptr && ctx->attached && len > 0)) {
+        nvc_rpc_call_command_const_begin(&ctx->rpc, (new_tab ? "tabnew" : "edit"), 1);
+        nvc_rpc_write_str(&ctx->rpc, file, len);
+        nvc_rpc_call_command_end(&ctx->rpc);
+    }
+}
+
+void nvc_ui_tab_next(nvc_ui_context_t *ctx, int count) {
+    if (likely(ctx != nullptr && ctx->attached)) {
+        nvc_rpc_call_command_const_begin(&ctx->rpc, "tabnext", 1);
+        nvc_rpc_write_signed(&ctx->rpc, count);
+        nvc_rpc_call_command_end(&ctx->rpc);
+    }
+}
+
 // Note: https://neovim.io/doc/user/intro.html#keycodes
 // <HIToolbox/Events.h>
 #define NVC_UI_KEYCODE(_code, _notation)    { _code, _notation }
@@ -705,28 +789,35 @@ void nvc_ui_input_mouse(nvc_ui_context_t *ctx, nvc_ui_mouse_info_t mouse) {
 }
 
 #pragma mark - NVC UI Option Actions
-static int nvc_ui_option_set_action_guifont(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_option_set_action_guifont(nvc_ui_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
-        uint32_t len = 0;
-        const auto& str = nvc_rpc_read_str(&ctx->rpc, &len);
-        if (len > 0) {
-            CFStringRef name = CFStringCreateWithBytesNoCopy(nullptr, (const UInt8 *)str, len, kCFStringEncodingUTF8, false, kCFAllocatorNull);
-            if (name != nullptr) {
-                CTFontRef font = CTFontCreateWithName(name, ctx->font_size, nullptr);
+        const auto& value = nvc_rpc_read_str(&ctx->rpc);
+        if (!value.empty() && value != "*") {
+            nvc_util_parse_token(value, ',', [ctx](const std::string& name) -> bool {
+                bool result = true;
+                CGFloat font_size = ctx->font_size;
+                size_t p = name.find_first_of(':');
+                auto family = name.substr(0, p);
+                if (p != std::string::npos) {
+                    auto args = name.substr(p + 1);
+                    font_size = nvc_ui_parse_font_size(args, ctx->font_size);
+                }
+                CTFontRef font = nvc_ui_load_font(family, font_size);
                 if (font != nullptr) {
                     if (nvc_ui_set_font(ctx, font) == NVC_RC_OK) {
                         ctx->cb.font_updated(nvc_ui_get_userdata(ctx));
+                        result = false;
                     }
                     CFRelease(font);
                 }
-                CFRelease(name);
-            }
+                return result;
+            });
         }
     }
     return items;
 }
 
-static int nvc_ui_option_set_action_ext_tabline(nvc_ui_context_t *ctx, int items) {
+static inline int nvc_ui_option_set_action_ext_tabline(nvc_ui_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
         ctx->cb.enable_ext_tabline(nvc_ui_get_userdata(ctx), nvc_rpc_read_bool(&ctx->rpc));
     }

@@ -84,6 +84,8 @@ NVC_API CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size);
 NVC_API void nvc_ui_detach(nvc_ui_context_t *ctx);
 NVC_API void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context);
 NVC_API CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size);
+NVC_API void nvc_ui_open_file(nvc_ui_context_t *ctx, const char *file, uint32_t len, bool new_tab);
+NVC_API void nvc_ui_tab_next(nvc_ui_context_t *ctx, int count);
 NVC_API bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key);
 NVC_API void nvc_ui_input_keystr(nvc_ui_context_t *ctx, const char* keys, uint32_t len);
 NVC_API void nvc_ui_input_rawkey(nvc_ui_context_t *ctx, const char* keys, uint32_t len);

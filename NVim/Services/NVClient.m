@@ -63,6 +63,20 @@
     return nvc_ui_resize(ui_ctx, size);
 }
 
+- (BOOL)openFiles:(NSArray<NSString *> *)files {
+    BOOL res = NO;
+    int n = 0;
+    for (NSString *file in files) {
+        nvc_ui_open_file(ui_ctx, file.cstr, (uint32_t)file.length, res);
+        n++;
+        res = YES;
+    }
+    if (n > 1) {
+        nvc_ui_tab_next(ui_ctx, 1 - n);
+    }
+    return res;
+}
+
 - (void)keyDown:(NSEvent *)event {
     NSEventModifierFlags flags = event.modifierFlags;
     nvc_ui_key_info_t key = {

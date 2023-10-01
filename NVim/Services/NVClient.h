@@ -36,6 +36,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)detachUI;
 - (void)redrawUI:(CGContextRef)context;
 - (CGSize)resizeUIWithSize:(CGSize)size;
+- (BOOL)openFiles:(NSArray<NSString *> *)files;
 - (void)keyDown:(NSEvent *)event;
 - (void)scrollWheel:(NSEvent *)event inView:(NSView *)view;
 - (void)mouseUp:(NSEvent *)event inView:(NSView *)view;
