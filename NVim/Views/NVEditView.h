@@ -6,25 +6,17 @@
 //
 
 #import "NVView.h"
+#import "NVClient.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class NVEditView;
 
-@protocol NVEditViewDelegate <NSObject>
-- (void)editView:(NVEditView *)editView redrawInContext:(CGContextRef)ctx;
-- (void)editView:(NVEditView *)editView keyDown:(NSEvent *)event;
-- (void)editView:(NVEditView *)editView mouseUp:(NSEvent *)event;
-- (void)editView:(NVEditView *)editView mouseDown:(NSEvent *)event;
-- (void)editView:(NVEditView *)editView mouseDragged:(NSEvent *)event;
-- (void)editView:(NVEditView *)editView scrollWheel:(NSEvent *)event;
-@end
-
 @interface NVEditView : NVView
 
+@property (nonatomic, readwrite, strong) NVClient *client;
 @property (nonatomic, readwrite, assign) CGSize contentSize;
 @property (nonatomic, readwrite, strong) NSColor *backgroundColor;
-@property (nonatomic, nullable, weak) id<NVEditViewDelegate> delegate;
 
 - (void)updateDisplayRect:(CGRect)dirty;
 - (void)startContentResize;

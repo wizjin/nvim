@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <CoreGraphics/CoreGraphics.h>
+#include <CoreText/CoreText.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,11 +26,13 @@ typedef struct nvc_ui_callback {
     void (*update_tab_list)(void *userdata, bool list_updated);
     void (*mouse_on)(void *userdata);
     void (*mouse_off)(void *userdata);
+    void (*font_updated)(void *userdata);
+    void (*enable_ext_tabline)(void *userdata, bool enabled);
     void (*close)(void *userdata);
 } nvc_ui_callback_t;
 
 typedef struct nvc_ui_config {
-    const char  *family_name;
+    CTFontRef   font;
     CGFloat     font_size;
 } nvc_ui_config_t;
 

@@ -6,7 +6,6 @@
 //
 
 #include "nvc_ui.h"
-#include <CoreText/CoreText.h>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -268,45 +267,36 @@ static int nvc_ui_close_handler(nvc_rpc_context_t *ctx, int items);
 static const nvc_ui_cell_size_t nvc_ui_cell_size_zero = { 0, 0 };
 
 #pragma mark - NVC UI Helper
-static inline int nvc_ui_init_font(nvc_ui_context_t *ctx, const nvc_ui_config_t *config) {
+static inline int nvc_ui_set_font(nvc_ui_context_t *ctx, CTFontRef font) {
     int res = NVC_RC_ILLEGAL_CALL;
-    CFStringRef name = CFStringCreateWithCString(nullptr, config->family_name, CFStringGetSystemEncoding());
-    if (unlikely(name == nullptr)) {
-        res = NVC_RC_MALLOC_ERROR;
-    } else {
-        ctx->font_size = config->font_size;
-        ctx->font = CTFontCreateWithName(name, config->font_size, nullptr);
-        if (unlikely(ctx->font == nullptr)) {
-            NVLogW("nvc ui create font failed: %s (%lf)", config->family_name, config->font_size);
-        } else {
-            CGFloat ascent = CTFontGetAscent(ctx->font);
-            CGFloat descent = CTFontGetDescent(ctx->font);
-            CGFloat leading = CTFontGetLeading(ctx->font);
-            CGFloat height = ceil(ascent + descent + leading);
-            CGGlyph glyph = (CGGlyph) 0;
-            UniChar capitalM = (UniChar) 0x004D;
-            CGSize advancement = CGSizeZero;
-            CTFontGetGlyphsForCharacters(ctx->font, &capitalM, &glyph, 1);
-            CTFontGetAdvancesForGlyphs(ctx->font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
-            CGFloat width = ceil(advancement.width);
-            ctx->cell_size = CGSizeMake(width, height);
-            ctx->font_offset = descent;
-            for (int i = 0; i < kNvcUiCacheGlyphMax; i++) {
-                if (isspace(i)) {
-                    ctx->glyphs[i] = 0;
-                } else {
-                    UniChar ch = i;
-                    CTFontGetGlyphsForCharacters(ctx->font, &ch, ctx->glyphs + i, 1);
-                }
+    if (font != nullptr) {
+        ctx->font = (CTFontRef)CFRetain(font);
+        CGFloat ascent = CTFontGetAscent(ctx->font);
+        CGFloat descent = CTFontGetDescent(ctx->font);
+        CGFloat leading = CTFontGetLeading(ctx->font);
+        CGFloat height = ceil(ascent + descent + leading);
+        CGGlyph glyph = (CGGlyph) 0;
+        UniChar capitalM = (UniChar) 0x004D;
+        CGSize advancement = CGSizeZero;
+        CTFontGetGlyphsForCharacters(ctx->font, &capitalM, &glyph, 1);
+        CTFontGetAdvancesForGlyphs(ctx->font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
+        CGFloat width = ceil(advancement.width);
+        ctx->cell_size = CGSizeMake(width, height);
+        ctx->font_offset = descent;
+        for (int i = 0; i < kNvcUiCacheGlyphMax; i++) {
+            if (isspace(i)) {
+                ctx->glyphs[i] = 0;
+            } else {
+                UniChar ch = i;
+                CTFontGetGlyphsForCharacters(ctx->font, &ch, ctx->glyphs + i, 1);
             }
-            res = NVC_RC_OK;
         }
-        CFRelease(name);
+        res = NVC_RC_OK;
     }
     return res;
 }
 
-static inline nvc_ui_cell_size_t nvc_ui_size2cell(nvc_ui_context_t *ctx, CGSize size) {
+static inline nvc_ui_cell_size_t nvc_ui_size2cell(nvc_ui_context_t *ctx, const CGSize& size) {
     nvc_ui_cell_size_t cell;
     cell.width = floor(size.width/ctx->cell_size.width);
     cell.height = floor(size.height/ctx->cell_size.height);
@@ -315,6 +305,15 @@ static inline nvc_ui_cell_size_t nvc_ui_size2cell(nvc_ui_context_t *ctx, CGSize 
 
 static inline CGSize nvc_ui_cell2size(nvc_ui_context_t *ctx, int width, int height) {
     return CGSizeMake(ctx->cell_size.width * width, ctx->cell_size.height * height);
+}
+
+static inline nvc_ui_cell_rect_t nvc_ui_rect2cell(nvc_ui_context_t *ctx, const CGRect& rect) {
+    nvc_ui_cell_rect_t rc;
+    rc.x = MAX(floor(rect.origin.x/ctx->cell_size.width), 0);
+    rc.y = MAX(floor(rect.origin.y/ctx->cell_size.height), 0);
+    rc.width = MIN(ceil(rect.size.width/ctx->cell_size.width), ctx->window_size.width - rc.x);
+    rc.height = MIN(ceil(rect.size.height/ctx->cell_size.height), ctx->window_size.height - rc.y);
+    return rc;
 }
 
 static inline bool nvc_ui_size_equals(const nvc_ui_cell_size_t& s1, const nvc_ui_cell_size_t& s2) {
@@ -483,7 +482,8 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
             ctx->window_size = nvc_ui_cell_size_zero;
             int res = nvc_rpc_init(&ctx->rpc, inskt, outskt, userdata, nvc_ui_response_handler, nvc_ui_notification_handler, nvc_ui_close_handler);
             if (res == NVC_RC_OK) {
-                res = nvc_ui_init_font(ctx, config);
+                ctx->font_size = config->font_size;
+                res = nvc_ui_set_font(ctx, config->font);
             }
             if (res != NVC_RC_OK) {
                 nvc_ui_destroy(ctx);
@@ -549,12 +549,7 @@ void nvc_ui_detach(nvc_ui_context_t *ctx) {
 
 void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context) {
     if (likely(ctx != nullptr && ctx->attached && context != nullptr)) {
-        nvc_ui_cell_rect_t rc;
-        CGRect dirty = CGContextGetClipBoundingBox(context);
-        rc.x = MAX(floor(dirty.origin.x/ctx->cell_size.width), 0);
-        rc.y = MAX(floor(dirty.origin.y/ctx->cell_size.height), 0);
-        rc.width = MIN(ceil(dirty.size.width/ctx->cell_size.width), ctx->window_size.width - rc.x);
-        rc.height = MIN(ceil(dirty.size.height/ctx->cell_size.height), ctx->window_size.height - rc.y);
+        nvc_ui_cell_rect_t rc = nvc_ui_rect2cell(ctx, CGContextGetClipBoundingBox(context));
         nvc_lock_guard_t guard(ctx->locker);
         for (const auto& [key, grid] : ctx->grids) {
             grid->draw(ctx, context, rc);
@@ -709,6 +704,35 @@ void nvc_ui_input_mouse(nvc_ui_context_t *ctx, nvc_ui_mouse_info_t mouse) {
     }
 }
 
+#pragma mark - NVC UI Option Actions
+static int nvc_ui_option_set_action_guifont(nvc_ui_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        uint32_t len = 0;
+        const auto& str = nvc_rpc_read_str(&ctx->rpc, &len);
+        if (len > 0) {
+            CFStringRef name = CFStringCreateWithBytesNoCopy(nullptr, (const UInt8 *)str, len, kCFStringEncodingUTF8, false, kCFAllocatorNull);
+            if (name != nullptr) {
+                CTFontRef font = CTFontCreateWithName(name, ctx->font_size, nullptr);
+                if (font != nullptr) {
+                    if (nvc_ui_set_font(ctx, font) == NVC_RC_OK) {
+                        ctx->cb.font_updated(nvc_ui_get_userdata(ctx));
+                    }
+                    CFRelease(font);
+                }
+                CFRelease(name);
+            }
+        }
+    }
+    return items;
+}
+
+static int nvc_ui_option_set_action_ext_tabline(nvc_ui_context_t *ctx, int items) {
+    if (likely(items-- > 0)) {
+        ctx->cb.enable_ext_tabline(nvc_ui_get_userdata(ctx), nvc_rpc_read_bool(&ctx->rpc));
+    }
+    return items;
+}
+
 #pragma mark - NVC UI Redraw Actions
 static inline int nvc_ui_redraw_action_set_title(nvc_ui_context_t *ctx, int count) {
     if (likely(count-- > 0)) {
@@ -751,29 +775,46 @@ static inline int nvc_ui_redraw_action_mode_info_set(nvc_ui_context_t *ctx, int 
     return items;
 }
 
+typedef int (*nvc_ui_option_set_action)(nvc_ui_context_t *ctx, int items);
+#define NVC_UI_OPTION_SET_ACTION(_action)       { #_action, nvc_ui_option_set_action_##_action }
+#define NVC_UI_OPTION_SET_ACTION_NULL(_action)  { #_action, nullptr }
+static const std::map<const std::string, nvc_ui_option_set_action> nvc_ui_option_set_actions = {
+    NVC_UI_OPTION_SET_ACTION_NULL(arabicshape),
+    NVC_UI_OPTION_SET_ACTION_NULL(ambiwidth),
+    NVC_UI_OPTION_SET_ACTION_NULL(emoji),
+    NVC_UI_OPTION_SET_ACTION(guifont),
+    NVC_UI_OPTION_SET_ACTION_NULL(guifontwide),
+    NVC_UI_OPTION_SET_ACTION_NULL(linespace),
+    NVC_UI_OPTION_SET_ACTION_NULL(mousefocus),
+    NVC_UI_OPTION_SET_ACTION_NULL(mousemoveevent),
+    NVC_UI_OPTION_SET_ACTION_NULL(pumblend),
+    NVC_UI_OPTION_SET_ACTION_NULL(showtabline),
+    NVC_UI_OPTION_SET_ACTION_NULL(termguicolors),
+    NVC_UI_OPTION_SET_ACTION_NULL(ttimeout),
+    NVC_UI_OPTION_SET_ACTION_NULL(ttimeoutlen),
+    NVC_UI_OPTION_SET_ACTION_NULL(verbose),
+    NVC_UI_OPTION_SET_ACTION_NULL(ext_linegrid),
+    NVC_UI_OPTION_SET_ACTION_NULL(ext_multigrid),
+    NVC_UI_OPTION_SET_ACTION_NULL(ext_hlstate),
+    NVC_UI_OPTION_SET_ACTION_NULL(ext_termcolors),
+    NVC_UI_OPTION_SET_ACTION_NULL(ext_cmdline),
+    NVC_UI_OPTION_SET_ACTION_NULL(ext_popupmenu),
+    NVC_UI_OPTION_SET_ACTION(ext_tabline),
+    NVC_UI_OPTION_SET_ACTION_NULL(ext_wildmenu),
+    NVC_UI_OPTION_SET_ACTION_NULL(ext_messages),
+};
+
 static inline int nvc_ui_redraw_action_option_set(nvc_ui_context_t *ctx, int items) {
     while (items-- > 0) {
         int narg = nvc_rpc_read_array_size(&ctx->rpc);
         if (likely(narg-- > 0)) {
-            std::string value;
             const auto& key = nvc_rpc_read_str(&ctx->rpc);
             if (likely(narg > 0)) {
-                switch (nvc_rpc_read_ahead(&ctx->rpc)) {
-                    case NVC_RPC_ITEM_STR:
-                        value = nvc_rpc_read_str(&ctx->rpc);
-                        narg--;
-                        break;
-                    case NVC_RPC_ITEM_BOOLEAN:
-                        value = nvc_rpc_read_bool(&ctx->rpc) ? "true" : "false";
-                        narg--;
-                        break;
-                    case NVC_RPC_ITEM_POSITIVE_INTEGER:
-                    case NVC_RPC_ITEM_NEGATIVE_INTEGER:
-                        value = std::to_string(nvc_rpc_read_int(&ctx->rpc));
-                        narg--;
-                        break;
-                    default:
-                        NVLogW("nvc ui find unknown option value type: %s", key.c_str());
+                const auto& p = nvc_ui_option_set_actions.find(key);
+                if (unlikely(p == nvc_ui_option_set_actions.end())) {
+                    NVLogW("nvc ui find unknown option value type: %s", key.c_str());
+                } else if (p->second != nullptr) {
+                    narg = p->second(ctx, narg);
                 }
             }
             nvc_rpc_read_skip_items(&ctx->rpc, narg);

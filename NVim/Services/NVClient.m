@@ -31,7 +31,7 @@
 - (void)openWithRead:(int)read write:(int)write {
     nvc_ui_config_t config;
     bzero(&config, sizeof(config));
-    config.family_name = kNVDefaultFamilyName;
+    config.font = (__bridge CTFontRef)([NSFont monospacedSystemFontOfSize:kNVDefaultFontSize weight:NSFontWeightRegular]);
     config.font_size = kNVDefaultFontSize;
     ui_ctx = nvc_ui_create(read, write, &config, &nvclient_ui_callbacks, (__bridge void *)self);
     if (ui_ctx != nil) {
@@ -81,6 +81,10 @@
     }
 }
 
+- (void)scrollWheel:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_wheel, (event.deltaY > 0 ? nvc_ui_mouse_action_up : nvc_ui_mouse_action_down));
+}
+
 - (void)mouseUp:(NSEvent *)event inView:(NSView *)view {
     nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_left, nvc_ui_mouse_action_release);
 }
@@ -93,8 +97,28 @@
     nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_left, nvc_ui_mouse_action_drag);
 }
 
-- (void)scrollWheel:(NSEvent *)event inView:(NSView *)view {
-    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_wheel, (event.deltaY > 0 ? nvc_ui_mouse_action_up : nvc_ui_mouse_action_down));
+- (void)rightMouseUp:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_right, nvc_ui_mouse_action_release);
+}
+
+- (void)rightMouseDown:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_right, nvc_ui_mouse_action_press);
+}
+
+- (void)rightMouseDragged:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_right, nvc_ui_mouse_action_drag);
+}
+
+- (void)middleMouseUp:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_middle, nvc_ui_mouse_action_release);
+}
+
+- (void)middleMouseDown:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_middle, nvc_ui_mouse_action_press);
+}
+
+- (void)middleMouseDragged:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_middle, nvc_ui_mouse_action_drag);
 }
 
 static inline void nvclient_ui_input_mouse(nvc_ui_context_t *ctx, NSEvent *event, NSView *view, nvc_ui_mouse_key_t key, nvc_ui_mouse_action_t action) {
@@ -178,6 +202,24 @@ static inline void nvclient_ui_mouse_off(void *userdata) {
     });
 }
 
+static inline void nvclient_ui_font_updated(void *userdata) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate clientUpdated:client];
+    });
+}
+
+static inline void nvclient_ui_enable_ext_tabline(void *userdata, bool enabled) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate client:client hideTabline:!enabled];
+    });
+}
+
 static inline void nvclient_ui_close(void *userdata) {
     NVClient *client = (__bridge NVClient *)userdata;
     @weakify(client);
@@ -196,6 +238,8 @@ static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(update_tab_list),
     NVCLIENT_CALLBACK(mouse_on),
     NVCLIENT_CALLBACK(mouse_off),
+    NVCLIENT_CALLBACK(font_updated),
+    NVCLIENT_CALLBACK(enable_ext_tabline),
     NVCLIENT_CALLBACK(close),
 };
 

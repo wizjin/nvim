@@ -46,23 +46,47 @@
 }
 
 - (void)keyDown:(NSEvent *)event {
-    [self.delegate editView:self keyDown:event];
-}
-
-- (void)mouseUp:(NSEvent *)event {
-    [self.delegate editView:self mouseUp:event];
-}
-
-- (void)mouseDown:(NSEvent *)event {
-    [self.delegate editView:self mouseDown:event];
-}
-
-- (void)mouseDragged:(NSEvent *)event {
-    [self.delegate editView:self mouseDragged:event];
+    [self.client keyDown:event];
 }
 
 - (void)scrollWheel:(NSEvent *)event {
-    [self.delegate editView:self scrollWheel:event];
+    [self.client scrollWheel:event inView:self];
+}
+
+- (void)mouseUp:(NSEvent *)event {
+    [self.client mouseUp:event inView:self];
+}
+
+- (void)mouseDown:(NSEvent *)event {
+    [self.client mouseDown:event inView:self];
+}
+
+- (void)mouseDragged:(NSEvent *)event {
+    [self.client mouseDragged:event inView:self];
+}
+
+- (void)rightMouseUp:(NSEvent *)event {
+    [self.client rightMouseUp:event inView:self];
+}
+
+- (void)rightMouseDown:(NSEvent *)event {
+    [self.client rightMouseDown:event inView:self];
+}
+
+- (void)rightMouseDragged:(NSEvent *)event {
+    [self.client rightMouseDragged:event inView:self];
+}
+
+- (void)otherMouseUp:(NSEvent *)event {
+    [self.client middleMouseUp:event inView:self];
+}
+
+- (void)otherMouseDown:(NSEvent *)event {
+    [self.client middleMouseDown:event inView:self];
+}
+
+- (void)otherMouseDragged:(NSEvent *)event {
+    [self.client middleMouseDragged:event inView:self];
 }
 
 #pragma mark - Public Methods
@@ -99,12 +123,12 @@
 
 #pragma mark - CALayerDelegate
 - (void)drawLayer:(CALayer *)layer inContext:(CGContextRef)context {
-    static const CGAffineTransform matrix = {1, 0, 0, -1, 0, 0 };
+    static const CGAffineTransform matrix = { 1, 0, 0, -1, 0, 0 };
     CGContextSetTextMatrix(context, matrix);
     CGContextSetShouldAntialias(context, true);
     CGContextSetShouldSmoothFonts(context, false);
     CGContextSetTextDrawingMode(context, kCGTextFill);
-    [self.delegate editView:self redrawInContext:context];
+    [self.client redrawUI:context];
     CGContextFlush(context);
 }
 

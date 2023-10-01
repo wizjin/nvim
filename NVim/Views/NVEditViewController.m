@@ -11,7 +11,7 @@
 #import "NVTCPClient.h"
 #import "NVSTDClient.h"
 
-@interface NVEditViewController () <NVClientDelegate, NVEditViewDelegate>
+@interface NVEditViewController () <NVClientDelegate>
 
 @property (nonatomic, readonly, strong) NVClient *client;
 @property (nonatomic, readonly, strong) NVTabView *tabView;
@@ -39,10 +39,9 @@
     [super viewDidLoad];
     NVTabView *tabView = [[NVTabView alloc] initWithFrame:NSMakeRect(0, 0, NSWidth(self.view.bounds), kNVTabViewDefaultHeight)];
     [self.view addSubview:(_tabView = tabView)];
-    tabView.hidden = YES;
     NVEditView *editView = [NVEditView new];
     [self.view addSubview:(_editView = editView)];
-    editView.delegate = self;
+    editView.client = self.client;
 }
 
 - (void)viewDidAppear {
@@ -125,36 +124,27 @@
     self.editView.window.ignoresMouseEvents = !enabled;
 }
 
+- (void)client:(NVClient *)client hideTabline:(BOOL)hidden {
+    if (self.tabView.isHidden != hidden) {
+        self.tabView.hidden = hidden;
+        [self contentLayout];
+    }
+}
+
+- (void)clientUpdated:(NVClient *)client {
+    [self contentLayout];
+}
+
 - (void)clientClosed:(NVClient *)client {
     [self.view.window close];
 }
 
-#pragma mark - NVEditViewDelegate
-- (void)editView:(NVEditView *)editView redrawInContext:(CGContextRef)ctx {
-    [self.client redrawUI:ctx];
-}
-
-- (void)editView:(NVEditView *)editView keyDown:(NSEvent *)event {
-    [self.client keyDown:event];
-}
-
-- (void)editView:(NVEditView *)editView mouseUp:(NSEvent *)event {
-    [self.client mouseUp:event inView:editView];
-}
-
-- (void)editView:(NVEditView *)editView mouseDown:(NSEvent *)event {
-    [self.client mouseDown:event inView:editView];
-}
-
-- (void)editView:(NVEditView *)editView mouseDragged:(NSEvent *)event {
-    [self.client mouseDragged:event inView:editView];
-}
-
-- (void)editView:(NVEditView *)editView scrollWheel:(NSEvent *)event {
-    [self.client scrollWheel:event inView:editView];
-}
-
 #pragma mark - Helper
+- (void)contentLayout {
+    [self.view setNeedsLayout:YES];
+    [self updateContentSize:[self.client resizeUIWithSize:self.contentUISize]];
+}
+
 - (CGSize)contentUISize {
     CGSize size = self.view.bounds.size;
     size.width -= kNVContentMarginWidth;
