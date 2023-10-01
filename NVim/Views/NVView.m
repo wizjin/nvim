@@ -9,6 +9,13 @@
 
 @implementation NVView
 
+- (instancetype)initWithFrame:(NSRect)frameRect {
+    if (self = [super initWithFrame:frameRect]) {
+        self.clipsToBounds = YES;
+    }
+    return self;
+}
+
 - (BOOL)isFlipped {
     return YES;
 }

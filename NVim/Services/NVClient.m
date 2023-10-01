@@ -31,7 +31,7 @@
 - (void)openWithRead:(int)read write:(int)write {
     nvc_ui_config_t config;
     bzero(&config, sizeof(config));
-    config.family_name = kNVDefaultFamilyName;
+    config.font = (__bridge CTFontRef)([NSFont monospacedSystemFontOfSize:kNVDefaultFontSize weight:NSFontWeightRegular]);
     config.font_size = kNVDefaultFontSize;
     ui_ctx = nvc_ui_create(read, write, &config, &nvclient_ui_callbacks, (__bridge void *)self);
     if (ui_ctx != nil) {
@@ -55,14 +55,103 @@
     nvc_ui_detach(ui_ctx);
 }
 
-- (void)redrawUI:(CGContextRef)ctx dirty:(CGRect)dirty {
-    nvc_ui_redraw(ui_ctx, ctx, dirty);
+- (void)redrawUI:(CGContextRef)context {
+    nvc_ui_redraw(ui_ctx, context);
 }
 
 - (CGSize)resizeUIWithSize:(CGSize)size {
     return nvc_ui_resize(ui_ctx, size);
 }
 
+- (BOOL)openFiles:(NSArray<NSString *> *)files {
+    BOOL res = NO;
+    int n = 0;
+    for (NSString *file in files) {
+        nvc_ui_open_file(ui_ctx, file.cstr, (uint32_t)file.length, res);
+        n++;
+        res = YES;
+    }
+    if (n > 1) {
+        nvc_ui_tab_next(ui_ctx, 1 - n);
+    }
+    return res;
+}
+
+- (void)keyDown:(NSEvent *)event {
+    nvc_ui_key_info_t key = {
+        .code       = event.keyCode,
+        .flags      = nvc_ui_key_flags_init(event.modifierFlags),
+    };
+    if (!nvc_ui_input_key(ui_ctx, key)) {
+        NSString *c = event.characters;
+        if (c.length > 0) {
+            NSData *keys = [c dataUsingEncoding:NSUTF8StringEncoding];
+            nvc_ui_input_keystr(ui_ctx, key.flags, (const char *)keys.bytes, (uint32_t)keys.length);
+        }
+    }
+}
+
+- (void)scrollWheel:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_wheel, (event.deltaY > 0 ? nvc_ui_mouse_action_up : nvc_ui_mouse_action_down));
+}
+
+- (void)mouseUp:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_left, nvc_ui_mouse_action_release);
+}
+
+- (void)mouseDown:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_left, nvc_ui_mouse_action_press);
+}
+
+- (void)mouseDragged:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_left, nvc_ui_mouse_action_drag);
+}
+
+- (void)rightMouseUp:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_right, nvc_ui_mouse_action_release);
+}
+
+- (void)rightMouseDown:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_right, nvc_ui_mouse_action_press);
+}
+
+- (void)rightMouseDragged:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_right, nvc_ui_mouse_action_drag);
+}
+
+- (void)middleMouseUp:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_middle, nvc_ui_mouse_action_release);
+}
+
+- (void)middleMouseDown:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_middle, nvc_ui_mouse_action_press);
+}
+
+- (void)middleMouseDragged:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_middle, nvc_ui_mouse_action_drag);
+}
+
+static inline void nvclient_ui_input_mouse(nvc_ui_context_t *ctx, NSEvent *event, NSView *view, nvc_ui_mouse_key_t key, nvc_ui_mouse_action_t action) {
+    nvc_ui_mouse_info_t mouse = {
+        .key        = key,
+        .action     = action,
+        .point      = [view convertPoint:event.locationInWindow toView:nil],
+        .flags      = nvc_ui_key_flags_init(event.modifierFlags),
+    };
+    nvc_ui_input_mouse(ctx, mouse);
+}
+
+#pragma mark - Helper
+static inline nvc_ui_key_flags_t nvc_ui_key_flags_init(NSEventModifierFlags flags) {
+    return (nvc_ui_key_flags_t) {
+        .shift    = flags & NSEventModifierFlagShift,
+        .control  = flags & NSEventModifierFlagControl,
+        .option   = flags & NSEventModifierFlagOption,
+        .command  = flags & NSEventModifierFlagCommand,
+    };
+}
+
+#pragma mark - Callback
 static inline void nvclient_ui_flush(void *userdata, CGRect dirty) {
     NVClient *client = (__bridge NVClient *)userdata;
     @weakify(client);
@@ -129,6 +218,33 @@ static inline void nvclient_ui_mouse_off(void *userdata) {
     });
 }
 
+static inline void nvclient_ui_font_updated(void *userdata) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate clientUpdated:client];
+    });
+}
+
+static inline void nvclient_ui_enable_ext_tabline(void *userdata, bool enabled) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate client:client hideTabline:!enabled];
+    });
+}
+
+static inline void nvclient_ui_close(void *userdata) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate clientClosed:client];
+    });
+}
+
 #define NVCLIENT_CALLBACK(_func)    ._func = nvclient_ui_##_func
 static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(flush),
@@ -138,6 +254,9 @@ static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(update_tab_list),
     NVCLIENT_CALLBACK(mouse_on),
     NVCLIENT_CALLBACK(mouse_off),
+    NVCLIENT_CALLBACK(font_updated),
+    NVCLIENT_CALLBACK(enable_ext_tabline),
+    NVCLIENT_CALLBACK(close),
 };
 
 

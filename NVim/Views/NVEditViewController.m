@@ -11,7 +11,7 @@
 #import "NVTCPClient.h"
 #import "NVSTDClient.h"
 
-@interface NVEditViewController () <NVClientDelegate, NVEditViewDelegate>
+@interface NVEditViewController () <NVClientDelegate>
 
 @property (nonatomic, readonly, strong) NVClient *client;
 @property (nonatomic, readonly, strong) NVTabView *tabView;
@@ -41,7 +41,7 @@
     [self.view addSubview:(_tabView = tabView)];
     NVEditView *editView = [NVEditView new];
     [self.view addSubview:(_editView = editView)];
-    editView.delegate = self;
+    editView.client = self.client;
 }
 
 - (void)viewDidAppear {
@@ -54,10 +54,13 @@
 - (void)viewDidLayout {
     [super viewDidLayout];
     CGRect bounds = self.view.bounds;
-    CGFloat tabHeight = NSHeight(self.tabView.bounds);
+    CGFloat offset = 0;
     CGFloat width = NSWidth(bounds) - kNVContentMarginWidth;
-    self.tabView.frame = CGRectMake(kNVContentMarginWidth/2, 0, width, tabHeight);
-    self.editView.frame = CGRectMake(kNVContentMarginWidth/2, tabHeight, width, NSHeight(bounds) - tabHeight);;
+    if (!self.tabView.isHidden) {
+        offset = NSHeight(self.tabView.bounds);
+        self.tabView.frame = CGRectMake(kNVContentMarginWidth/2, 0, width, offset);
+    }
+    self.editView.frame = CGRectMake(kNVContentMarginWidth/2, offset, width, NSHeight(bounds) - offset);
 }
 
 - (void)cleanup {
@@ -80,9 +83,25 @@
     [self updateContentSize:[self.client resizeUIWithSize:self.contentUISize]];
 }
 
+- (void)windowWillEnterFullScreen:(NSNotification *)notification {
+    [self.editView startContentResize];
+}
+
+- (void)windowDidEnterFullScreen:(NSNotification *)notification {
+    [self.editView endContentResize];
+}
+
+- (void)windowWillExitFullScreen:(NSNotification *)notification {
+    [self.editView startContentResize];
+}
+
+- (void)windowDidExitFullScreen:(NSNotification *)notification {
+    [self.editView endContentResize];
+}
+
 #pragma mark - NVClientDelegate
 - (void)client:(NVClient *)client flush:(CGRect)dirty {
-    [self.editView setNeedsDisplayInRect:dirty];
+    [self.editView updateDisplayRect:dirty];
 }
 
 - (void)client:(NVClient *)client updateTitle:(NSString *)title {
@@ -105,16 +124,34 @@
     self.editView.window.ignoresMouseEvents = !enabled;
 }
 
-#pragma mark - NVEditViewDelegate
-- (void)redrawEditView:(NVEditView *)editView inContext:(CGContextRef)ctx dirty:(CGRect)dirty {
-    [self.client redrawUI:ctx dirty:dirty];
+- (void)client:(NVClient *)client hideTabline:(BOOL)hidden {
+    if (self.tabView.isHidden != hidden) {
+        self.tabView.hidden = hidden;
+        [self contentLayout];
+    }
+}
+
+- (void)clientUpdated:(NVClient *)client {
+    [self contentLayout];
+}
+
+- (void)clientClosed:(NVClient *)client {
+    [self.view.window close];
 }
 
 #pragma mark - Helper
+- (void)contentLayout {
+    [self.view setNeedsLayout:YES];
+    [self updateContentSize:[self.client resizeUIWithSize:self.contentUISize]];
+}
+
 - (CGSize)contentUISize {
     CGSize size = self.view.bounds.size;
     size.width -= kNVContentMarginWidth;
-    size.height -= kNVContentMarginHeight + NSHeight(self.tabView.bounds);
+    size.height -= kNVContentMarginHeight;
+    if (!self.tabView.isHidden) {
+        size.height -= NSHeight(self.tabView.bounds);
+    }
     return size;
 }
 

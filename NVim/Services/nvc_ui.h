@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <CoreGraphics/CoreGraphics.h>
+#include <CoreText/CoreText.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,12 +26,55 @@ typedef struct nvc_ui_callback {
     void (*update_tab_list)(void *userdata, bool list_updated);
     void (*mouse_on)(void *userdata);
     void (*mouse_off)(void *userdata);
+    void (*font_updated)(void *userdata);
+    void (*enable_ext_tabline)(void *userdata, bool enabled);
+    void (*close)(void *userdata);
 } nvc_ui_callback_t;
 
 typedef struct nvc_ui_config {
-    const char  *family_name;
+    CTFontRef   font;
     CGFloat     font_size;
 } nvc_ui_config_t;
+
+typedef struct nvc_ui_key_flags {
+    bool        shift:      1;
+    bool        control:    1;
+    bool        option:     1;
+    bool        command:    1;
+} nvc_ui_key_flags_t;
+
+typedef struct nvc_ui_key_info {
+    uint16_t            code;
+    nvc_ui_key_flags_t  flags;
+} nvc_ui_key_info_t;
+
+#define NVC_UI_MOUSE_KEY_LIST       \
+    NVC_UI_MOUSE_KEY(wheel)         \
+    NVC_UI_MOUSE_KEY(left)          \
+    NVC_UI_MOUSE_KEY(right)         \
+    NVC_UI_MOUSE_KEY(middle)
+#define NVC_UI_MOUSE_KEY(_key)      nvc_ui_mouse_key_##_key,
+typedef enum nvc_ui_mouse_key {
+    NVC_UI_MOUSE_KEY_LIST
+} nvc_ui_mouse_key_t;
+
+#define NVC_UI_MOUSE_ACTION_LIST    \
+    NVC_UI_MOUSE_ACTION(press)      \
+    NVC_UI_MOUSE_ACTION(drag)       \
+    NVC_UI_MOUSE_ACTION(release)    \
+    NVC_UI_MOUSE_ACTION(up)         \
+    NVC_UI_MOUSE_ACTION(down)
+#define NVC_UI_MOUSE_ACTION(_key)   nvc_ui_mouse_action_##_key,
+typedef enum nvc_ui_mouse_action {
+    NVC_UI_MOUSE_ACTION_LIST
+} nvc_ui_mouse_action_t;
+
+typedef struct nvc_ui_mouse_info {
+    nvc_ui_mouse_key_t      key;
+    nvc_ui_mouse_action_t   action;
+    CGPoint                 point;
+    nvc_ui_key_flags_t      flags;
+} nvc_ui_mouse_info_t;
 
 typedef struct nvc_ui_context nvc_ui_context_t;
 
@@ -40,8 +83,14 @@ NVC_API void nvc_ui_destroy(nvc_ui_context_t *ctx);
 NVC_API bool nvc_ui_is_attached(nvc_ui_context_t *ctx);
 NVC_API CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size);
 NVC_API void nvc_ui_detach(nvc_ui_context_t *ctx);
-NVC_API void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context, CGRect dirty);
+NVC_API void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context);
 NVC_API CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size);
+NVC_API void nvc_ui_open_file(nvc_ui_context_t *ctx, const char *file, uint32_t len, bool new_tab);
+NVC_API void nvc_ui_tab_next(nvc_ui_context_t *ctx, int count);
+NVC_API bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key);
+NVC_API void nvc_ui_input_keystr(nvc_ui_context_t *ctx, nvc_ui_key_flags_t flags, const char* keys, uint32_t len);
+NVC_API void nvc_ui_input_rawkey(nvc_ui_context_t *ctx, const char* keys, uint32_t len);
+NVC_API void nvc_ui_input_mouse(nvc_ui_context_t *ctx, nvc_ui_mouse_info_t mouse);
 
 #ifdef __cplusplus
 }

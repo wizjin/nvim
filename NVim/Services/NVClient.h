@@ -19,7 +19,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)client:(NVClient *)client updateTabBackground:(NSColor *)color;
 - (void)client:(NVClient *)client updateTabList:(BOOL)listUpdated;
 - (void)client:(NVClient *)client updateMouse:(BOOL)enabled;
-
+- (void)client:(NVClient *)client hideTabline:(BOOL)hidden;
+- (void)clientUpdated:(NVClient *)client;
+- (void)clientClosed:(NVClient *)client;
 @end
 
 @interface NVClient : NSObject
@@ -29,12 +31,23 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)isAttached;
 - (void)openWithRead:(int)read write:(int)write;
+- (void)close;
 - (CGSize)attachUIWithSize:(CGSize)size;
 - (void)detachUI;
-- (void)redrawUI:(CGContextRef)ctx dirty:(CGRect)dirty;
+- (void)redrawUI:(CGContextRef)context;
 - (CGSize)resizeUIWithSize:(CGSize)size;
-- (void)close;
-
+- (BOOL)openFiles:(NSArray<NSString *> *)files;
+- (void)keyDown:(NSEvent *)event;
+- (void)scrollWheel:(NSEvent *)event inView:(NSView *)view;
+- (void)mouseUp:(NSEvent *)event inView:(NSView *)view;
+- (void)mouseDown:(NSEvent *)event inView:(NSView *)view;
+- (void)mouseDragged:(NSEvent *)event inView:(NSView *)view;
+- (void)rightMouseUp:(NSEvent *)event inView:(NSView *)view;
+- (void)rightMouseDown:(NSEvent *)event inView:(NSView *)view;
+- (void)rightMouseDragged:(NSEvent *)event inView:(NSView *)view;
+- (void)middleMouseUp:(NSEvent *)event inView:(NSView *)view;
+- (void)middleMouseDown:(NSEvent *)event inView:(NSView *)view;
+- (void)middleMouseDragged:(NSEvent *)event inView:(NSView *)view;
 
 @end
 
