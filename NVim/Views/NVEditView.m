@@ -24,7 +24,7 @@
         _textInputContext = [[NSTextInputContext alloc] initWithClient:self];
         _flags = 0;
         _markedText = nil;
-
+        
         self.wantsLayer = YES;
         CALayer *drawLayer = [CALayer new];
         [self.layer addSublayer:(_drawLayer = drawLayer)];
