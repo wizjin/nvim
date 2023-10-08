@@ -391,8 +391,12 @@ static inline nvc_ui_cell_size_t nvc_ui_size2cell(nvc_ui_context_t *ctx, const C
     return cell;
 }
 
-static inline CGSize nvc_ui_cell2size(nvc_ui_context_t *ctx, int width, int height) {
-    return CGSizeMake(ctx->cell_size.width * width, ctx->cell_size.height * height);
+static inline CGPoint nvc_ui_cell2point(nvc_ui_context_t *ctx, const nvc_ui_cell_pos_t& pos) {
+    return CGPointMake(ctx->cell_size.width * pos.x, ctx->cell_size.height * pos.y);
+}
+
+static inline CGSize nvc_ui_cell2size(nvc_ui_context_t *ctx, const nvc_ui_cell_size_t& size) {
+    return CGSizeMake(ctx->cell_size.width * size.width, ctx->cell_size.height * size.height);
 }
 
 static inline nvc_ui_cell_rect_t nvc_ui_rect2cell(nvc_ui_context_t *ctx, const CGRect& rect) {
@@ -526,25 +530,29 @@ static inline UniChar nvc_ui_utf82unicode(const uint8_t *str, uint8_t len) {
         case 0:
             break;
         case 1:
-            unicode = str[0];
+            unicode = str[0] & 0x7F;
             break;
         case 2:
             if (str[1] == 0x80) {
-                unicode = ((str[0] << 6) + (str[1]&0x3F))
-                        | (((str[0] >> 2)&0x07) << 8);
+                unicode = ((str[0] & 0x1F) << 6)
+                        | (str[1] & 0x3F);
             }
             break;
         case 3:
             if (((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80)) {
-                unicode = ((str[1] << 6) + (str[2]&0x3F))
-                        | (((str[0] << 4) + ((str[1] >> 2)&0x0F)) << 8);
+                unicode = ((str[0] & 0x0F) << 12)
+                        | ((str[1] & 0x3F) << 6)
+                        | (str[2] & 0x3F);
             }
             break;
         case 4:
             if (((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80) && ((str[3]&0xC0) == 0x80)) {
-                unicode = ((str[2] << 6) + (str[3]&0x3F))
-                        | (((str[1] << 4) + ((str[2] >> 2)&0x0F)) << 8)
-                        | ((((str[0] << 2)&0x1C) + ((str[1] >> 4)&0x03)) << 16);
+                uint32_t cp = ((str[0] & 0x07) << 18)
+                        | ((str[1] & 0x3F) << 12)
+                        | ((str[2] & 0x3F) << 6)
+                        | (str[3] & 0x3F);
+                cp -= 0x10000;
+                unicode = ((0xD800 + ((cp >> 10)&0x03FF)) << 8) | (0xDC00 + (cp & 0x03FF));
             }
             break;
         default:
@@ -624,7 +632,7 @@ CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
         nvc_rpc_write_const_str(&ctx->rpc, "ext_tabline");
         nvc_rpc_write_false(&ctx->rpc);
         nvc_rpc_call_end(&ctx->rpc);
-        size = nvc_ui_cell2size(ctx, ctx->window_size.width, ctx->window_size.height);
+        size = nvc_ui_cell2size(ctx, ctx->window_size);
     }
     return size;
 }
@@ -654,10 +662,33 @@ CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size) {
             nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.width);
             nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.height);
             nvc_rpc_call_end(&ctx->rpc);
-            size = nvc_ui_cell2size(ctx, ctx->window_size.width, ctx->window_size.height);
+            size = nvc_ui_cell2size(ctx, ctx->window_size);
         }
     }
     return size;
+}
+
+CGFloat nvc_ui_get_line_height(nvc_ui_context_t *ctx) {
+    CGFloat height = 0;
+    if (likely(ctx != nullptr && ctx->attached)) {
+        height = ctx->cell_size.height;
+    }
+    return height;
+}
+
+CGPoint nvc_ui_get_cursor_position(nvc_ui_context_t *ctx) {
+    CGPoint pt = CGPointZero;
+    if (likely(ctx != nullptr && ctx->attached)) {
+        nvc_lock_guard_t guard(ctx->locker);
+        for (const auto& [key, grid] : ctx->grids) {
+            if (grid->has_cursor()) {
+                pt = nvc_ui_cell2point(ctx, grid->cursor());
+                break;
+            }
+        }
+        
+    }
+    return pt;
 }
 
 void nvc_ui_open_file(nvc_ui_context_t *ctx, const char *file, uint32_t len, bool new_tab) {
@@ -734,15 +765,111 @@ static const std::map<uint16_t, const std::string> nvc_ui_keycode_table = {
     NVC_UI_KEYCODE(0x7E, "Up"),         // kVK_UpArrow
 };
 
-bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key) {
+bool nvc_ui_input_key(nvc_ui_context_t *ctx, uint16_t key, nvc_ui_key_flags_t flags) {
     bool res = false;
-    const auto& p = nvc_ui_keycode_table.find(key.code);
+    const auto& p = nvc_ui_keycode_table.find(key);
     if (p != nvc_ui_keycode_table.end()) {
         const auto& notation = p->second;
         char keys[kNvcUiKeysMax];
         uint32_t len = 0;
         keys[len++] = '<';
-        len = nvc_ui_key_flags_encode(key.flags, keys, len, false);
+        len = nvc_ui_key_flags_encode(flags, keys, len, false);
+        memcpy(keys + len, notation.c_str(), notation.size());
+        len += notation.size();
+        keys[len++] = '>';
+        nvc_ui_input_rawkey(ctx, keys, len);
+        res = true;
+    }
+    return res;
+}
+
+// Note: https://developer.apple.com/documentation/appkit/1535851-function-key_unicode_values?language=objc
+// <AppKit/NSEvent.h>
+#define NVC_UI_FUNCKEY(_code, _notation)    { _code, _notation }
+static const std::map<UniChar, const std::string> nvc_ui_funckey_table = {
+    NVC_UI_FUNCKEY(0xF700, "Up"),       // NSUpArrowFunctionKey
+    NVC_UI_FUNCKEY(0xF701, "Down"),     // NSDownArrowFunctionKey
+    NVC_UI_FUNCKEY(0xF702, "Left"),     // NSLeftArrowFunctionKey
+    NVC_UI_FUNCKEY(0xF703, "Right"),    // NSRightArrowFunctionKey
+    NVC_UI_FUNCKEY(0xF704, "F1"),       // NSF1FunctionKey
+    NVC_UI_FUNCKEY(0xF705, "F2"),       // NSF2FunctionKey
+    NVC_UI_FUNCKEY(0xF706, "F3"),       // NSF3FunctionKey
+    NVC_UI_FUNCKEY(0xF707, "F4"),       // NSF4FunctionKey
+    NVC_UI_FUNCKEY(0xF708, "F5"),       // NSF5FunctionKey
+    NVC_UI_FUNCKEY(0xF709, "F6"),       // NSF6FunctionKey
+    NVC_UI_FUNCKEY(0xF70A, "F7"),       // NSF7FunctionKey
+    NVC_UI_FUNCKEY(0xF70B, "F8"),       // NSF8FunctionKey
+    NVC_UI_FUNCKEY(0xF70C, "F9"),       // NSF9FunctionKey
+    NVC_UI_FUNCKEY(0xF70D, "F10"),      // NSF10FunctionKey
+    NVC_UI_FUNCKEY(0xF70E, "F11"),      // NSF11FunctionKey
+    NVC_UI_FUNCKEY(0xF70F, "F12"),      // NSF12FunctionKey
+    NVC_UI_FUNCKEY(0xF710, "F13"),      // NSF13FunctionKey
+    NVC_UI_FUNCKEY(0xF711, "F14"),      // NSF14FunctionKey
+    NVC_UI_FUNCKEY(0xF712, "F15"),      // NSF15FunctionKey
+    NVC_UI_FUNCKEY(0xF713, "F16"),      // NSF16FunctionKey
+    NVC_UI_FUNCKEY(0xF714, "F17"),      // NSF17FunctionKey
+    NVC_UI_FUNCKEY(0xF715, "F18"),      // NSF18FunctionKey
+    NVC_UI_FUNCKEY(0xF716, "F19"),      // NSF19FunctionKey
+    NVC_UI_FUNCKEY(0xF717, "F20"),      // NSF20FunctionKey
+    NVC_UI_FUNCKEY(0xF718, "F21"),      // NSF21FunctionKey
+    NVC_UI_FUNCKEY(0xF719, "F22"),      // NSF22FunctionKey
+    NVC_UI_FUNCKEY(0xF71A, "F23"),      // NSF23FunctionKey
+    NVC_UI_FUNCKEY(0xF71B, "F24"),      // NSF24FunctionKey
+    NVC_UI_FUNCKEY(0xF71C, "F25"),      // NSF25FunctionKey
+    NVC_UI_FUNCKEY(0xF71D, "F26"),      // NSF26FunctionKey
+    NVC_UI_FUNCKEY(0xF71E, "F27"),      // NSF27FunctionKey
+    NVC_UI_FUNCKEY(0xF71F, "F28"),      // NSF28FunctionKey
+    NVC_UI_FUNCKEY(0xF720, "F29"),      // NSF29FunctionKey
+    NVC_UI_FUNCKEY(0xF721, "F30"),      // NSF30FunctionKey
+    NVC_UI_FUNCKEY(0xF722, "F31"),      // NSF31FunctionKey
+    NVC_UI_FUNCKEY(0xF723, "F32"),      // NSF32FunctionKey
+    NVC_UI_FUNCKEY(0xF724, "F33"),      // NSF33FunctionKey
+    NVC_UI_FUNCKEY(0xF725, "F34"),      // NSF34FunctionKey
+    NVC_UI_FUNCKEY(0xF726, "F35"),      // NSF35FunctionKey
+    NVC_UI_FUNCKEY(0xF727, "Insert"),   // NSInsertFunctionKey
+    NVC_UI_FUNCKEY(0xF728, "Del"),      // NSDeleteFunctionKey
+    NVC_UI_FUNCKEY(0xF729, "Home"),     // NSHomeFunctionKey
+    NVC_UI_FUNCKEY(0xF72A, "Begin"),    // NSBeginFunctionKey
+    NVC_UI_FUNCKEY(0xF72B, "End"),      // NSEndFunctionKey
+    NVC_UI_FUNCKEY(0xF72C, "PageUp"),   // NSPageUpFunctionKey
+    NVC_UI_FUNCKEY(0xF72D, "PageDown"), // NSPageDownFunctionKey
+    // 0xF72E NSPrintScreenFunctionKey
+    // 0xF72F NSScrollLockFunctionKey
+    // 0xF730 NSPauseFunctionKey
+    // 0xF731 NSSysReqFunctionKey
+    // 0xF732 NSBreakFunctionKey
+    // 0xF733 NSResetFunctionKey
+    // 0xF734 NSStopFunctionKey
+    // 0xF735 NSMenuFunctionKey
+    // 0xF736 NSUserFunctionKey
+    // 0xF737 NSSystemFunctionKey
+    // 0xF738 NSPrintFunctionKey
+    // 0xF739 NSClearLineFunctionKey
+    // 0xF73A NSClearDisplayFunctionKey
+    // 0xF73B NSInsertLineFunctionKey
+    // 0xF73C NSDeleteLineFunctionKey
+    // 0xF73D NSInsertCharFunctionKey
+    // 0xF73E NSDeleteCharFunctionKey
+    // 0xF73F NSPrevFunctionKey
+    // 0xF740 NSNextFunctionKey
+    // 0xF741 NSSelectFunctionKey
+    // 0xF742 NSExecuteFunctionKey
+    // 0xF743 NSUndoFunctionKey
+    // 0xF744 NSRedoFunctionKey
+    // 0xF745 NSFindFunctionKey
+    NVC_UI_FUNCKEY(0xF746, "Help"),     // NSPageDownFunctionKey
+    // 0xF747 NSModeSwitchFunctionKey
+};
+
+bool nvc_ui_input_function_key(nvc_ui_context_t *ctx, UniChar ch, nvc_ui_key_flags_t flags) {
+    bool res = false;
+    const auto& p = nvc_ui_funckey_table.find(ch);
+    if (p != nvc_ui_funckey_table.end()) {
+        const auto& notation = p->second;
+        char keys[kNvcUiKeysMax];
+        uint32_t len = 0;
+        keys[len++] = '<';
+        len = nvc_ui_key_flags_encode(flags, keys, len, false);
         memcpy(keys + len, notation.c_str(), notation.size());
         len += notation.size();
         keys[len++] = '>';
@@ -753,12 +880,16 @@ bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key) {
 }
 
 void nvc_ui_input_keystr(nvc_ui_context_t *ctx, nvc_ui_key_flags_t flags, const char* str, uint32_t slen) {
-    if (slen > 0) {
-        if (str[0] == '<') {
-            nvc_ui_input_rawkey(ctx, "<lt>", 4);
+    std::string value;
+    for (int i = 0; i < slen; i++) {
+        if (str[i] == '<') {
+            value += "<lt>";
         } else {
-            nvc_ui_input_rawkey(ctx, str, slen);
+            value.push_back(str[i]);
         }
+    }
+    if (!value.empty()) {
+        nvc_ui_input_rawkey(ctx, value.c_str(), (uint32_t)value.size());
     }
 }
 
