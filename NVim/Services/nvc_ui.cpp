@@ -15,6 +15,9 @@
 #define kNvcUiKeysMax                       64
 #define kNvcUiCacheGlyphMax                 127
 #define kNvcUiCacheGlyphSize                512
+#define kNvcUiFontIndexMax                  8
+
+typedef uint8_t nvc_ui_font_index_t;
 
 #define nvc_ui_to_context(_ptr, _member)    nv_member_to_struct(nvc_ui_context_t, _ptr, _member)
 #define nvc_ui_get_userdata(_ctx)           nvc_rpc_get_userdata(&(_ctx)->rpc)
@@ -138,10 +141,19 @@ static const std::map<const std::string, nvc_ui_set_mode_info> nvc_ui_set_mode_i
     NVC_UI_SET_MODE_INFO_INT(attr_id_lm),
 };
 
+typedef struct nvc_ui_glyph_info {
+    CGGlyph             glyph;
+    nvc_ui_font_index_t font_index;
+} nvc_ui_glyph_info_t;
+
 typedef struct nvc_ui_cell {
-    UniChar     ch;
-    CGGlyph     glyph;
-    int         hl_id;
+    UniChar             ch;
+    CGGlyph             glyph;
+    int32_t             hl_id;
+    nvc_ui_font_index_t font_index;
+    bool                is_width_x2;
+    bool                is_skip;
+    uint8_t             unused[3];
 } nvc_ui_cell_t;
 
 class nvc_ui_grid {
@@ -155,6 +167,7 @@ public:
         m_cursor.x = -1;
         m_cursor.y = -1;
         m_cells = (nvc_ui_cell_t *)malloc(sizeof(nvc_ui_cell_t) * m_width * m_height);
+        clear();
     }
     
     inline ~nvc_ui_grid() {
@@ -172,33 +185,50 @@ public:
     inline void resize(uint32_t width, uint32_t height) {
         void *ptr = realloc(m_cells, sizeof(nvc_ui_cell_t) * width * height);
         if (likely(ptr != nullptr)) {
+            m_cells = (nvc_ui_cell_t *)ptr;
             m_width = width;
             m_height = height;
-            m_cells = (nvc_ui_cell_t *)ptr;
+            clear(); // TODO: clear only more
+        }
+    }
+
+    inline void clear() {
+        if (m_cells != nullptr) {
+            bzero(m_cells, sizeof(nvc_ui_cell_t) * m_width * m_height);
         }
     }
     
-    inline void clear() {
-        bzero(m_cells, sizeof(nvc_ui_cell_t) * m_width * m_height);
-    }
-    
-    inline void update(int row, int col_start, int count, UniChar ch, CGGlyph glyph, uint32_t hl_id) {
+    inline void update(int row, int col_start, int count, UniChar ch, const nvc_ui_glyph_info_t& info, uint32_t hl_id) {
         if (likely(count > 0 && row >= 0 && row < m_height && col_start >= 0 && col_start < m_width)) {
             nvc_ui_cell_t *cell = m_cells + row*m_width + col_start;
             for (int n = MIN(count, m_width - col_start); n > 0; n--) {
                 cell->ch = ch;
-                cell->glyph = glyph;
+                cell->glyph = info.glyph;
+                cell->font_index = info.font_index;
                 cell->hl_id = hl_id;
+                cell->is_width_x2 = false;
+                cell->is_skip = false;
                 cell++;
             }
         }
     }
-    
+
+    inline void set_skip(int row, int col) {
+        if (likely(row >= 0 && col >= 0 && row < m_height && col < m_width)) {
+            nvc_ui_cell_t *cell = m_cells + row*m_width + col;
+            bzero(cell, sizeof(nvc_ui_cell_t));
+            cell->is_skip = true;
+            if (likely(col > 0)) {
+                (cell-1)->is_width_x2 = true;
+            }
+        }
+    }
+
     inline void update_cursor(int x, int y) {
         m_cursor.x = x;
         m_cursor.y = y;
     }
-    
+
     inline nvc_ui_cell_rect scroll(int top, int bot, int left, int right, int rows) {
         nvc_ui_cell_rect rect = {
             .x = (uint32_t)left,
@@ -223,7 +253,7 @@ public:
         return rect;
     }
     
-    inline void draw(nvc_ui_context *ctx, CGContextRef context, const nvc_ui_cell_rect_t& dirty);
+    inline void draw(nvc_ui_context *ctx, CGContextRef context, const nvc_ui_cell_rect_t& dirty) const;
 };
 
 typedef struct nvc_ui_tab {
@@ -248,7 +278,7 @@ typedef std::map<nvc_ui_color_code_t, nvc_ui_color_t>   nvc_ui_colors_set_t;
 typedef std::map<int, nvc_ui_colors_set_t>              nvc_ui_colors_set_map_t;
 typedef std::map<std::string, int>                      nvc_ui_group_map_t;
 typedef std::map<int, nvc_ui_grid *, std::less<int>>    nvc_ui_grid_map_t;
-typedef std::map<UniChar, CGGlyph>                      mvc_ui_glyph_table_t;
+typedef std::map<UniChar, nvc_ui_glyph_info_t>          mvc_ui_glyph_table_t;
 typedef std::vector<nvc_ui_tab_t>                       nvc_ui_tab_list_t;
 typedef std::vector<mode_info_t>                        mode_info_list_t;
 
@@ -256,7 +286,8 @@ struct nvc_ui_context {
     nvc_rpc_context_t           rpc;
     nvc_ui_callback_t           cb;
     bool                        attached;
-    CTFontRef                   font;
+    CTFontRef                   fonts[kNvcUiFontIndexMax];
+    int                         font_count;
     CGFloat                     font_size;
     std::string                 mode;
     int                         mode_idx;
@@ -321,42 +352,87 @@ static inline uint32_t nvc_ui_key_flags_encode(nvc_ui_key_flags_t flags, char ou
 }
 
 #pragma mark - NVC UI Helper
-static inline int nvc_ui_set_font(nvc_ui_context_t *ctx, CTFontRef font) {
-    int res = NVC_RC_ILLEGAL_CALL;
-    if (font != nullptr) {
-        ctx->font = (CTFontRef)CFRetain(font);
-        CGFloat ascent = CTFontGetAscent(ctx->font);
-        CGFloat descent = CTFontGetDescent(ctx->font);
-        CGFloat leading = CTFontGetLeading(ctx->font);
-        CGFloat height = ceil(ascent + descent + leading);
-        CGGlyph glyph = (CGGlyph) 0;
-        UniChar capitalM = (UniChar) 0x004D;
-        CGSize advancement = CGSizeZero;
-        CTFontGetGlyphsForCharacters(ctx->font, &capitalM, &glyph, 1);
-        CTFontGetAdvancesForGlyphs(ctx->font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
-        CGFloat width = ceil(advancement.width);
-        ctx->cell_size = CGSizeMake(width, height);
-        ctx->font_offset = descent;
-        for (int i = 0; i < kNvcUiCacheGlyphMax; i++) {
-            if (isspace(i)) {
-                ctx->glyphs[i] = 0;
-            } else {
-                UniChar ch = i;
-                CTFontGetGlyphsForCharacters(ctx->font, &ch, ctx->glyphs + i, 1);
+static inline void nvc_ui_font_clear(nvc_ui_context_t *ctx) {
+    for (int i = 0; i < ctx->font_count; i++) {
+        CTFontRef f = ctx->fonts[i];
+        if (f != nullptr) {
+            CFRelease(f);
+        }
+        ctx->fonts[i] = nullptr;
+    }
+    ctx->font_count = 0;
+}
+
+static inline void nvc_ui_add_font(nvc_ui_context_t *ctx, CTFontRef font) {
+    if (likely(font != nullptr) && ctx->font_count < kNvcUiFontIndexMax) {
+        if (ctx->font_count == 0) {
+            CGFloat ascent = CTFontGetAscent(font);
+            CGFloat descent = CTFontGetDescent(font);
+            CGFloat leading = CTFontGetLeading(font);
+            CGFloat height = ceil(ascent + descent + leading);
+            CGGlyph glyph = (CGGlyph) 0;
+            UniChar capitalM = (UniChar) 0x004D;
+            CGSize advancement = CGSizeZero;
+            CTFontGetGlyphsForCharacters(font, &capitalM, &glyph, 1);
+            CTFontGetAdvancesForGlyphs(font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
+            CGFloat width = ceil(advancement.width);
+            ctx->cell_size = CGSizeMake(width, height);
+            ctx->font_offset = descent;
+            for (int i = 0; i < kNvcUiCacheGlyphMax; i++) {
+                if (isspace(i)) {
+                    ctx->glyphs[i] = 0;
+                } else {
+                    UniChar ch = i;
+                    CTFontGetGlyphsForCharacters(font, &ch, ctx->glyphs + i, 1);
+                }
             }
         }
-        res = NVC_RC_OK;
+        ctx->fonts[ctx->font_count++] = (CTFontRef)CFRetain(font);
     }
-    return res;
+}
+
+static inline void nvc_ui_update_font(nvc_ui_context_t *ctx) {
+    if (ctx->font_count == 0) {
+        CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontUserFixedPitch, ctx->font_size, nullptr);
+        if (likely(font != nullptr)) {
+            nvc_ui_add_font(ctx, font);
+            CFRelease(font);
+        }
+    }
+    if (ctx->font_count > 0) {
+        UniChar chs[] = { 0x004D, 0x6C49, 0x6F22, 0x3092, 0xAC40 };
+        int n = countof(chs);
+        CFStringRef str = CFStringCreateWithCharacters(nullptr, chs, n);
+        if (likely(str != nullptr)) {
+            for (int i = 0; i < n; i++) {
+                bool found = false;
+                for (int j = 0; j < ctx->font_count; j++) {
+                    CGGlyph glyph = 0;
+                    if (CTFontGetGlyphsForCharacters(ctx->fonts[j], chs + i, &glyph, 1)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found && ctx->font_count < kNvcUiFontIndexMax) {
+                    CTFontRef font = CTFontCreateForString(ctx->fonts[0], str, CFRangeMake(i, 1));
+                    if (likely(font != nullptr)) {
+                        nvc_ui_add_font(ctx, font);
+                        CFRelease(font);
+                    }
+                }
+            }
+            CFRelease(str);
+        }
+    }
 }
 
 static inline CTFontRef nvc_ui_load_font(const std::string& name, CGFloat font_size) {
     CTFontRef font = nullptr;
-    if (!name.empty()) {
-        CFStringRef font_name = CFStringCreateWithBytesNoCopy(nullptr, (const UInt8 *)name.c_str(), name.size(), kCFStringEncodingUTF8, false, kCFAllocatorNull);
-        if (font_name != nullptr) {
+    if (likely(!name.empty())) {
+        CFStringRef font_name = CFStringCreateWithBytes(nullptr, (const UInt8 *)name.c_str(), name.size(), kCFStringEncodingUTF8, false);
+        if (likely(font_name != nullptr)) {
             CTFontRef original_font = CTFontCreateWithName(font_name, font_size, nullptr);
-            if (original_font != nullptr) {
+            if (likely(original_font != nullptr)) {
                 font = CTFontCreateCopyWithFamily(original_font, font_size, nullptr, font_name);
                 CFRelease(original_font);
             }
@@ -391,8 +467,12 @@ static inline nvc_ui_cell_size_t nvc_ui_size2cell(nvc_ui_context_t *ctx, const C
     return cell;
 }
 
-static inline CGSize nvc_ui_cell2size(nvc_ui_context_t *ctx, int width, int height) {
-    return CGSizeMake(ctx->cell_size.width * width, ctx->cell_size.height * height);
+static inline CGPoint nvc_ui_cell2point(nvc_ui_context_t *ctx, const nvc_ui_cell_pos_t& pos) {
+    return CGPointMake(ctx->cell_size.width * pos.x, ctx->cell_size.height * pos.y);
+}
+
+static inline CGSize nvc_ui_cell2size(nvc_ui_context_t *ctx, const nvc_ui_cell_size_t& size) {
+    return CGSizeMake(ctx->cell_size.width * size.width, ctx->cell_size.height * size.height);
 }
 
 static inline nvc_ui_cell_rect_t nvc_ui_rect2cell(nvc_ui_context_t *ctx, const CGRect& rect) {
@@ -427,23 +507,31 @@ static inline bool nvc_ui_update_size(nvc_ui_context_t *ctx, CGSize size) {
     return res;
 }
 
-static inline CGGlyph nvc_ui_ch2glyph(nvc_ui_context_t *ctx, UniChar ch) {
-    CGGlyph glyph = 0;
+static inline nvc_ui_glyph_info_t nvc_ui_find_glyph_info(nvc_ui_context_t *ctx, UniChar ch) {
+    nvc_ui_glyph_info_t info = {
+        .glyph = 0,
+        .font_index = 0,
+    };
     if (ch < kNvcUiCacheGlyphMax) {
-        glyph = ctx->glyphs[ch];
+        info.glyph = ctx->glyphs[ch];
     } else {
         const auto& p = ctx->glyph_cache.find(ch);
         if (p != ctx->glyph_cache.end()) {
-            glyph = p->second;
+            info = p->second;
         } else {
-            CTFontGetGlyphsForCharacters(ctx->font, &ch, &glyph, 1);
+            for (int i = 0; i < ctx->font_count; i++) {
+                if (CTFontGetGlyphsForCharacters(ctx->fonts[i], &ch, &info.glyph, 1)) {
+                    info.font_index = i;
+                    break;
+                }
+            }
             if (ctx->glyph_cache.size() > kNvcUiCacheGlyphSize) {
                 ctx->glyph_cache.clear();
             }
-            ctx->glyph_cache[ch] = glyph;
+            ctx->glyph_cache[ch] = info;
         }
     }
-    return glyph;
+    return info;
 }
 
 static inline void nvc_ui_set_fill_color(CGContextRef context, uint32_t rgb) {
@@ -471,7 +559,7 @@ static inline uint32_t nvc_ui_find_hl_color(nvc_ui_context_t *ctx, int hl, nvc_u
     return nvc_ui_get_default_color(ctx, code);
 }
 
-inline void nvc_ui_grid::draw(nvc_ui_context *ctx, CGContextRef context, const nvc_ui_cell_rect_t& dirty) {
+inline void nvc_ui_grid::draw(nvc_ui_context *ctx, CGContextRef context, const nvc_ui_cell_rect_t& dirty) const {
     CGPoint pt;
     CGSize size = ctx->cell_size;
     CGFloat font_offset = ctx->cell_size.height - ctx->font_offset;
@@ -482,38 +570,46 @@ inline void nvc_ui_grid::draw(nvc_ui_context *ctx, CGContextRef context, const n
     uint32_t fg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_foreground);
     uint32_t bg = nvc_ui_get_default_color(ctx, nvc_ui_color_code_background);
     for (int j = dirty.y; j < height; j++) {
+        int i = dirty.x;
         pt.y = size.height * j;
-        nvc_ui_cell_t *cell = m_cells + j * ctx->window_size.width + dirty.x;
-        for (int i = dirty.x; i < width; i++) {
-            pt.x = size.width * i;
-            if (cell->hl_id != last_hl_id) {
-                last_hl_id = cell->hl_id;
-                fg = nvc_ui_find_hl_color(ctx, last_hl_id, nvc_ui_color_code_foreground);
-                bg = nvc_ui_find_hl_color(ctx, last_hl_id, nvc_ui_color_code_background);
-            }
-            if (last_hl_id != 0) {
-                nvc_ui_set_fill_color(context, bg);
-                CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, size.height));
-            }
-            uint32_t tc = fg;
-            if (need_cursor && m_cursor.x == i && m_cursor.y == j) {
-                if (ctx->mode_idx < ctx->mode_infos.size()) {
-                    const auto& info = ctx->mode_infos[ctx->mode_idx];
-                    nvc_ui_set_fill_color(context, nvc_ui_find_hl_color(ctx, info.attr_id, nvc_ui_color_code_foreground));
-                    if (info.cursor_shape == "block") {
-                        CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, size.height));
-                        tc = nvc_ui_find_hl_color(ctx, info.attr_id, nvc_ui_color_code_background);
-                    } else if (info.cursor_shape == "horizontal") {
-                        CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, info.calc_cell_percentage(size.height)));
-                    } else if (info.cursor_shape == "vertical") {
-                        CGContextFillRect(context, CGRectMake(pt.x, pt.y, info.calc_cell_percentage(size.width), size.height));
+        nvc_ui_cell_t *cell = m_cells + j * m_width + i;
+        if (cell->is_skip && i > 0) {
+            cell--; i--;
+        }
+        for (; i < width; i++) {
+            if (!cell->is_skip) {
+                pt.x = size.width * i;
+                if (cell->hl_id != last_hl_id) {
+                    last_hl_id = cell->hl_id;
+                    fg = nvc_ui_find_hl_color(ctx, last_hl_id, nvc_ui_color_code_foreground);
+                    bg = nvc_ui_find_hl_color(ctx, last_hl_id, nvc_ui_color_code_background);
+                }
+                CGFloat cellWidth = size.width;
+                if (cell->is_width_x2) cellWidth *= 2;
+                if (last_hl_id != 0) {
+                    nvc_ui_set_fill_color(context, bg);
+                    CGContextFillRect(context, CGRectMake(pt.x, pt.y, cellWidth, size.height));
+                }
+                uint32_t tc = fg;
+                if (need_cursor && m_cursor.x == i && m_cursor.y == j) {
+                    if (ctx->mode_idx < ctx->mode_infos.size()) {
+                        const auto& info = ctx->mode_infos[ctx->mode_idx];
+                        nvc_ui_set_fill_color(context, nvc_ui_find_hl_color(ctx, info.attr_id, nvc_ui_color_code_foreground));
+                        if (info.cursor_shape == "block") {
+                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, cellWidth, size.height));
+                            tc = nvc_ui_find_hl_color(ctx, info.attr_id, nvc_ui_color_code_background);
+                        } else if (info.cursor_shape == "horizontal") {
+                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, info.calc_cell_percentage(size.height)));
+                        } else if (info.cursor_shape == "vertical") {
+                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, info.calc_cell_percentage(size.width), size.height));
+                        }
                     }
                 }
-            }
-            if (cell->glyph != 0) {
-                nvc_ui_set_fill_color(context, tc);
-                CGContextSetTextPosition(context, pt.x, pt.y + font_offset);
-                CTFontDrawGlyphs(ctx->font, &cell->glyph, &CGPointZero, 1, context);
+                if (cell->glyph != 0) {
+                    nvc_ui_set_fill_color(context, tc);
+                    CGContextSetTextPosition(context, pt.x, pt.y + font_offset);
+                    CTFontDrawGlyphs(ctx->fonts[cell->font_index], &cell->glyph, &CGPointZero, 1, context);
+                }
             }
             cell++;
         }
@@ -526,25 +622,29 @@ static inline UniChar nvc_ui_utf82unicode(const uint8_t *str, uint8_t len) {
         case 0:
             break;
         case 1:
-            unicode = str[0];
+            unicode = str[0] & 0x7F;
             break;
         case 2:
-            if (str[1] == 0x80) {
-                unicode = ((str[0] << 6) + (str[1]&0x3F))
-                        | (((str[0] >> 2)&0x07) << 8);
+            if (likely(str[1] == 0x80)) {
+                unicode = ((str[0] & 0x1F) << 6)
+                        | (str[1] & 0x3F);
             }
             break;
         case 3:
-            if (((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80)) {
-                unicode = ((str[1] << 6) + (str[2]&0x3F))
-                        | (((str[0] << 4) + ((str[1] >> 2)&0x0F)) << 8);
+            if (likely(((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80))) {
+                unicode = ((str[0] & 0x0F) << 12)
+                        | ((str[1] & 0x3F) << 6)
+                        | (str[2] & 0x3F);
             }
             break;
         case 4:
-            if (((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80) && ((str[3]&0xC0) == 0x80)) {
-                unicode = ((str[2] << 6) + (str[3]&0x3F))
-                        | (((str[1] << 4) + ((str[2] >> 2)&0x0F)) << 8)
-                        | ((((str[0] << 2)&0x1C) + ((str[1] >> 4)&0x03)) << 16);
+            if (likely(((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80) && ((str[3]&0xC0) == 0x80))) {
+                uint32_t cp = ((str[0] & 0x07) << 18)
+                        | ((str[1] & 0x3F) << 12)
+                        | ((str[2] & 0x3F) << 6)
+                        | (str[3] & 0x3F);
+                cp -= 0x10000;
+                unicode = ((0xD800 + ((cp >> 10)&0x03FF)) << 8) | (0xDC00 + (cp & 0x03FF));
             }
             break;
         default:
@@ -564,7 +664,6 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
         } else {
             ctx->attached = false;
             ctx->cb = *callback;
-            ctx->font = nullptr;
             ctx->mode_idx = 0;
             ctx->mode_enabled = true;
             ctx->cell_size = CGSizeZero;
@@ -573,7 +672,10 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
             int res = nvc_rpc_init(&ctx->rpc, inskt, outskt, userdata, nvc_ui_response_handler, nvc_ui_notification_handler, nvc_ui_close_handler);
             if (res == NVC_RC_OK) {
                 ctx->font_size = config->font_size;
-                res = nvc_ui_set_font(ctx, config->font);
+                nvc_ui_font_clear(ctx);
+                nvc_ui_add_font(ctx, config->font);
+                nvc_ui_update_font(ctx);
+                res = NVC_RC_OK;
             }
             if (res != NVC_RC_OK) {
                 nvc_ui_destroy(ctx);
@@ -593,10 +695,7 @@ void nvc_ui_destroy(nvc_ui_context_t *ctx) {
             delete p.second;
         }
         ctx->grids.clear();
-        if (ctx->font != nullptr) {
-            CFRelease(ctx->font);
-            ctx->font = nullptr;
-        }
+        nvc_ui_font_clear(ctx);
         delete ctx;
     }
 }
@@ -624,7 +723,7 @@ CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size) {
         nvc_rpc_write_const_str(&ctx->rpc, "ext_tabline");
         nvc_rpc_write_false(&ctx->rpc);
         nvc_rpc_call_end(&ctx->rpc);
-        size = nvc_ui_cell2size(ctx, ctx->window_size.width, ctx->window_size.height);
+        size = nvc_ui_cell2size(ctx, ctx->window_size);
     }
     return size;
 }
@@ -639,8 +738,8 @@ void nvc_ui_detach(nvc_ui_context_t *ctx) {
 
 void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context) {
     if (likely(ctx != nullptr && ctx->attached && context != nullptr)) {
-        nvc_ui_cell_rect_t rc = nvc_ui_rect2cell(ctx, CGContextGetClipBoundingBox(context));
         nvc_lock_guard_t guard(ctx->locker);
+        nvc_ui_cell_rect_t rc = nvc_ui_rect2cell(ctx, CGContextGetClipBoundingBox(context));
         for (const auto& [key, grid] : ctx->grids) {
             grid->draw(ctx, context, rc);
         }
@@ -654,10 +753,33 @@ CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size) {
             nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.width);
             nvc_rpc_write_unsigned(&ctx->rpc, ctx->window_size.height);
             nvc_rpc_call_end(&ctx->rpc);
-            size = nvc_ui_cell2size(ctx, ctx->window_size.width, ctx->window_size.height);
+            size = nvc_ui_cell2size(ctx, ctx->window_size);
         }
     }
     return size;
+}
+
+CGFloat nvc_ui_get_line_height(nvc_ui_context_t *ctx) {
+    CGFloat height = 0;
+    if (likely(ctx != nullptr && ctx->attached)) {
+        height = ctx->cell_size.height;
+    }
+    return height;
+}
+
+CGPoint nvc_ui_get_cursor_position(nvc_ui_context_t *ctx) {
+    CGPoint pt = CGPointZero;
+    if (likely(ctx != nullptr && ctx->attached)) {
+        nvc_lock_guard_t guard(ctx->locker);
+        for (const auto& [key, grid] : ctx->grids) {
+            if (grid->has_cursor()) {
+                pt = nvc_ui_cell2point(ctx, grid->cursor());
+                break;
+            }
+        }
+        
+    }
+    return pt;
 }
 
 void nvc_ui_open_file(nvc_ui_context_t *ctx, const char *file, uint32_t len, bool new_tab) {
@@ -734,15 +856,111 @@ static const std::map<uint16_t, const std::string> nvc_ui_keycode_table = {
     NVC_UI_KEYCODE(0x7E, "Up"),         // kVK_UpArrow
 };
 
-bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key) {
+bool nvc_ui_input_key(nvc_ui_context_t *ctx, uint16_t key, nvc_ui_key_flags_t flags) {
     bool res = false;
-    const auto& p = nvc_ui_keycode_table.find(key.code);
+    const auto& p = nvc_ui_keycode_table.find(key);
     if (p != nvc_ui_keycode_table.end()) {
         const auto& notation = p->second;
         char keys[kNvcUiKeysMax];
         uint32_t len = 0;
         keys[len++] = '<';
-        len = nvc_ui_key_flags_encode(key.flags, keys, len, false);
+        len = nvc_ui_key_flags_encode(flags, keys, len, false);
+        memcpy(keys + len, notation.c_str(), notation.size());
+        len += notation.size();
+        keys[len++] = '>';
+        nvc_ui_input_rawkey(ctx, keys, len);
+        res = true;
+    }
+    return res;
+}
+
+// Note: https://developer.apple.com/documentation/appkit/1535851-function-key_unicode_values?language=objc
+// <AppKit/NSEvent.h>
+#define NVC_UI_FUNCKEY(_code, _notation)    { _code, _notation }
+static const std::map<UniChar, const std::string> nvc_ui_funckey_table = {
+    NVC_UI_FUNCKEY(0xF700, "Up"),       // NSUpArrowFunctionKey
+    NVC_UI_FUNCKEY(0xF701, "Down"),     // NSDownArrowFunctionKey
+    NVC_UI_FUNCKEY(0xF702, "Left"),     // NSLeftArrowFunctionKey
+    NVC_UI_FUNCKEY(0xF703, "Right"),    // NSRightArrowFunctionKey
+    NVC_UI_FUNCKEY(0xF704, "F1"),       // NSF1FunctionKey
+    NVC_UI_FUNCKEY(0xF705, "F2"),       // NSF2FunctionKey
+    NVC_UI_FUNCKEY(0xF706, "F3"),       // NSF3FunctionKey
+    NVC_UI_FUNCKEY(0xF707, "F4"),       // NSF4FunctionKey
+    NVC_UI_FUNCKEY(0xF708, "F5"),       // NSF5FunctionKey
+    NVC_UI_FUNCKEY(0xF709, "F6"),       // NSF6FunctionKey
+    NVC_UI_FUNCKEY(0xF70A, "F7"),       // NSF7FunctionKey
+    NVC_UI_FUNCKEY(0xF70B, "F8"),       // NSF8FunctionKey
+    NVC_UI_FUNCKEY(0xF70C, "F9"),       // NSF9FunctionKey
+    NVC_UI_FUNCKEY(0xF70D, "F10"),      // NSF10FunctionKey
+    NVC_UI_FUNCKEY(0xF70E, "F11"),      // NSF11FunctionKey
+    NVC_UI_FUNCKEY(0xF70F, "F12"),      // NSF12FunctionKey
+    NVC_UI_FUNCKEY(0xF710, "F13"),      // NSF13FunctionKey
+    NVC_UI_FUNCKEY(0xF711, "F14"),      // NSF14FunctionKey
+    NVC_UI_FUNCKEY(0xF712, "F15"),      // NSF15FunctionKey
+    NVC_UI_FUNCKEY(0xF713, "F16"),      // NSF16FunctionKey
+    NVC_UI_FUNCKEY(0xF714, "F17"),      // NSF17FunctionKey
+    NVC_UI_FUNCKEY(0xF715, "F18"),      // NSF18FunctionKey
+    NVC_UI_FUNCKEY(0xF716, "F19"),      // NSF19FunctionKey
+    NVC_UI_FUNCKEY(0xF717, "F20"),      // NSF20FunctionKey
+    NVC_UI_FUNCKEY(0xF718, "F21"),      // NSF21FunctionKey
+    NVC_UI_FUNCKEY(0xF719, "F22"),      // NSF22FunctionKey
+    NVC_UI_FUNCKEY(0xF71A, "F23"),      // NSF23FunctionKey
+    NVC_UI_FUNCKEY(0xF71B, "F24"),      // NSF24FunctionKey
+    NVC_UI_FUNCKEY(0xF71C, "F25"),      // NSF25FunctionKey
+    NVC_UI_FUNCKEY(0xF71D, "F26"),      // NSF26FunctionKey
+    NVC_UI_FUNCKEY(0xF71E, "F27"),      // NSF27FunctionKey
+    NVC_UI_FUNCKEY(0xF71F, "F28"),      // NSF28FunctionKey
+    NVC_UI_FUNCKEY(0xF720, "F29"),      // NSF29FunctionKey
+    NVC_UI_FUNCKEY(0xF721, "F30"),      // NSF30FunctionKey
+    NVC_UI_FUNCKEY(0xF722, "F31"),      // NSF31FunctionKey
+    NVC_UI_FUNCKEY(0xF723, "F32"),      // NSF32FunctionKey
+    NVC_UI_FUNCKEY(0xF724, "F33"),      // NSF33FunctionKey
+    NVC_UI_FUNCKEY(0xF725, "F34"),      // NSF34FunctionKey
+    NVC_UI_FUNCKEY(0xF726, "F35"),      // NSF35FunctionKey
+    NVC_UI_FUNCKEY(0xF727, "Insert"),   // NSInsertFunctionKey
+    NVC_UI_FUNCKEY(0xF728, "Del"),      // NSDeleteFunctionKey
+    NVC_UI_FUNCKEY(0xF729, "Home"),     // NSHomeFunctionKey
+    NVC_UI_FUNCKEY(0xF72A, "Begin"),    // NSBeginFunctionKey
+    NVC_UI_FUNCKEY(0xF72B, "End"),      // NSEndFunctionKey
+    NVC_UI_FUNCKEY(0xF72C, "PageUp"),   // NSPageUpFunctionKey
+    NVC_UI_FUNCKEY(0xF72D, "PageDown"), // NSPageDownFunctionKey
+    // 0xF72E NSPrintScreenFunctionKey
+    // 0xF72F NSScrollLockFunctionKey
+    // 0xF730 NSPauseFunctionKey
+    // 0xF731 NSSysReqFunctionKey
+    // 0xF732 NSBreakFunctionKey
+    // 0xF733 NSResetFunctionKey
+    // 0xF734 NSStopFunctionKey
+    // 0xF735 NSMenuFunctionKey
+    // 0xF736 NSUserFunctionKey
+    // 0xF737 NSSystemFunctionKey
+    // 0xF738 NSPrintFunctionKey
+    // 0xF739 NSClearLineFunctionKey
+    // 0xF73A NSClearDisplayFunctionKey
+    // 0xF73B NSInsertLineFunctionKey
+    // 0xF73C NSDeleteLineFunctionKey
+    // 0xF73D NSInsertCharFunctionKey
+    // 0xF73E NSDeleteCharFunctionKey
+    // 0xF73F NSPrevFunctionKey
+    // 0xF740 NSNextFunctionKey
+    // 0xF741 NSSelectFunctionKey
+    // 0xF742 NSExecuteFunctionKey
+    // 0xF743 NSUndoFunctionKey
+    // 0xF744 NSRedoFunctionKey
+    // 0xF745 NSFindFunctionKey
+    NVC_UI_FUNCKEY(0xF746, "Help"),     // NSPageDownFunctionKey
+    // 0xF747 NSModeSwitchFunctionKey
+};
+
+bool nvc_ui_input_function_key(nvc_ui_context_t *ctx, UniChar ch, nvc_ui_key_flags_t flags) {
+    bool res = false;
+    const auto& p = nvc_ui_funckey_table.find(ch);
+    if (p != nvc_ui_funckey_table.end()) {
+        const auto& notation = p->second;
+        char keys[kNvcUiKeysMax];
+        uint32_t len = 0;
+        keys[len++] = '<';
+        len = nvc_ui_key_flags_encode(flags, keys, len, false);
         memcpy(keys + len, notation.c_str(), notation.size());
         len += notation.size();
         keys[len++] = '>';
@@ -753,12 +971,16 @@ bool nvc_ui_input_key(nvc_ui_context_t *ctx, nvc_ui_key_info_t key) {
 }
 
 void nvc_ui_input_keystr(nvc_ui_context_t *ctx, nvc_ui_key_flags_t flags, const char* str, uint32_t slen) {
-    if (slen > 0) {
-        if (str[0] == '<') {
-            nvc_ui_input_rawkey(ctx, "<lt>", 4);
+    std::string value;
+    for (int i = 0; i < slen; i++) {
+        if (str[i] == '<') {
+            value += "<lt>";
         } else {
-            nvc_ui_input_rawkey(ctx, str, slen);
+            value.push_back(str[i]);
         }
+    }
+    if (!value.empty()) {
+        nvc_ui_input_rawkey(ctx, value.c_str(), (uint32_t)value.size());
     }
 }
 
@@ -799,8 +1021,8 @@ static inline int nvc_ui_option_set_action_guifont(nvc_ui_context_t *ctx, int it
     if (likely(items-- > 0)) {
         const auto& value = nvc_rpc_read_str(&ctx->rpc);
         if (!value.empty() && value != "*") {
-            nvc_util_parse_token(value, ',', [ctx](const std::string& name) -> bool {
-                bool result = true;
+            bool updated = false;
+            nvc_util_parse_token(value, ',', [ctx, &updated](const std::string& name) -> bool {
                 CGFloat font_size = ctx->font_size;
                 size_t p = name.find_first_of(':');
                 auto family = name.substr(0, p);
@@ -810,14 +1032,19 @@ static inline int nvc_ui_option_set_action_guifont(nvc_ui_context_t *ctx, int it
                 }
                 CTFontRef font = nvc_ui_load_font(family, font_size);
                 if (font != nullptr) {
-                    if (nvc_ui_set_font(ctx, font) == NVC_RC_OK) {
-                        ctx->cb.font_updated(nvc_ui_get_userdata(ctx));
-                        result = false;
+                    if (!updated) {
+                        nvc_ui_font_clear(ctx);
+                        updated = true;
                     }
+                    nvc_ui_add_font(ctx, font);
                     CFRelease(font);
                 }
-                return result;
+                return true;
             });
+            if (updated) {
+                nvc_ui_update_font(ctx);
+                ctx->cb.font_updated(nvc_ui_get_userdata(ctx));
+            }
         }
     }
     return items;
@@ -1097,20 +1324,25 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                 while (cells-- > 0) {
                     int cnum = nvc_rpc_read_array_size(&ctx->rpc);
                     if (likely(cnum-- > 0)) {
+                        int repeat = 1;
                         uint32_t len = 0;
                         const uint8_t *str = (const uint8_t *)nvc_rpc_read_str(&ctx->rpc, &len);
-                        UniChar ch = nvc_ui_utf82unicode(str, len);
-                        int repeat = 1;
-                        if (cnum-- > 0) {
-                            int hl_id = nvc_rpc_read_int(&ctx->rpc);
-                            if (hl_id != last_hl_id) {
-                                last_hl_id = hl_id;
+                        if (len == 0) {
+                            grid->set_skip(row, offset);
+                        } else {
+                            UniChar ch = nvc_ui_utf82unicode(str, len);
+                            if (cnum-- > 0) {
+                                int hl_id = nvc_rpc_read_int(&ctx->rpc);
+                                if (hl_id != last_hl_id) {
+                                    last_hl_id = hl_id;
+                                }
                             }
+                            if (cnum-- > 0) {
+                                repeat = nvc_rpc_read_int(&ctx->rpc);
+                            }
+                            grid->update(row, offset, repeat, ch, nvc_ui_find_glyph_info(ctx, ch), last_hl_id);
+                            
                         }
-                        if (cnum-- > 0) {
-                            repeat = nvc_rpc_read_int(&ctx->rpc);
-                        }
-                        grid->update(row, offset, repeat, ch, nvc_ui_ch2glyph(ctx, ch), last_hl_id);
                         offset += repeat;
                     }
                     nvc_rpc_read_skip_items(&ctx->rpc, cnum);

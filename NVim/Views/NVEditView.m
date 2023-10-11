@@ -7,9 +7,12 @@
 
 #import "NVEditView.h"
 
-@interface NVEditView () <CALayerDelegate>
+@interface NVEditView () <CALayerDelegate, NSTextInputClient>
 
 @property (nonatomic, readonly, strong) CALayer *drawLayer;
+@property (nonatomic, readonly, strong) NSTextInputContext *textInputContext;
+@property (nonatomic, readonly, assign) NSEventModifierFlags flags;
+@property (nonatomic, readonly, strong) NSString *markedText;
 
 @end
 
@@ -18,6 +21,10 @@
 - (instancetype)initWithFrame:(NSRect)frameRect {
     if (self = [super initWithFrame:frameRect]) {
         _contentSize = CGSizeZero;
+        _textInputContext = [[NSTextInputContext alloc] initWithClient:self];
+        _flags = 0;
+        _markedText = nil;
+        
         self.wantsLayer = YES;
         CALayer *drawLayer = [CALayer new];
         [self.layer addSublayer:(_drawLayer = drawLayer)];
@@ -81,7 +88,13 @@
 }
 
 - (void)keyDown:(NSEvent *)event {
-    [self.client keyDown:event];
+    if (![self.client functionKeyDown:event] && ![self.textInputContext handleEvent:event]) {
+        [self.client keyDown:event];
+    }
+}
+
+- (void)flagsChanged:(NSEvent *)event {
+    _flags = event.modifierFlags;
 }
 
 - (void)scrollWheel:(NSEvent *)event {
@@ -165,6 +178,79 @@
     CGContextSetTextDrawingMode(context, kCGTextFill);
     [self.client redrawUI:context];
     CGContextFlush(context);
+}
+
+#pragma mark - NSTextInputClient
+- (void)insertText:(id)string replacementRange:(NSRange)replacementRange {
+    NSString *text = get_string(string);
+    [self.client inputText:text flags:self.flags];
+    if (self.hasMarkedText) {
+        [self unmarkText];
+    }
+}
+
+- (void)doCommandBySelector:(SEL)selector {
+
+}
+
+- (BOOL)performKeyEquivalent:(NSEvent *)event {
+    [self.client keyDown:event];
+    return YES;
+}
+
+- (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange {
+    _markedText = get_string(string);
+}
+
+- (void)unmarkText {
+    _markedText = nil;
+}
+
+- (NSRange)selectedRange {
+    return NSMakeRange(0, 0);
+}
+
+- (NSRange)markedRange {
+    return NSMakeRange(0, 0);
+}
+
+- (BOOL)hasMarkedText {
+    return self.markedText != nil;
+}
+
+- (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange {
+    NSAttributedString *text = nil;
+    if (actualRange != nil && actualRange->location != NSNotFound && self.hasMarkedText) {
+        text = [[NSAttributedString alloc] initWithString:self.markedText];
+    }
+    return text;
+}
+
+- (NSArray<NSAttributedStringKey> *)validAttributesForMarkedText {
+    return @[];
+}
+
+- (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange {
+    NSRect rc = {
+        .origin = self.client.cursorPosition,
+        .size = CGSizeMake(0, self.client.lineHeight),
+    };
+    return [self.window convertRectToScreen:[self convertRect:rc toView:nil]];
+}
+
+- (NSUInteger)characterIndexForPoint:(NSPoint)point {
+    return 0;
+}
+
+#pragma mark - Helper
+static inline NSString *get_string(id val) {
+    if ([val isKindOfClass:NSString.class]) {
+        return val;
+    }
+    if ([val isKindOfClass:NSAttributedString.class]) {
+        return [val string];
+    }
+    return  @"";
 }
 
 

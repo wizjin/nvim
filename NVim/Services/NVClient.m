@@ -47,6 +47,14 @@
     }
 }
 
+- (CGFloat)lineHeight {
+    return nvc_ui_get_line_height(ui_ctx);
+}
+
+- (CGPoint)cursorPosition {
+    return nvc_ui_get_cursor_position(ui_ctx);
+}
+
 - (CGSize)attachUIWithSize:(CGSize)size {
     return nvc_ui_attach(ui_ctx, size);
 }
@@ -78,17 +86,24 @@
 }
 
 - (void)keyDown:(NSEvent *)event {
-    nvc_ui_key_info_t key = {
-        .code       = event.keyCode,
-        .flags      = nvc_ui_key_flags_init(event.modifierFlags),
-    };
-    if (!nvc_ui_input_key(ui_ctx, key)) {
+    nvc_ui_key_flags_t flags = nvc_ui_key_flags_init(event.modifierFlags);
+    if (!nvc_ui_input_key(ui_ctx, event.keyCode, flags)) {
         NSString *c = event.characters;
         if (c.length > 0) {
             NSData *keys = [c dataUsingEncoding:NSUTF8StringEncoding];
-            nvc_ui_input_keystr(ui_ctx, key.flags, (const char *)keys.bytes, (uint32_t)keys.length);
+            nvc_ui_input_keystr(ui_ctx, flags, (const char *)keys.bytes, (uint32_t)keys.length);
         }
     }
+}
+
+- (BOOL)functionKeyDown:(NSEvent *)event {
+    NSString *c = event.characters;
+    return (c.length == 1 && nvc_ui_input_function_key(ui_ctx, [c characterAtIndex:0], nvc_ui_key_flags_init(event.modifierFlags)));
+}
+
+- (void)inputText:(NSString *)text flags:(NSEventModifierFlags)flags {
+    NSData *data = [text dataUsingEncoding:NSUTF8StringEncoding];
+    nvc_ui_input_keystr(ui_ctx, nvc_ui_key_flags_init(flags), (const char *)data.bytes, (uint32_t)data.length);
 }
 
 - (void)scrollWheel:(NSEvent *)event inView:(NSView *)view {

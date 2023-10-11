@@ -28,6 +28,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, nullable, weak) id<NVClientDelegate> delegate;
 @property (nonatomic, readonly, strong) NSString *info;
+@property (nonatomic, readonly, assign) CGFloat lineHeight;
+@property (nonatomic, readonly, assign) CGPoint cursorPosition;
 
 - (BOOL)isAttached;
 - (void)openWithRead:(int)read write:(int)write;
@@ -38,6 +40,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (CGSize)resizeUIWithSize:(CGSize)size;
 - (BOOL)openFiles:(NSArray<NSString *> *)files;
 - (void)keyDown:(NSEvent *)event;
+- (BOOL)functionKeyDown:(NSEvent *)event;
+- (void)inputText:(NSString *)text flags:(NSEventModifierFlags)flags;
 - (void)scrollWheel:(NSEvent *)event inView:(NSView *)view;
 - (void)mouseUp:(NSEvent *)event inView:(NSView *)view;
 - (void)mouseDown:(NSEvent *)event inView:(NSView *)view;
