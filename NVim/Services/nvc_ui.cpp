@@ -15,10 +15,7 @@
 #define kNvcUiKeysMax                       64
 #define kNvcUiCacheGlyphMax                 127
 #define kNvcUiCacheGlyphSize                512
-
-#define kNvcFontIndexDefault                0
-#define kNvcFontIndexHans                   1
-#define kNvcFontIndexMax                    2
+#define kNvcUiFontIndexMax                  8
 
 typedef uint8_t nvc_ui_font_index_t;
 
@@ -289,7 +286,8 @@ struct nvc_ui_context {
     nvc_rpc_context_t           rpc;
     nvc_ui_callback_t           cb;
     bool                        attached;
-    CTFontRef                   fonts[kNvcFontIndexMax];
+    CTFontRef                   fonts[kNvcUiFontIndexMax];
+    int                         font_count;
     CGFloat                     font_size;
     std::string                 mode;
     int                         mode_idx;
@@ -355,62 +353,83 @@ static inline uint32_t nvc_ui_key_flags_encode(nvc_ui_key_flags_t flags, char ou
 
 #pragma mark - NVC UI Helper
 static inline void nvc_ui_font_clear(nvc_ui_context_t *ctx) {
-    for (int i = 0; i < kNvcFontIndexMax; i++) {
+    for (int i = 0; i < ctx->font_count; i++) {
         CTFontRef f = ctx->fonts[i];
         if (f != nullptr) {
             CFRelease(f);
         }
         ctx->fonts[i] = nullptr;
     }
+    ctx->font_count = 0;
 }
 
-static const UniChar uni_codes[] = { 0, 0x6C49 };
-
-static inline int nvc_ui_set_font(nvc_ui_context_t *ctx, CTFontRef font) {
-    int res = NVC_RC_ILLEGAL_CALL;
-    if (likely(font != nullptr)) {
-        nvc_ui_font_clear(ctx);
-        ctx->fonts[kNvcFontIndexDefault] = (CTFontRef)CFRetain(font);
-        CGFloat ascent = CTFontGetAscent(font);
-        CGFloat descent = CTFontGetDescent(font);
-        CGFloat leading = CTFontGetLeading(font);
-        CGFloat height = ceil(ascent + descent + leading);
-        CGGlyph glyph = (CGGlyph) 0;
-        UniChar capitalM = (UniChar) 0x004D;
-        CGSize advancement = CGSizeZero;
-        CTFontGetGlyphsForCharacters(font, &capitalM, &glyph, 1);
-        CTFontGetAdvancesForGlyphs(font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
-        CGFloat width = ceil(advancement.width);
-        ctx->cell_size = CGSizeMake(width, height);
-        ctx->font_offset = descent;
-        for (int i = 0; i < kNvcUiCacheGlyphMax; i++) {
-            if (isspace(i)) {
-                ctx->glyphs[i] = 0;
-            } else {
-                UniChar ch = i;
-                CTFontGetGlyphsForCharacters(ctx->fonts[kNvcFontIndexDefault], &ch, ctx->glyphs + i, 1);
-            }
-        }
-        
-        CFStringRef codes = CFStringCreateWithBytesNoCopy(nullptr, (const UInt8 *)uni_codes, sizeof(uni_codes), kCFStringEncodingUnicode, false, kCFAllocatorNull);
-        if (codes != nullptr) {
-            for (int i = kNvcFontIndexDefault + 1; i < kNvcFontIndexMax; i++) {
-                CTFontRef font = CTFontCreateForString(ctx->fonts[kNvcFontIndexDefault], codes, CFRangeMake(i, 1));
-                if (font != nullptr) {
-                    ctx->fonts[i] = font;
+static inline void nvc_ui_add_font(nvc_ui_context_t *ctx, CTFontRef font) {
+    if (likely(font != nullptr) && ctx->font_count < kNvcUiFontIndexMax) {
+        if (ctx->font_count == 0) {
+            CGFloat ascent = CTFontGetAscent(font);
+            CGFloat descent = CTFontGetDescent(font);
+            CGFloat leading = CTFontGetLeading(font);
+            CGFloat height = ceil(ascent + descent + leading);
+            CGGlyph glyph = (CGGlyph) 0;
+            UniChar capitalM = (UniChar) 0x004D;
+            CGSize advancement = CGSizeZero;
+            CTFontGetGlyphsForCharacters(font, &capitalM, &glyph, 1);
+            CTFontGetAdvancesForGlyphs(font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
+            CGFloat width = ceil(advancement.width);
+            ctx->cell_size = CGSizeMake(width, height);
+            ctx->font_offset = descent;
+            for (int i = 0; i < kNvcUiCacheGlyphMax; i++) {
+                if (isspace(i)) {
+                    ctx->glyphs[i] = 0;
+                } else {
+                    UniChar ch = i;
+                    CTFontGetGlyphsForCharacters(font, &ch, ctx->glyphs + i, 1);
                 }
             }
-            CFRelease(codes);
         }
-        res = NVC_RC_OK;
+        ctx->fonts[ctx->font_count++] = (CTFontRef)CFRetain(font);
     }
-    return res;
+}
+
+static inline void nvc_ui_update_font(nvc_ui_context_t *ctx) {
+    if (ctx->font_count == 0) {
+        CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontUserFixedPitch, ctx->font_size, nullptr);
+        if (likely(font != nullptr)) {
+            nvc_ui_add_font(ctx, font);
+            CFRelease(font);
+        }
+    }
+    if (ctx->font_count > 0) {
+        UniChar chs[] = { 0x004D, 0x6C49, 0x6F22, 0x3092, 0xAC40 };
+        int n = countof(chs);
+        CFStringRef str = CFStringCreateWithCharacters(nullptr, chs, n);
+        if (likely(str != nullptr)) {
+            for (int i = 0; i < n; i++) {
+                bool found = false;
+                for (int j = 0; j < ctx->font_count; j++) {
+                    CGGlyph glyph = 0;
+                    if (CTFontGetGlyphsForCharacters(ctx->fonts[j], chs + i, &glyph, 1)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found && ctx->font_count < kNvcUiFontIndexMax) {
+                    CTFontRef font = CTFontCreateForString(ctx->fonts[0], str, CFRangeMake(i, 1));
+                    if (likely(font != nullptr)) {
+                        nvc_ui_add_font(ctx, font);
+                        CFRelease(font);
+                    }
+                }
+            }
+            CFRelease(str);
+        }
+    }
 }
 
 static inline CTFontRef nvc_ui_load_font(const std::string& name, CGFloat font_size) {
     CTFontRef font = nullptr;
     if (likely(!name.empty())) {
-        CFStringRef font_name = CFStringCreateWithBytesNoCopy(nullptr, (const UInt8 *)name.c_str(), name.size(), kCFStringEncodingUTF8, false, kCFAllocatorNull);
+        CFStringRef font_name = CFStringCreateWithBytes(nullptr, (const UInt8 *)name.c_str(), name.size(), kCFStringEncodingUTF8, false);
         if (likely(font_name != nullptr)) {
             CTFontRef original_font = CTFontCreateWithName(font_name, font_size, nullptr);
             if (likely(original_font != nullptr)) {
@@ -491,7 +510,7 @@ static inline bool nvc_ui_update_size(nvc_ui_context_t *ctx, CGSize size) {
 static inline nvc_ui_glyph_info_t nvc_ui_find_glyph_info(nvc_ui_context_t *ctx, UniChar ch) {
     nvc_ui_glyph_info_t info = {
         .glyph = 0,
-        .font_index = kNvcFontIndexDefault,
+        .font_index = 0,
     };
     if (ch < kNvcUiCacheGlyphMax) {
         info.glyph = ctx->glyphs[ch];
@@ -500,7 +519,7 @@ static inline nvc_ui_glyph_info_t nvc_ui_find_glyph_info(nvc_ui_context_t *ctx, 
         if (p != ctx->glyph_cache.end()) {
             info = p->second;
         } else {
-            for (int i = kNvcFontIndexDefault; i < kNvcFontIndexMax; i++) {
+            for (int i = 0; i < ctx->font_count; i++) {
                 if (CTFontGetGlyphsForCharacters(ctx->fonts[i], &ch, &info.glyph, 1)) {
                     info.font_index = i;
                     break;
@@ -653,7 +672,10 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
             int res = nvc_rpc_init(&ctx->rpc, inskt, outskt, userdata, nvc_ui_response_handler, nvc_ui_notification_handler, nvc_ui_close_handler);
             if (res == NVC_RC_OK) {
                 ctx->font_size = config->font_size;
-                res = nvc_ui_set_font(ctx, config->font);
+                nvc_ui_font_clear(ctx);
+                nvc_ui_add_font(ctx, config->font);
+                nvc_ui_update_font(ctx);
+                res = NVC_RC_OK;
             }
             if (res != NVC_RC_OK) {
                 nvc_ui_destroy(ctx);
@@ -999,8 +1021,8 @@ static inline int nvc_ui_option_set_action_guifont(nvc_ui_context_t *ctx, int it
     if (likely(items-- > 0)) {
         const auto& value = nvc_rpc_read_str(&ctx->rpc);
         if (!value.empty() && value != "*") {
-            nvc_util_parse_token(value, ',', [ctx](const std::string& name) -> bool {
-                bool result = true;
+            bool updated = false;
+            nvc_util_parse_token(value, ',', [ctx, &updated](const std::string& name) -> bool {
                 CGFloat font_size = ctx->font_size;
                 size_t p = name.find_first_of(':');
                 auto family = name.substr(0, p);
@@ -1010,14 +1032,19 @@ static inline int nvc_ui_option_set_action_guifont(nvc_ui_context_t *ctx, int it
                 }
                 CTFontRef font = nvc_ui_load_font(family, font_size);
                 if (font != nullptr) {
-                    if (nvc_ui_set_font(ctx, font) == NVC_RC_OK) {
-                        ctx->cb.font_updated(nvc_ui_get_userdata(ctx));
-                        result = false;
+                    if (!updated) {
+                        nvc_ui_font_clear(ctx);
+                        updated = true;
                     }
+                    nvc_ui_add_font(ctx, font);
                     CFRelease(font);
                 }
-                return result;
+                return true;
             });
+            if (updated) {
+                nvc_ui_update_font(ctx);
+                ctx->cb.font_updated(nvc_ui_get_userdata(ctx));
+            }
         }
     }
     return items;
