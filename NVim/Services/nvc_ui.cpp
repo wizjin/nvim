@@ -15,7 +15,9 @@
 #define kNvcUiKeysMax                       64
 #define kNvcUiCacheGlyphMax                 127
 #define kNvcUiCacheGlyphSize                512
+#define kNvcUiFontIndexStart                0
 #define kNvcUiFontIndexMax                  8
+#define kNvcUiFontAppleColorEmoji           "Apple Color Emoji"
 
 typedef uint8_t nvc_ui_font_index_t;
 
@@ -141,19 +143,21 @@ static const std::map<const std::string, nvc_ui_set_mode_info> nvc_ui_set_mode_i
     NVC_UI_SET_MODE_INFO_INT(attr_id_lm),
 };
 
+typedef uint32_t nvc_unicode_t;
+
 typedef struct nvc_ui_glyph_info {
     CGGlyph             glyph;
     nvc_ui_font_index_t font_index;
 } nvc_ui_glyph_info_t;
 
 typedef struct nvc_ui_cell {
-    UniChar             ch;
-    CGGlyph             glyph;
+    nvc_unicode_t       ch;
     int32_t             hl_id;
+    CGGlyph             glyph;
     nvc_ui_font_index_t font_index;
     bool                is_width_x2;
     bool                is_skip;
-    uint8_t             unused[3];
+    uint8_t             unused[1];
 } nvc_ui_cell_t;
 
 class nvc_ui_grid {
@@ -198,14 +202,14 @@ public:
         }
     }
     
-    inline void update(int row, int col_start, int count, UniChar ch, const nvc_ui_glyph_info_t& info, uint32_t hl_id) {
+    inline void update(int row, int col_start, int count, nvc_unicode_t ch, const nvc_ui_glyph_info_t& info, uint32_t hl_id) {
         if (likely(count > 0 && row >= 0 && row < m_height && col_start >= 0 && col_start < m_width)) {
             nvc_ui_cell_t *cell = m_cells + row*m_width + col_start;
             for (int n = MIN(count, m_width - col_start); n > 0; n--) {
                 cell->ch = ch;
+                cell->hl_id = hl_id;
                 cell->glyph = info.glyph;
                 cell->font_index = info.font_index;
-                cell->hl_id = hl_id;
                 cell->is_width_x2 = false;
                 cell->is_skip = false;
                 cell++;
@@ -361,11 +365,13 @@ static inline void nvc_ui_font_clear(nvc_ui_context_t *ctx) {
         ctx->fonts[i] = nullptr;
     }
     ctx->font_count = 0;
+    ctx->glyph_cache.clear();
 }
 
-static inline void nvc_ui_add_font(nvc_ui_context_t *ctx, CTFontRef font) {
+static inline void nvc_ui_add_font(nvc_ui_context_t *ctx, CTFontRef font, CGFloat font_size) {
     if (likely(font != nullptr) && ctx->font_count < kNvcUiFontIndexMax) {
         if (ctx->font_count == 0) {
+            ctx->font_size = font_size;
             CGFloat ascent = CTFontGetAscent(font);
             CGFloat descent = CTFontGetDescent(font);
             CGFloat leading = CTFontGetLeading(font);
@@ -395,12 +401,37 @@ static inline void nvc_ui_update_font(nvc_ui_context_t *ctx) {
     if (ctx->font_count == 0) {
         CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontUserFixedPitch, ctx->font_size, nullptr);
         if (likely(font != nullptr)) {
-            nvc_ui_add_font(ctx, font);
+            nvc_ui_add_font(ctx, font, ctx->font_size);
             CFRelease(font);
         }
     }
     if (ctx->font_count > 0) {
-        UniChar chs[] = { 0x004D, 0x6C49, 0x6F22, 0x3092, 0xAC40 };
+        if (ctx->font_count < kNvcUiFontIndexMax) {
+            CFStringRef family = CFStringCreateWithCString(nullptr, kNvcUiFontAppleColorEmoji, kCFStringEncodingASCII);
+            if (family != nullptr) {
+                bool found = false;
+                for (int i = 0; i < ctx->font_count; i++) {
+                    CFStringRef name = CTFontCopyFamilyName(ctx->fonts[i]);
+                    if (name != nullptr) {
+                        CFRange range = CFStringFind(name, family, kCFCompareCaseInsensitive);
+                        CFRelease(name);
+                        if (range.location != kCFNotFound) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (!found) {
+                    CTFontRef font = CTFontCreateCopyWithFamily(ctx->fonts[0], 0, nullptr, family);
+                    if (font != nullptr) {
+                        ctx->fonts[ctx->font_count++] = font;
+                    }
+                }
+                CFRelease(family);
+            }
+        }
+
+        UniChar chs[] = { 0x004D, 0x6C49, 0x6F22, 0x3092 };
         int n = countof(chs);
         CFStringRef str = CFStringCreateWithCharacters(nullptr, chs, n);
         if (likely(str != nullptr)) {
@@ -416,7 +447,7 @@ static inline void nvc_ui_update_font(nvc_ui_context_t *ctx) {
                 if (!found && ctx->font_count < kNvcUiFontIndexMax) {
                     CTFontRef font = CTFontCreateForString(ctx->fonts[0], str, CFRangeMake(i, 1));
                     if (likely(font != nullptr)) {
-                        nvc_ui_add_font(ctx, font);
+                        nvc_ui_add_font(ctx, font, ctx->font_size);
                         CFRelease(font);
                     }
                 }
@@ -507,7 +538,7 @@ static inline bool nvc_ui_update_size(nvc_ui_context_t *ctx, CGSize size) {
     return res;
 }
 
-static inline nvc_ui_glyph_info_t nvc_ui_find_glyph_info(nvc_ui_context_t *ctx, UniChar ch) {
+static inline nvc_ui_glyph_info_t nvc_ui_find_glyph_info(nvc_ui_context_t *ctx, nvc_unicode_t ch) {
     nvc_ui_glyph_info_t info = {
         .glyph = 0,
         .font_index = 0,
@@ -519,8 +550,10 @@ static inline nvc_ui_glyph_info_t nvc_ui_find_glyph_info(nvc_ui_context_t *ctx, 
         if (p != ctx->glyph_cache.end()) {
             info = p->second;
         } else {
-            for (int i = 0; i < ctx->font_count; i++) {
-                if (CTFontGetGlyphsForCharacters(ctx->fonts[i], &ch, &info.glyph, 1)) {
+            UniChar *c = (UniChar *)&ch;
+            CFIndex n = (c[1] == 0 ? 1 : 2);
+            for (int i = kNvcUiFontIndexStart; i < ctx->font_count; i++) {
+                if (CTFontGetGlyphsForCharacters(ctx->fonts[i], c, &info.glyph, n)) {
                     info.font_index = i;
                     break;
                 }
@@ -616,8 +649,8 @@ inline void nvc_ui_grid::draw(nvc_ui_context *ctx, CGContextRef context, const n
     }
 }
 
-static inline UniChar nvc_ui_utf82unicode(const uint8_t *str, uint8_t len) {
-    UniChar unicode = 0;
+static inline nvc_unicode_t nvc_ui_utf82unicode(const uint8_t *str, uint8_t len) {
+    nvc_unicode_t unicode = 0;
     switch (len) {
         case 0:
             break;
@@ -644,7 +677,7 @@ static inline UniChar nvc_ui_utf82unicode(const uint8_t *str, uint8_t len) {
                         | ((str[2] & 0x3F) << 6)
                         | (str[3] & 0x3F);
                 cp -= 0x10000;
-                unicode = ((0xD800 + ((cp >> 10)&0x03FF)) << 8) | (0xDC00 + (cp & 0x03FF));
+                unicode = (0xD800 + ((cp >> 10)&0x03FF)) | ((0xDC00 + (cp & 0x03FF)) << 16);
             }
             break;
         default:
@@ -671,9 +704,8 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
             ctx->window_size = nvc_ui_cell_size_zero;
             int res = nvc_rpc_init(&ctx->rpc, inskt, outskt, userdata, nvc_ui_response_handler, nvc_ui_notification_handler, nvc_ui_close_handler);
             if (res == NVC_RC_OK) {
-                ctx->font_size = config->font_size;
                 nvc_ui_font_clear(ctx);
-                nvc_ui_add_font(ctx, config->font);
+                nvc_ui_add_font(ctx, config->font, config->font_size);
                 nvc_ui_update_font(ctx);
                 res = NVC_RC_OK;
             }
@@ -1036,7 +1068,7 @@ static inline int nvc_ui_option_set_action_guifont(nvc_ui_context_t *ctx, int it
                         nvc_ui_font_clear(ctx);
                         updated = true;
                     }
-                    nvc_ui_add_font(ctx, font);
+                    nvc_ui_add_font(ctx, font, font_size);
                     CFRelease(font);
                 }
                 return true;
@@ -1330,7 +1362,7 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                         if (len == 0) {
                             grid->set_skip(row, offset);
                         } else {
-                            UniChar ch = nvc_ui_utf82unicode(str, len);
+                            nvc_unicode_t ch = nvc_ui_utf82unicode(str, len);
                             if (cnum-- > 0) {
                                 int hl_id = nvc_rpc_read_int(&ctx->rpc);
                                 if (hl_id != last_hl_id) {
@@ -1341,7 +1373,6 @@ static inline int nvc_ui_redraw_action_grid_line(nvc_ui_context_t *ctx, int item
                                 repeat = nvc_rpc_read_int(&ctx->rpc);
                             }
                             grid->update(row, offset, repeat, ch, nvc_ui_find_glyph_info(ctx, ch), last_hl_id);
-                            
                         }
                         offset += repeat;
                     }
