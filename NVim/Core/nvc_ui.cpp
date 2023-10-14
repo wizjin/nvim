@@ -11,6 +11,7 @@
 #include <vector>
 #include <map>
 #include "nvc_rpc.h"
+#include "nvc_ui_font.h"
 
 #define kNvcUiKeysMax                       64
 #define kNvcUiCacheGlyphMax                 127
@@ -18,8 +19,6 @@
 #define kNvcUiFontAppleColorEmoji           "Apple Color Emoji"
 
 extern "C" void NSBeep(void);
-
-typedef uint8_t nvc_ui_font_index_t;
 
 #define nvc_ui_to_context(_ptr, _member)    nv_member_to_struct(nvc_ui_context_t, _ptr, _member)
 #define nvc_ui_get_userdata(_ctx)           nvc_rpc_get_userdata(&(_ctx)->rpc)
@@ -144,6 +143,8 @@ static const std::map<const std::string, nvc_ui_set_mode_info> nvc_ui_set_mode_i
 };
 
 typedef uint32_t nvc_unicode_t;
+
+typedef uint8_t nvc_ui_font_index_t;
 
 typedef struct nvc_ui_glyph_info {
     CGGlyph             glyph;

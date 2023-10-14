@@ -12,6 +12,8 @@
 		6D2028442AB20034008B3E3B /* NVClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D2028432AB20034008B3E3B /* NVClient.m */; };
 		6D20284D2AB20347008B3E3B /* cwpack.c in Sources */ = {isa = PBXBuildFile; fileRef = 6D20284B2AB20347008B3E3B /* cwpack.c */; };
 		6D3296CA2ADA125D009CFCEF /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 6D3296C92ADA125D009CFCEF /* Localizable.xcstrings */; };
+		6D3296CE2ADA5233009CFCEF /* nvc_ui_font.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D3296CC2ADA5233009CFCEF /* nvc_ui_font.cpp */; };
+		6D3296D12ADA5CF9009CFCEF /* nvc_util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D3296CF2ADA5CF9009CFCEF /* nvc_util.cpp */; };
 		6D3C11742ABB4BFB00BDFE31 /* nvc_ui.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D3C11722ABB4BFB00BDFE31 /* nvc_ui.cpp */; };
 		6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FCF2AADF5DA00B25717 /* AppDelegate.m */; };
 		6D681FD22AADF5DB00B25717 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6D681FD12AADF5DB00B25717 /* Assets.xcassets */; };
@@ -57,6 +59,10 @@
 		6D20284B2AB20347008B3E3B /* cwpack.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cwpack.c; path = Venders/CWPack/cwpack.c; sourceTree = SOURCE_ROOT; };
 		6D20284C2AB20347008B3E3B /* cwpack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cwpack.h; path = Venders/CWPack/cwpack.h; sourceTree = SOURCE_ROOT; };
 		6D3296C92ADA125D009CFCEF /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		6D3296CC2ADA5233009CFCEF /* nvc_ui_font.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_font.cpp; sourceTree = "<group>"; };
+		6D3296CD2ADA5233009CFCEF /* nvc_ui_font.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_font.h; sourceTree = "<group>"; };
+		6D3296CF2ADA5CF9009CFCEF /* nvc_util.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_util.cpp; sourceTree = "<group>"; };
+		6D3296D02ADA5CF9009CFCEF /* nvc_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_util.h; sourceTree = "<group>"; };
 		6D3C11722ABB4BFB00BDFE31 /* nvc_ui.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui.cpp; sourceTree = "<group>"; };
 		6D3C11732ABB4BFB00BDFE31 /* nvc_ui.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui.h; sourceTree = "<group>"; };
 		6D681FCB2AADF5DA00B25717 /* NVim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NVim.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -124,10 +130,6 @@
 				6D1E295F2AB5853100E1AA79 /* NVTCPClient.m */,
 				6D99898E2ABCA5C60001F1A6 /* NVSTDClient.h */,
 				6D99898F2ABCA5C60001F1A6 /* NVSTDClient.m */,
-				6D3C11732ABB4BFB00BDFE31 /* nvc_ui.h */,
-				6D3C11722ABB4BFB00BDFE31 /* nvc_ui.cpp */,
-				6D6A047E2AB8A38800A78E12 /* nvc_rpc.h */,
-				6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -152,6 +154,21 @@
 			name = CWPack;
 			sourceTree = "<group>";
 		};
+		6D3296CB2ADA14AE009CFCEF /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				6D3C11732ABB4BFB00BDFE31 /* nvc_ui.h */,
+				6D3C11722ABB4BFB00BDFE31 /* nvc_ui.cpp */,
+				6D3296D02ADA5CF9009CFCEF /* nvc_util.h */,
+				6D3296CF2ADA5CF9009CFCEF /* nvc_util.cpp */,
+				6D6A047E2AB8A38800A78E12 /* nvc_rpc.h */,
+				6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */,
+				6D3296CD2ADA5233009CFCEF /* nvc_ui_font.h */,
+				6D3296CC2ADA5233009CFCEF /* nvc_ui_font.cpp */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
 		6D681FC22AADF5DA00B25717 = {
 			isa = PBXGroup;
 			children = (
@@ -173,6 +190,7 @@
 		6D681FCD2AADF5DA00B25717 /* NVim */ = {
 			isa = PBXGroup;
 			children = (
+				6D3296CB2ADA14AE009CFCEF /* Core */,
 				6D6A336C2AB0AFF300BF791C /* Views */,
 				6D681FDE2AADF7C400B25717 /* Classes */,
 				6D2028412AB20017008B3E3B /* Services */,
@@ -366,8 +384,10 @@
 				6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */,
 				6D8DEA472AC01918008C9552 /* NVEditViewController.m in Sources */,
 				6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */,
+				6D3296D12ADA5CF9009CFCEF /* nvc_util.cpp in Sources */,
 				6D681FD72AADF5DB00B25717 /* main.m in Sources */,
 				6D8E43892AC70B57000E3DF2 /* NVTabView.m in Sources */,
+				6D3296CE2ADA5233009CFCEF /* nvc_ui_font.cpp in Sources */,
 				6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */,
 				6D6A336B2AB0AFE900BF791C /* NSString+Localized.m in Sources */,
 				6D3C11742ABB4BFB00BDFE31 /* nvc_ui.cpp in Sources */,
