@@ -21,22 +21,18 @@
 
 @implementation NVEditViewController
 
-- (instancetype)init {
-    if (self = [super initWithNibName:nil bundle:nil]) {
-        _client = [NVSTDClient new];
-        //_client = [[NVSTDClient alloc] initWithPath:@"/usr/local/bin/nvim"];
-        //_client = [[NVTCPClient alloc] initWithHost:@"127.0.0.1" port:6666];
-        self.client.delegate = self;
-    }
-    return self;
-}
-
 - (void)loadView {
     self.view = [NVView new];
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    
+    _client = [NVSTDClient new];
+    //_client = [[NVSTDClient alloc] initWithPath:@"/usr/local/bin/nvim"];
+    //_client = [[NVTCPClient alloc] initWithHost:@"127.0.0.1" port:6666];
+    self.client.delegate = self;
+    
     NVTabView *tabView = [[NVTabView alloc] initWithFrame:NSMakeRect(0, 0, NSWidth(self.view.bounds), kNVTabViewDefaultHeight)];
     [self.view addSubview:(_tabView = tabView)];
     NVEditView *editView = [NVEditView new];
@@ -120,8 +116,12 @@
     // TODO: Notify tab changed
 }
 
-- (void)client:(NVClient *)client updateMouse:(BOOL)enabled {
-    self.editView.window.ignoresMouseEvents = !enabled;
+- (void)client:(NVClient *)client enableMouse:(BOOL)enabled {
+    self.view.window.ignoresMouseEvents = !enabled;
+}
+
+- (void)client:(NVClient *)client enableMouseMove:(BOOL)enabled {
+    self.view.window.acceptsMouseMovedEvents = enabled;
 }
 
 - (void)client:(NVClient *)client hideTabline:(BOOL)hidden {

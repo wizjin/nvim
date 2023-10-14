@@ -27,6 +27,8 @@ typedef struct nvc_ui_callback {
     void (*mouse_on)(void *userdata);
     void (*mouse_off)(void *userdata);
     void (*font_updated)(void *userdata);
+    void (*enable_mouse_autohide)(void *userdata, bool enabled);
+    void (*enable_mouse_move)(void *userdata, bool enabled);
     void (*enable_ext_tabline)(void *userdata, bool enabled);
     void (*close)(void *userdata);
 } nvc_ui_callback_t;
@@ -47,13 +49,15 @@ typedef struct nvc_ui_key_flags {
     NVC_UI_MOUSE_KEY(wheel)         \
     NVC_UI_MOUSE_KEY(left)          \
     NVC_UI_MOUSE_KEY(right)         \
-    NVC_UI_MOUSE_KEY(middle)
+    NVC_UI_MOUSE_KEY(middle)        \
+    NVC_UI_MOUSE_KEY(move)
 #define NVC_UI_MOUSE_KEY(_key)      nvc_ui_mouse_key_##_key,
 typedef enum nvc_ui_mouse_key {
     NVC_UI_MOUSE_KEY_LIST
 } nvc_ui_mouse_key_t;
 
 #define NVC_UI_MOUSE_ACTION_LIST    \
+    NVC_UI_MOUSE_ACTION(none)       \
     NVC_UI_MOUSE_ACTION(press)      \
     NVC_UI_MOUSE_ACTION(drag)       \
     NVC_UI_MOUSE_ACTION(release)    \
