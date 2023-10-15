@@ -75,7 +75,7 @@ typedef struct nvc_ui_mouse_info {
     nvc_ui_key_flags_t      flags;
 } nvc_ui_mouse_info_t;
 
-typedef struct nvc_ui_context nvc_ui_context_t;
+typedef void nvc_ui_context_t;
 
 NVC_API nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *config, const nvc_ui_callback_t *callback, void *userdata);
 NVC_API void nvc_ui_destroy(nvc_ui_context_t *ctx);

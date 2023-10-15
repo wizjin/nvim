@@ -8,26 +8,38 @@
 #include "nvc_ui_font.h"
 #include "nvc_util.h"
 
+#define kNvcUiFontUserMax       32
+
 namespace nvc {
 
+#pragma mark - UICharacterSet
 class UICharacterSet {
 private:
-    CFMutableCharacterSetRef   m_emojiSet;
+    CFCharacterSetRef   m_cjkSet;
+    CFCharacterSetRef   m_emojiSet;
 
     explicit UICharacterSet();
 public:
     ~UICharacterSet() {
+        if (m_cjkSet != nullptr) {
+            CFRelease(m_cjkSet);
+            m_cjkSet = nullptr;
+        }
         if (m_emojiSet != nullptr) {
             CFRelease(m_emojiSet);
             m_emojiSet = nullptr;
         }
     }
     
+    inline bool is_cjk(UTF32Char ch) const {
+        return CFCharacterSetIsLongCharacterMember(m_cjkSet, ch);
+    }
+
     inline bool is_emoji(UTF32Char ch) const {
-        return m_emojiSet != nullptr && CFCharacterSetIsLongCharacterMember(m_emojiSet, ch);
+        return CFCharacterSetIsLongCharacterMember(m_emojiSet, ch);
     }
     
-    inline const UICharacterSet& shared(void) {
+    inline const UICharacterSet& instance(void) {
         return g_character_set;
     }
 private:
@@ -36,185 +48,307 @@ private:
 
 UICharacterSet UICharacterSet::g_character_set;
 
-UIFont::UIFont() {
-    
-}
-
-UIFont::~UIFont() {
-    clear();
-}
-
-void UIFont::clear(void) {
-    std::for_each(m_fonts.begin(), m_fonts.end(), CFRelease);
-    m_fonts.clear();
-}
-
-UIFont& UIFont::operator=(const UIFont& other) {
-    if (this != &other) {
-        clear();
-        for (const auto& p : other.m_fonts) {
-            m_fonts.push_back((CTFontRef)CFRetain(p));
+#pragma mark - Helper
+static inline bool load_fonts(const std::string& value, CGFloat default_font_size, CTFontList& fonts) {
+    for (const auto& item : token_spliter(value, ',')) {
+        std::string family;
+        CGFloat font_size = default_font_size;
+        for (const auto& p : token_spliter(item, ':')) {
+            if (family.empty()) {
+                if (p.empty() || p.front() == '*') break;
+                family = p;
+            } else if (!p.empty()) {
+                size_t idx = 0;
+                if (p[idx] == 'h') idx++;
+                if (idx < p.size() && isdigit(p[idx])) {
+                    CGFloat size = std::stod(std::string(p.substr(idx)));
+                    if (size > 0) {
+                        font_size = size;
+                    }
+                }
+            }
+        }
+        if (!family.empty()) {
+            CFStringRef family_name = CFStringCreateWithBytes(nullptr, (const UInt8 *)family.c_str(), family.size(), kCFStringEncodingUTF8, false);
+            if (likely(family_name)) {
+                CTFontRef font = CTFontCreateWithName(family_name, font_size, nullptr);
+                if (likely(font != nullptr)) {
+                    fonts.push_back(font);
+                    CFRelease(font);
+                }
+                CFRelease(family_name);
+                if (unlikely(fonts.size() >= kNvcUiFontUserMax)) break;
+            }
         }
     }
-    return *this;
+    return !fonts.empty();
 }
 
+#pragma mark - UIFont
+UIFont::UIFont(CGFloat font_size) : m_glyph_size(CGSizeZero), m_font_offset(0), m_font_size(font_size) {
+    CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontUserFixedPitch, m_font_size, nullptr);
+    if (likely(font != nullptr)) {
+        m_fonts.push_back(font);
+        CFRelease(font);
+    }
+    update();
+}
 
-#pragma mark - UICharacterSet
-#define NVC_UI_CHAR_RANGE(_c, _n)   { .location = _c, .length = _n }
+void UIFont::update(void) {
+    if (!m_fonts.empty()) {
+        CTFontRef font = static_cast<CTFontRef>(m_fonts.front());
+        
+        CGFloat ascent = CTFontGetAscent(font);
+        CGFloat descent = CTFontGetDescent(font);
+        CGFloat leading = CTFontGetLeading(font);
+        CGFloat height = ceil(ascent + descent + leading);
+        CGGlyph glyph = (CGGlyph) 0;
+        UniChar capitalM = '\u004D';
+        CGSize advancement = CGSizeZero;
+        CTFontGetGlyphsForCharacters(font, &capitalM, &glyph, 1);
+        CTFontGetAdvancesForGlyphs(font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
+        CGFloat width = ceil(advancement.width);
+
+        m_glyph_size = CGSizeMake(width, height);
+        m_font_size = CTFontGetSize(font);
+        m_font_offset = descent;
+    }
+}
+
+bool UIFont::load(const std::string& value) {
+    bool res = false;
+    CTFontList  fonts;
+    if (load_fonts(value, m_font_size, fonts)) {
+        m_fonts = fonts;
+        update();
+        res = true;
+    }
+    return res;
+}
+
+bool UIFont::load_wide(const std::string& value) {
+    bool res = false;
+    CTFontList  fonts;
+    if (load_fonts(value, m_font_size, fonts)) {
+        m_font_wides = fonts;
+        res = true;
+    }
+    return res;
+}
+
+static inline CFCharacterSetRef load_character_set(CFRange ranges[], int len) {
+    CFMutableCharacterSetRef characterSet = CFCharacterSetCreateMutable(kCFAllocatorDefault);
+    if (likely(characterSet != nullptr)) {
+        for (int i = 0; i < len; i++) {
+            CFCharacterSetAddCharactersInRange(characterSet, ranges[i]);
+        }
+    }
+    return characterSet;
+}
+
+#pragma mark - UICharacterSet List
+#define NVC_UI_CHAR_RANGE(_c1, _c2)     { .location = _c1, .length = (_c2 - _c1 + 1) }
 UICharacterSet::UICharacterSet() {
-    CFRangeMake(0, 1);
-    CFRange emojis[] = {
-        // Note: https://www.unicode.org/Public/15.1.0/ucd/emoji/emoji-data.txt
-        NVC_UI_CHAR_RANGE(0x2139, 1),       // (ℹ️)        information
-        NVC_UI_CHAR_RANGE(0x2194, 6),       // (↔️..↙️)    left-right arrow..down-left arrow
-        NVC_UI_CHAR_RANGE(0x21A9, 2),       // (↩️..↪️)    right arrow curving left..left arrow curving right
-        NVC_UI_CHAR_RANGE(0x231A, 2),       // (⌚..⌛)    watch..hourglass done
-        NVC_UI_CHAR_RANGE(0x2328, 1),       // (⌨️)        keyboard
-        NVC_UI_CHAR_RANGE(0x23CF, 1),       // (⏏️)        eject button
-        NVC_UI_CHAR_RANGE(0x23E9, 11),      // (⏩..⏳)    fast-forward button..hourglass not done
-        NVC_UI_CHAR_RANGE(0x23F8, 3),       // (⏸️..⏺️)    pause button..record button
-        NVC_UI_CHAR_RANGE(0x24C2, 1),       // (Ⓜ️)        circled M
-        NVC_UI_CHAR_RANGE(0x25AA, 2),       // (▪️..▫️)    black small square..white small square
-        NVC_UI_CHAR_RANGE(0x25B6, 1),       // (▶️)        play button
-        NVC_UI_CHAR_RANGE(0x25C0, 1),       // (◀️)        reverse button
-        NVC_UI_CHAR_RANGE(0x25FB, 4),       // (◻️..◾)    white medium square..black medium-small square
-        NVC_UI_CHAR_RANGE(0x2600, 5),       // (☀️..☄️)    sun..comet
-        NVC_UI_CHAR_RANGE(0x260E, 1),       // (☎️)        telephone
-        NVC_UI_CHAR_RANGE(0x2611, 1),       // (☑️)        check box with check
-        NVC_UI_CHAR_RANGE(0x2614, 2),       // (☔..☕)    umbrella with rain drops..hot beverage
-        NVC_UI_CHAR_RANGE(0x2618, 1),       // (☘️)        shamrock
-        NVC_UI_CHAR_RANGE(0x261D, 1),       // (☝️)        index pointing up
-        NVC_UI_CHAR_RANGE(0x2620, 1),       // (☠️)        skull and crossbones
-        NVC_UI_CHAR_RANGE(0x2622, 2),       // (☢️..☣️)    radioactive..biohazard
-        NVC_UI_CHAR_RANGE(0x2626, 1),       // (☦️)        orthodox cross
-        NVC_UI_CHAR_RANGE(0x262A, 1),       // (☪️)        star and crescent
-        NVC_UI_CHAR_RANGE(0x262E, 2),       // (☮️..☯️)    peace symbol..yin yang
-        NVC_UI_CHAR_RANGE(0x2638, 3),       // (☸️..☺️)    wheel of dharma..smiling face
-        NVC_UI_CHAR_RANGE(0x2640, 1),       // (♀️)        female sign
-        NVC_UI_CHAR_RANGE(0x2642, 1),       // (♂️)        male sign
-        NVC_UI_CHAR_RANGE(0x2648, 12),      // (♈..♓)    Aries..Pisces
-        NVC_UI_CHAR_RANGE(0x265F, 2),       // (♟️..♠️)    chess pawn..spade suit
-        NVC_UI_CHAR_RANGE(0x2663, 1),       // (♣️)        club suit
-        NVC_UI_CHAR_RANGE(0x2665, 2),       // (♥️..♦️)    heart suit..diamond suit
-        NVC_UI_CHAR_RANGE(0x2668, 1),       // (♨️)        hot springs
-        NVC_UI_CHAR_RANGE(0x267B, 1),       // (♻️)        recycling symbol
-        NVC_UI_CHAR_RANGE(0x267E, 2),       // (♾️..♿)    infinity..wheelchair symbol
-        NVC_UI_CHAR_RANGE(0x2692, 6),       // (⚒️..⚗️)    hammer and pick..balance scale..alembic
-        NVC_UI_CHAR_RANGE(0x2699, 1),       // (⚙️)        gear
-        NVC_UI_CHAR_RANGE(0x269B, 2),       // (⚛️..⚜️)    atom symbol..fleur-de-lis
-        NVC_UI_CHAR_RANGE(0x26A0, 2),       // (⚠️..⚡)    warning..high voltage
-        NVC_UI_CHAR_RANGE(0x26A7, 1),       // (⚧️)        transgender symbol
-        NVC_UI_CHAR_RANGE(0x26AA, 2),       // (⚪..⚫)    white circle..black circle
-        NVC_UI_CHAR_RANGE(0x26B0, 2),       // (⚰️..⚱️)    coffin..funeral urn
-        NVC_UI_CHAR_RANGE(0x26BD, 2),       // (⚽..⚾)    soccer ball..baseball
-        NVC_UI_CHAR_RANGE(0x26C4, 2),       // (⛄..⛅)    snowman without snow..sun behind cloud
-        NVC_UI_CHAR_RANGE(0x26C8, 1),       // (⛈️)        cloud with lightning and rain
-        NVC_UI_CHAR_RANGE(0x26CE, 2),       // (⛎..⛏️)    Ophiuchus..pick
-        NVC_UI_CHAR_RANGE(0x26D1, 1),       // (⛑️)        rescue worker’s helmet
-        NVC_UI_CHAR_RANGE(0x26D3, 2),       // (⛓️..⛔)    chains..no entry
-        NVC_UI_CHAR_RANGE(0x26E9, 2),       // (⛩️..⛪)    shinto shrine..church
-        NVC_UI_CHAR_RANGE(0x26F0, 6),       // (⛰️..⛵)    mountain..sailboat
-        NVC_UI_CHAR_RANGE(0x26F7, 4),       // (⛷️..⛺)    skier..tent
-        NVC_UI_CHAR_RANGE(0x26FD, 1),       // (⛽)        fuel pump
-        NVC_UI_CHAR_RANGE(0x2702, 1),       // (✂️)        scissors
-        NVC_UI_CHAR_RANGE(0x2705, 1),       // (✅)        check mark button
-        NVC_UI_CHAR_RANGE(0x2708, 8),       // (✈️..✏️)    airplane..pencil
-        NVC_UI_CHAR_RANGE(0x2712, 1),       // (✒️)        black nib
-        NVC_UI_CHAR_RANGE(0x2714, 1),       // (✔️)        check mark
-        NVC_UI_CHAR_RANGE(0x2716, 1),       // (✖️)        multiply
-        NVC_UI_CHAR_RANGE(0x271D, 1),       // (✝️)        latin cross
-        NVC_UI_CHAR_RANGE(0x2721, 1),       // (✡️)        star of David
-        NVC_UI_CHAR_RANGE(0x2728, 1),       // (✨)        sparkles
-        NVC_UI_CHAR_RANGE(0x2733, 2),       // (✳️..✴️)    eight-spoked asterisk..eight-pointed star
-        NVC_UI_CHAR_RANGE(0x2744, 1),       // (❄️)        snowflakes
-        NVC_UI_CHAR_RANGE(0x2747, 1),       // (❇️)        sparkle
-        NVC_UI_CHAR_RANGE(0x274C, 1),       // (❌)        cross mark
-        NVC_UI_CHAR_RANGE(0x274E, 1),       // (❎)        cross mark button
-        NVC_UI_CHAR_RANGE(0x2753, 3),       // (❓..❕)    red question mark..exclamation mark
-        NVC_UI_CHAR_RANGE(0x2757, 1),       // (❗)        red exclamation mark
-        NVC_UI_CHAR_RANGE(0x2763, 2),       // (❣️..❤️)    heart exclamation..red heart
-        NVC_UI_CHAR_RANGE(0x2795, 3),       // (➕..➗)    plus
-        NVC_UI_CHAR_RANGE(0x27A1, 1),       // (➡️)        right arrow
-        NVC_UI_CHAR_RANGE(0x27B0, 1),       // (➰)        curly loop
-        NVC_UI_CHAR_RANGE(0x27BF, 1),       // (➿)        double curly loop
-        NVC_UI_CHAR_RANGE(0x2934, 2),       // (⤴️..⤵️)    right arrow curving up..arrow curving down
-        NVC_UI_CHAR_RANGE(0x2B05, 3),       // (⬅️..⬇️)    left arrow..down arrow
-        NVC_UI_CHAR_RANGE(0x2B1B, 2),       // (⬛..⬜)    black large square..large square
-        NVC_UI_CHAR_RANGE(0x2B50, 1),       // (⭐)        star
-        NVC_UI_CHAR_RANGE(0x2B55, 1),       // (⭕)        hollow red circle
-        NVC_UI_CHAR_RANGE(0x3030, 1),       // (〰️)        wavy dash
-        NVC_UI_CHAR_RANGE(0x303D, 1),       // (〽️)        part alternation mark
-        NVC_UI_CHAR_RANGE(0x3297, 1),       // (㊗️)        Japanese “congratulations” button
-        NVC_UI_CHAR_RANGE(0x3299, 1),       // (㊙️)        Japanese “secret” button
-        NVC_UI_CHAR_RANGE(0x1F004, 1),      // (🀄)        mahjong red dragon
-        NVC_UI_CHAR_RANGE(0x1F0CF, 1),      // (🃏)        joker
-        NVC_UI_CHAR_RANGE(0x1F170, 2),      // (🅰️..🅱️)    A button (blood type)..button (blood type)
-        NVC_UI_CHAR_RANGE(0x1F17E, 2),      // (🅾️..🅿️)    O button (blood type)..button
-        NVC_UI_CHAR_RANGE(0x1F18E, 1),      // (🆎)        AB button (blood type)
-        NVC_UI_CHAR_RANGE(0x1F191, 10),     // (🆑..🆚)    CL button button
-        NVC_UI_CHAR_RANGE(0x1F201, 2),      // (🈁..🈂️)    Japanese “here” button..“service charge” button
-        NVC_UI_CHAR_RANGE(0x1F21A, 1),      // (🈚)        Japanese “free of charge” button
-        NVC_UI_CHAR_RANGE(0x1F22F, 1),      // (🈯)        Japanese “reserved” button
-        NVC_UI_CHAR_RANGE(0x1F232, 9),      // (🈲..🈺)    Japanese “prohibited” button..“open for business” button
-        NVC_UI_CHAR_RANGE(0x1F250, 2),      // (🉐..🉑)    Japanese “bargain” button..“acceptable” button
-        NVC_UI_CHAR_RANGE(0x1F300, 34),     // (🌀..🌡️)    cyclone..thermometer
-        NVC_UI_CHAR_RANGE(0x1F324, 112),    // (🌤️..🎓)    sun behind small cloud..graduation cap
-        NVC_UI_CHAR_RANGE(0x1F396, 2),      // (🎖️..🎗️)    military medal..reminder ribbon
-        NVC_UI_CHAR_RANGE(0x1F399, 3),      // (🎙️..🎛️)    studio microphone..control knobs
-        NVC_UI_CHAR_RANGE(0x1F39E, 83),     // (🎞️..🏰)    film frames..castle
-        NVC_UI_CHAR_RANGE(0x1F3F3, 3),      // (🏳️..🏵️)    white flag..rosette
-        NVC_UI_CHAR_RANGE(0x1F3F7, 263),    // (🏷️..📽️)    label..film projector
-        NVC_UI_CHAR_RANGE(0x1F4FF, 63),     // (📿..🔽)    prayer beads..downwards button
-        NVC_UI_CHAR_RANGE(0x1F549, 6),      // (🕉️..🕎)    om..menorah
-        NVC_UI_CHAR_RANGE(0x1F550, 24),     // (🕐..🕧)    one o’clock..twelve-thirty
-        NVC_UI_CHAR_RANGE(0x1F56F, 2),      // (🕯️..🕰️)    candle..mantelpiece clock
-        NVC_UI_CHAR_RANGE(0x1F573, 7),      // (🕳️..🕹️)    hole..joystick
-        NVC_UI_CHAR_RANGE(0x1F57A, 1),      // (🕺)        man dancing
-        NVC_UI_CHAR_RANGE(0x1F587, 1),      // (🖇️)        linked paperclips
-        NVC_UI_CHAR_RANGE(0x1F58A, 4),      // (🖊️..🖍️)    pen..crayon
-        NVC_UI_CHAR_RANGE(0x1F590, 1),      // (🖐️)        hand with fingers splayed
-        NVC_UI_CHAR_RANGE(0x1F595, 2),      // (🖕..🖖)    middle finger..vulcan salute
-        NVC_UI_CHAR_RANGE(0x1F5A4, 2),      // (🖤..🖥️)    black heart..desktop computer
-        NVC_UI_CHAR_RANGE(0x1F5A8, 1),      // (🖨️)        printer
-        NVC_UI_CHAR_RANGE(0x1F5B1, 2),      // (🖱️..🖲️)    computer mouse..trackball
-        NVC_UI_CHAR_RANGE(0x1F5BC, 1),      // (🖼️)        framed picture
-        NVC_UI_CHAR_RANGE(0x1F5C2, 3),      // (🗂️..🗄️)    card index dividers cabinet
-        NVC_UI_CHAR_RANGE(0x1F5D1, 3),      // (🗑️..🗓️)    wastebasket..spiral calendar
-        NVC_UI_CHAR_RANGE(0x1F5DC, 3),      // (🗜️..🗞️)    clamp..rolled-up newspaper
-        NVC_UI_CHAR_RANGE(0x1F5E1, 1),      // (🗡️)        dagger
-        NVC_UI_CHAR_RANGE(0x1F5E3, 1),      // (🗣️)        speaking head
-        NVC_UI_CHAR_RANGE(0x1F5E8, 1),      // (🗨️)        left speech bubble
-        NVC_UI_CHAR_RANGE(0x1F5EF, 1),      // (🗯️)        right anger bubble
-        NVC_UI_CHAR_RANGE(0x1F5F3, 1),      // (🗳️)        ballot box with ballot
-        NVC_UI_CHAR_RANGE(0x1F5FA, 204),    // (🗺️..🛅)    world map..left luggage
-        NVC_UI_CHAR_RANGE(0x1F6CB, 8),      // (🛋️..🛒)    couch and lamp..shopping cart
-        NVC_UI_CHAR_RANGE(0x1F6D5, 3),      // (🛕..🛗)    hindu temple..elevator
-        NVC_UI_CHAR_RANGE(0x1F6DC, 10),     // (🛜..🛥️)    wireless..motor boat
-        NVC_UI_CHAR_RANGE(0x1F6E9, 1),      // (🛩️)        small airplane
-        NVC_UI_CHAR_RANGE(0x1F6EB, 2),      // (🛫..🛬)    airplane departure..airplane arrival
-        NVC_UI_CHAR_RANGE(0x1F6F0, 1),      // (🛰️)        satellite
-        NVC_UI_CHAR_RANGE(0x1F6F3, 10),     // (🛳️..🛼)    passenger ship..roller skate
-        NVC_UI_CHAR_RANGE(0x1F7E0, 12),     // (🟠..🟫)    orange circle..brown square
-        NVC_UI_CHAR_RANGE(0x1F7F0, 1),      // (🟰)        heavy equals sign
-        NVC_UI_CHAR_RANGE(0x1F90C, 47),     // (🤌..🤺)    pinched fingers..person fencing
-        NVC_UI_CHAR_RANGE(0x1F93C, 10),     // (🤼..🥅)    people wrestling..goal net
-        NVC_UI_CHAR_RANGE(0x1F947, 185),    // (🥇..🧿)    1st place medal..nazar amulet
-        NVC_UI_CHAR_RANGE(0x1FA70, 13),     // (🩰..🩼)    ballet shoes..crutch
-        NVC_UI_CHAR_RANGE(0x1FA80, 9),      // (🪀..🪈)    yo-yo..flute
-        NVC_UI_CHAR_RANGE(0x1FA90, 46),     // (🪐..🪽)    ringed planet..wing
-        NVC_UI_CHAR_RANGE(0x1FABF, 7),      // (🪿..🫅)    goose..person with crown
-        NVC_UI_CHAR_RANGE(0x1FACE, 14),     // (🫎..🫛)    moose..pea pod
-        NVC_UI_CHAR_RANGE(0x1FAE0, 9),      // (🫠..🫨)    melting face..shaking face
-        NVC_UI_CHAR_RANGE(0x1FAF0, 9),      // (🫰..🫸)    hand with index finger and thumb crossed..rightwards pushing hand
+    // Note: https://www.unicode.org/reports/tr38/#N10106
+    CFRange cjk_ranges[] = {
+        // CJK Radicals Supplement
+        NVC_UI_CHAR_RANGE(0x2E80, 0x2E99),
+        NVC_UI_CHAR_RANGE(0x2E9B, 0x2EF3),
+        // Kangxi Radicals
+        NVC_UI_CHAR_RANGE(0x2F00, 0x2FD5),
+        // CJK Symbols and Punctuation
+        NVC_UI_CHAR_RANGE(0x3000, 0x303F),
+        // Kanbun
+        NVC_UI_CHAR_RANGE(0x3190, 0x319F),
+        // CJK Strokes
+        NVC_UI_CHAR_RANGE(0x31C0, 0x31E3),
+        // Enclosed CJK Letters and Months
+        NVC_UI_CHAR_RANGE(0x3220, 0x324F),
+        NVC_UI_CHAR_RANGE(0x3280, 0x32B0),
+        NVC_UI_CHAR_RANGE(0x32C0, 0x32CB),
+        NVC_UI_CHAR_RANGE(0x32D0, 0x32FF),
+        // CJK Compatibility
+        NVC_UI_CHAR_RANGE(0x3358, 0x3370),
+        NVC_UI_CHAR_RANGE(0x337B, 0x337F),
+        NVC_UI_CHAR_RANGE(0x33E0, 0x33FE),
+        // Enclosed Ideographic Supplement
+        NVC_UI_CHAR_RANGE(0x1F210, 0x1F23B),
+        NVC_UI_CHAR_RANGE(0x1F240, 0x1F248),
+        NVC_UI_CHAR_RANGE(0x1F250, 0x1F251),
+        // CJK Unified Ideographs Extension A
+        NVC_UI_CHAR_RANGE(0x3400, 0x4DBF),
+        // CJK Unified Ideographs
+        NVC_UI_CHAR_RANGE(0x4E00, 0x9FFF),
+        // CJK Compatibility Ideographs
+        NVC_UI_CHAR_RANGE(0xF900, 0xFA6D),
+        NVC_UI_CHAR_RANGE(0xFA70, 0xFAD9),
+        // CJK Unified Ideographs Extension B
+        NVC_UI_CHAR_RANGE(0x20000, 0x2A6DF),
+        // CJK Unified Ideographs Extension C
+        NVC_UI_CHAR_RANGE(0x2A700, 0x2B739),
+        // CJK Unified Ideographs Extension D
+        NVC_UI_CHAR_RANGE(0x2B740, 0x2B81D),
+        // CJK Unified Ideographs Extension E
+        NVC_UI_CHAR_RANGE(0x2B820, 0x2CEA1),
+        // CJK Unified Ideographs Extension F
+        NVC_UI_CHAR_RANGE(0x2CEB0, 0x2EBE0),
+        // CJK Unified Ideographs Extension I
+        NVC_UI_CHAR_RANGE(0x2EBF0, 0x2EE5D),
+        // CJK Compatibility Ideographs Supplement
+        NVC_UI_CHAR_RANGE(0x2F800, 0x2FA1D),
+        // CJK Unified Ideographs Extension G
+        NVC_UI_CHAR_RANGE(0x30000, 0x3134A),
+        // CJK Unified Ideographs Extension H
+        NVC_UI_CHAR_RANGE(0x31350, 0x323AF),
     };
-    m_emojiSet = CFCharacterSetCreateMutable(kCFAllocatorDefault);
-    if (likely(m_emojiSet != nullptr)) {
-        for (int i = 0; i < countof(emojis); i++) {
-            CFCharacterSetAddCharactersInRange(m_emojiSet, emojis[i]);
-        }
-    }
+
+    // Note: https://www.unicode.org/Public/15.1.0/ucd/emoji/emoji-data.txt
+    CFRange emoji_ranges[] = {
+        NVC_UI_CHAR_RANGE(0x2139, 0x2139),      // (ℹ️)        information
+        NVC_UI_CHAR_RANGE(0x2194, 0x2199),      // (↔️..↙️)    left-right arrow..down-left arrow
+        NVC_UI_CHAR_RANGE(0x21A9, 0x21AA),      // (↩️..↪️)    right arrow curving left..left arrow curving right
+        NVC_UI_CHAR_RANGE(0x231A, 0x231B),      // (⌚..⌛)    watch..hourglass done
+        NVC_UI_CHAR_RANGE(0x2328, 0x2328),      // (⌨️)        keyboard
+        NVC_UI_CHAR_RANGE(0x23CF, 0x23CF),      // (⏏️)        eject button
+        NVC_UI_CHAR_RANGE(0x23E9, 0x23F3),      // (⏩..⏳)    fast-forward button..hourglass not done
+        NVC_UI_CHAR_RANGE(0x23F8, 0x23FA),      // (⏸️..⏺️)    pause button..record button
+        NVC_UI_CHAR_RANGE(0x24C2, 0x24C2),      // (Ⓜ️)        circled M
+        NVC_UI_CHAR_RANGE(0x25AA, 0x25AB),      // (▪️..▫️)    black small square..white small square
+        NVC_UI_CHAR_RANGE(0x25B6, 0x25B6),      // (▶️)        play button
+        NVC_UI_CHAR_RANGE(0x25C0, 0x25C0),      // (◀️)        reverse button
+        NVC_UI_CHAR_RANGE(0x25FB, 0x25FE),      // (◻️..◾)    white medium square..black medium-small square
+        NVC_UI_CHAR_RANGE(0x2600, 0x2604),      // (☀️..☄️)    sun..comet
+        NVC_UI_CHAR_RANGE(0x260E, 0x260E),      // (☎️)        telephone
+        NVC_UI_CHAR_RANGE(0x2611, 0x2611),      // (☑️)        check box with check
+        NVC_UI_CHAR_RANGE(0x2614, 0x2615),      // (☔..☕)    umbrella with rain drops..hot beverage
+        NVC_UI_CHAR_RANGE(0x2618, 0x2618),      // (☘️)        shamrock
+        NVC_UI_CHAR_RANGE(0x261D, 0x261D),      // (☝️)        index pointing up
+        NVC_UI_CHAR_RANGE(0x2620, 0x2620),      // (☠️)        skull and crossbones
+        NVC_UI_CHAR_RANGE(0x2622, 0x2623),      // (☢️..☣️)    radioactive..biohazard
+        NVC_UI_CHAR_RANGE(0x2626, 0x2626),      // (☦️)        orthodox cross
+        NVC_UI_CHAR_RANGE(0x262A, 0x262A),      // (☪️)        star and crescent
+        NVC_UI_CHAR_RANGE(0x262E, 0x262F),      // (☮️..☯️)    peace symbol..yin yang
+        NVC_UI_CHAR_RANGE(0x2638, 0x263A),      // (☸️..☺️)    wheel of dharma..smiling face
+        NVC_UI_CHAR_RANGE(0x2640, 0x2640),      // (♀️)        female sign
+        NVC_UI_CHAR_RANGE(0x2642, 0x2642),      // (♂️)        male sign
+        NVC_UI_CHAR_RANGE(0x2648, 0x2653),      // (♈..♓)    Aries..Pisces
+        NVC_UI_CHAR_RANGE(0x265F, 0x2660),      // (♟️..♠️)    chess pawn..spade suit
+        NVC_UI_CHAR_RANGE(0x2663, 0x2663),      // (♣️)        club suit
+        NVC_UI_CHAR_RANGE(0x2665, 0x2666),      // (♥️..♦️)    heart suit..diamond suit
+        NVC_UI_CHAR_RANGE(0x2668, 0x2668),      // (♨️)        hot springs
+        NVC_UI_CHAR_RANGE(0x267B, 0x267B),      // (♻️)        recycling symbol
+        NVC_UI_CHAR_RANGE(0x267E, 0x267F),      // (♾️..♿)    infinity..wheelchair symbol
+        NVC_UI_CHAR_RANGE(0x2692, 0x2697),      // (⚒️..⚗️)    hammer and pick..balance scale..alembic
+        NVC_UI_CHAR_RANGE(0x2699, 0x2699),      // (⚙️)        gear
+        NVC_UI_CHAR_RANGE(0x269B, 0x269C),      // (⚛️..⚜️)    atom symbol..fleur-de-lis
+        NVC_UI_CHAR_RANGE(0x26A0, 0x26A1),      // (⚠️..⚡)    warning..high voltage
+        NVC_UI_CHAR_RANGE(0x26A7, 0x26A7),      // (⚧️)        transgender symbol
+        NVC_UI_CHAR_RANGE(0x26AA, 0x26AB),      // (⚪..⚫)    white circle..black circle
+        NVC_UI_CHAR_RANGE(0x26B0, 0x26B1),      // (⚰️..⚱️)    coffin..funeral urn
+        NVC_UI_CHAR_RANGE(0x26BD, 0x26BE),      // (⚽..⚾)    soccer ball..baseball
+        NVC_UI_CHAR_RANGE(0x26C4, 0x26C5),      // (⛄..⛅)    snowman without snow..sun behind cloud
+        NVC_UI_CHAR_RANGE(0x26C8, 0x26C8),      // (⛈️)        cloud with lightning and rain
+        NVC_UI_CHAR_RANGE(0x26CE, 0x26CF),      // (⛎..⛏️)    Ophiuchus..pick
+        NVC_UI_CHAR_RANGE(0x26D1, 0x26D1),      // (⛑️)        rescue worker’s helmet
+        NVC_UI_CHAR_RANGE(0x26D3, 0x26D4),      // (⛓️..⛔)    chains..no entry
+        NVC_UI_CHAR_RANGE(0x26E9, 0x26EA),      // (⛩️..⛪)    shinto shrine..church
+        NVC_UI_CHAR_RANGE(0x26F0, 0x26F5),      // (⛰️..⛵)    mountain..sailboat
+        NVC_UI_CHAR_RANGE(0x26F7, 0x26FA),      // (⛷️..⛺)    skier..tent
+        NVC_UI_CHAR_RANGE(0x26FD, 0x26FD),      // (⛽)        fuel pump
+        NVC_UI_CHAR_RANGE(0x2702, 0x2702),      // (✂️)        scissors
+        NVC_UI_CHAR_RANGE(0x2705, 0x2705),      // (✅)        check mark button
+        NVC_UI_CHAR_RANGE(0x2708, 0x270F),      // (✈️..✏️)    airplane..pencil
+        NVC_UI_CHAR_RANGE(0x2712, 0x2712),      // (✒️)        black nib
+        NVC_UI_CHAR_RANGE(0x2714, 0x2714),      // (✔️)        check mark
+        NVC_UI_CHAR_RANGE(0x2716, 0x2716),      // (✖️)        multiply
+        NVC_UI_CHAR_RANGE(0x271D, 0x271D),      // (✝️)        latin cross
+        NVC_UI_CHAR_RANGE(0x2721, 0x2721),      // (✡️)        star of David
+        NVC_UI_CHAR_RANGE(0x2728, 0x2728),      // (✨)        sparkles
+        NVC_UI_CHAR_RANGE(0x2733, 0x2734),      // (✳️..✴️)    eight-spoked asterisk..eight-pointed star
+        NVC_UI_CHAR_RANGE(0x2744, 0x2744),      // (❄️)        snowflakes
+        NVC_UI_CHAR_RANGE(0x2747, 0x2747),      // (❇️)        sparkle
+        NVC_UI_CHAR_RANGE(0x274C, 0x274C),      // (❌)        cross mark
+        NVC_UI_CHAR_RANGE(0x274E, 0x274E),      // (❎)        cross mark button
+        NVC_UI_CHAR_RANGE(0x2753, 0x2755),      // (❓..❕)    red question mark..exclamation mark
+        NVC_UI_CHAR_RANGE(0x2757, 0x2757),      // (❗)        red exclamation mark
+        NVC_UI_CHAR_RANGE(0x2763, 0x2764),      // (❣️..❤️)    heart exclamation..red heart
+        NVC_UI_CHAR_RANGE(0x2795, 0x2797),      // (➕..➗)    plus
+        NVC_UI_CHAR_RANGE(0x27A1, 0x27A1),      // (➡️)        right arrow
+        NVC_UI_CHAR_RANGE(0x27B0, 0x27B0),      // (➰)        curly loop
+        NVC_UI_CHAR_RANGE(0x27BF, 0x27BF),      // (➿)        double curly loop
+        NVC_UI_CHAR_RANGE(0x2934, 0x2935),      // (⤴️..⤵️)    right arrow curving up..arrow curving down
+        NVC_UI_CHAR_RANGE(0x2B05, 0x2B07),      // (⬅️..⬇️)    left arrow..down arrow
+        NVC_UI_CHAR_RANGE(0x2B1B, 0x2B1C),      // (⬛..⬜)    black large square..large square
+        NVC_UI_CHAR_RANGE(0x2B50, 0x2B50),      // (⭐)        star
+        NVC_UI_CHAR_RANGE(0x2B55, 0x2B55),      // (⭕)        hollow red circle
+        NVC_UI_CHAR_RANGE(0x3030, 0x3030),      // (〰️)        wavy dash
+        NVC_UI_CHAR_RANGE(0x303D, 0x303D),      // (〽️)        part alternation mark
+        NVC_UI_CHAR_RANGE(0x3297, 0x3297),      // (㊗️)        Japanese “congratulations” button
+        NVC_UI_CHAR_RANGE(0x3299, 0x3299),      // (㊙️)        Japanese “secret” button
+        NVC_UI_CHAR_RANGE(0x1F004, 0x1F004),    // (🀄)        mahjong red dragon
+        NVC_UI_CHAR_RANGE(0x1F0CF, 0x1F0CF),    // (🃏)        joker
+        NVC_UI_CHAR_RANGE(0x1F170, 0x1F171),    // (🅰️..🅱️)    A button (blood type)..button (blood type)
+        NVC_UI_CHAR_RANGE(0x1F17E, 0x1F17F),    // (🅾️..🅿️)    O button (blood type)..button
+        NVC_UI_CHAR_RANGE(0x1F18E, 0x1F18E),    // (🆎)        AB button (blood type)
+        NVC_UI_CHAR_RANGE(0x1F191, 0x1F19A),    // (🆑..🆚)    CL button button
+        NVC_UI_CHAR_RANGE(0x1F201, 0x1F202),    // (🈁..🈂️)    Japanese “here” button..“service charge” button
+        NVC_UI_CHAR_RANGE(0x1F21A, 0x1F21A),    // (🈚)        Japanese “free of charge” button
+        NVC_UI_CHAR_RANGE(0x1F22F, 0x1F22F),    // (🈯)        Japanese “reserved” button
+        NVC_UI_CHAR_RANGE(0x1F232, 0x1F23A),    // (🈲..🈺)    Japanese “prohibited” button..“open for business” button
+        NVC_UI_CHAR_RANGE(0x1F250, 0x1F251),    // (🉐..🉑)    Japanese “bargain” button..“acceptable” button
+        NVC_UI_CHAR_RANGE(0x1F300, 0x1F321),    // (🌀..🌡️)    cyclone..thermometer
+        NVC_UI_CHAR_RANGE(0x1F324, 0x1F393),    // (🌤️..🎓)    sun behind small cloud..graduation cap
+        NVC_UI_CHAR_RANGE(0x1F396, 0x1F397),    // (🎖️..🎗️)    military medal..reminder ribbon
+        NVC_UI_CHAR_RANGE(0x1F399, 0x1F39B),    // (🎙️..🎛️)    studio microphone..control knobs
+        NVC_UI_CHAR_RANGE(0x1F39E, 0x1F3F0),    // (🎞️..🏰)    film frames..castle
+        NVC_UI_CHAR_RANGE(0x1F3F3, 0x1F3F5),    // (🏳️..🏵️)    white flag..rosette
+        NVC_UI_CHAR_RANGE(0x1F3F7, 0x1F4FD),    // (🏷️..📽️)    label..film projector
+        NVC_UI_CHAR_RANGE(0x1F4FF, 0x1F53D),    // (📿..🔽)    prayer beads..downwards button
+        NVC_UI_CHAR_RANGE(0x1F549, 0x1F54E),    // (🕉️..🕎)    om..menorah
+        NVC_UI_CHAR_RANGE(0x1F550, 0x1F567),    // (🕐..🕧)    one o’clock..twelve-thirty
+        NVC_UI_CHAR_RANGE(0x1F56F, 0x1F570),    // (🕯️..🕰️)    candle..mantelpiece clock
+        NVC_UI_CHAR_RANGE(0x1F573, 0x1F579),    // (🕳️..🕹️)    hole..joystick
+        NVC_UI_CHAR_RANGE(0x1F57A, 0x1F57A),    // (🕺)        man dancing
+        NVC_UI_CHAR_RANGE(0x1F587, 0x1F587),    // (🖇️)        linked paperclips
+        NVC_UI_CHAR_RANGE(0x1F58A, 0x1F58D),    // (🖊️..🖍️)    pen..crayon
+        NVC_UI_CHAR_RANGE(0x1F590, 0x1F590),    // (🖐️)        hand with fingers splayed
+        NVC_UI_CHAR_RANGE(0x1F595, 0x1F596),    // (🖕..🖖)    middle finger..vulcan salute
+        NVC_UI_CHAR_RANGE(0x1F5A4, 0x1F5A5),    // (🖤..🖥️)    black heart..desktop computer
+        NVC_UI_CHAR_RANGE(0x1F5A8, 0x1F5A8),    // (🖨️)        printer
+        NVC_UI_CHAR_RANGE(0x1F5B1, 0x1F5B2),    // (🖱️..🖲️)    computer mouse..trackball
+        NVC_UI_CHAR_RANGE(0x1F5BC, 0x1F5BC),    // (🖼️)        framed picture
+        NVC_UI_CHAR_RANGE(0x1F5C2, 0x1F5C4),    // (🗂️..🗄️)    card index dividers cabinet
+        NVC_UI_CHAR_RANGE(0x1F5D1, 0x1F5D3),    // (🗑️..🗓️)    wastebasket..spiral calendar
+        NVC_UI_CHAR_RANGE(0x1F5DC, 0x1F5DE),    // (🗜️..🗞️)    clamp..rolled-up newspaper
+        NVC_UI_CHAR_RANGE(0x1F5E1, 0x1F5E1),    // (🗡️)        dagger
+        NVC_UI_CHAR_RANGE(0x1F5E3, 0x1F5E3),    // (🗣️)        speaking head
+        NVC_UI_CHAR_RANGE(0x1F5E8, 0x1F5E8),    // (🗨️)        left speech bubble
+        NVC_UI_CHAR_RANGE(0x1F5EF, 0x1F5EF),    // (🗯️)        right anger bubble
+        NVC_UI_CHAR_RANGE(0x1F5F3, 0x1F5F3),    // (🗳️)        ballot box with ballot
+        NVC_UI_CHAR_RANGE(0x1F5FA, 0x1F6C5),    // (🗺️..🛅)    world map..left luggage
+        NVC_UI_CHAR_RANGE(0x1F6CB, 0x1F6D2),    // (🛋️..🛒)    couch and lamp..shopping cart
+        NVC_UI_CHAR_RANGE(0x1F6D5, 0x1F6D7),    // (🛕..🛗)    hindu temple..elevator
+        NVC_UI_CHAR_RANGE(0x1F6DC, 0x1F6E5),    // (🛜..🛥️)    wireless..motor boat
+        NVC_UI_CHAR_RANGE(0x1F6E9, 0x1F6E9),    // (🛩️)        small airplane
+        NVC_UI_CHAR_RANGE(0x1F6EB, 0x1F6EC),    // (🛫..🛬)    airplane departure..airplane arrival
+        NVC_UI_CHAR_RANGE(0x1F6F0, 0x1F6F0),    // (🛰️)        satellite
+        NVC_UI_CHAR_RANGE(0x1F6F3, 0x1F6FC),    // (🛳️..🛼)    passenger ship..roller skate
+        NVC_UI_CHAR_RANGE(0x1F7E0, 0x1F7EB),    // (🟠..🟫)    orange circle..brown square
+        NVC_UI_CHAR_RANGE(0x1F7F0, 0x1F7F0),    // (🟰)        heavy equals sign
+        NVC_UI_CHAR_RANGE(0x1F90C, 0x1F93A),    // (🤌..🤺)    pinched fingers..person fencing
+        NVC_UI_CHAR_RANGE(0x1F93C, 0x1F945),    // (🤼..🥅)    people wrestling..goal net
+        NVC_UI_CHAR_RANGE(0x1F947, 0x1F9FF),    // (🥇..🧿)    1st place medal..nazar amulet
+        NVC_UI_CHAR_RANGE(0x1FA70, 0x1FA7C),    // (🩰..🩼)    ballet shoes..crutch
+        NVC_UI_CHAR_RANGE(0x1FA80, 0x1FA88),    // (🪀..🪈)    yo-yo..flute
+        NVC_UI_CHAR_RANGE(0x1FA90, 0x1FABD),    // (🪐..🪽)    ringed planet..wing
+        NVC_UI_CHAR_RANGE(0x1FABF, 0x1FAC5),    // (🪿..🫅)    goose..person with crown
+        NVC_UI_CHAR_RANGE(0x1FACE, 0x1FADB),    // (🫎..🫛)    moose..pea pod
+        NVC_UI_CHAR_RANGE(0x1FAE0, 0x1FAE8),    // (🫠..🫨)    melting face..shaking face
+        NVC_UI_CHAR_RANGE(0x1FAF0, 0x1FAF8),    // (🫰..🫸)    hand with index finger and thumb crossed..rightwards pushing hand
+    };
+
+    m_cjkSet = load_character_set(cjk_ranges, countof(cjk_ranges));
+    m_emojiSet = load_character_set(emoji_ranges, countof(emoji_ranges));
 }
 
 }
-
