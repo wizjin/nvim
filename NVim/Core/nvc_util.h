@@ -27,8 +27,8 @@ struct UIPoint {
     int32_t x;
     int32_t y;
     
-    inline UIPoint() : x(0), y(0) {}
-    inline UIPoint(int32_t _x, int32_t _y) : x(_x), y(_y) {}
+    inline explicit UIPoint() : x(0), y(0) {}
+    inline explicit UIPoint(int32_t _x, int32_t _y) : x(_x), y(_y) {}
     inline bool operator==(const UIPoint& rhs) const { return x == rhs.x && y == rhs.y; }
     inline bool operator!=(const UIPoint& rhs) const { return x != rhs.x || y != rhs.y; }
 };
@@ -37,8 +37,8 @@ struct UISize {
     int32_t width;
     int32_t height;
     
-    inline UISize() : width(0), height(0) {}
-    inline UISize(int32_t _w, int32_t _h) : width(_w), height(_h) {}
+    inline explicit UISize() : width(0), height(0) {}
+    inline explicit UISize(int32_t _w, int32_t _h) : width(_w), height(_h) {}
     inline int32_t area(void) const { return width * height; }
     inline bool empty(void) const { return width <= 0 && height <= 0; }
     inline bool contains(const UIPoint& pt) const { return pt.x >= 0 && pt.y >= 0 && pt.x < width && pt.y < height; }
@@ -50,9 +50,9 @@ struct UIRect {
     UIPoint origin;
     UISize size;
     
-    inline UIRect() {}
-    inline UIRect(const UIPoint& _origin, const UISize& _size) : origin(_origin), size(_size) {}
-    inline UIRect(int32_t x, int32_t y, int32_t width, int32_t height) : origin(x, y), size(width, height) {}
+    inline explicit UIRect() {}
+    inline explicit UIRect(const UIPoint& _origin, const UISize& _size) : origin(_origin), size(_size) {}
+    inline explicit UIRect(int32_t x, int32_t y, int32_t width, int32_t height) : origin(x, y), size(width, height) {}
     inline int32_t x(void) const { return origin.x; }
     inline int32_t y(void) const { return origin.y; }
     inline int32_t width(void) const { return size.width; }
@@ -70,9 +70,6 @@ struct UIRect {
 };
 
 #pragma mark - Util Helper
-
-typedef uint32_t UnicodeChar;
-
 class token_spliter {
 public:
     using value_type    = std::string_view;

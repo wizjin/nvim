@@ -10,11 +10,6 @@
 
 namespace nvc {
 
-static inline void ui_set_fill_color(CGContextRef context, ui_color_t rgb) {
-    const uint8_t *c = (const uint8_t *)&rgb;
-    CGContextSetRGBFillColor(context, c[2]/255.0, c[1]/255.0, c[0]/255.0, 1.0);
-}
-
 UIGrid::UIGrid(const UISize& size) : m_size(size), m_cursor(-1, -1) {
     m_cells.resize(m_size.area());
 }
@@ -64,10 +59,10 @@ UIRect UIGrid::scroll(const UIRect& rect, int32_t rows) {
 void UIGrid::update(const UIPoint& pt, int32_t count, UnicodeChar ch, int32_t hl_id) {
     if (likely(count > 0 && m_size.contains(pt))) {
         UICell cell = {
-          .ch = ch,
-          .hl_id = hl_id,
-          .is_skip = false,
-          .is_wide = false,
+            .ch = ch,
+            .hl_id = hl_id,
+            .is_skip = false,
+            .is_wide = false,
         };
         int32_t n = std::min(count, m_size.width - pt.x);
         std::fill_n(m_cells.begin() + m_size.width * pt.y + pt.x, n, cell);
@@ -84,6 +79,7 @@ void UIGrid::draw(UIContext& ctx, CGContextRef context, const UIRect& dirty) con
     int32_t height = std::min(wndSize.height, dirty.bottom());
     bool need_cursor = ctx.mode_enabled() && ctx.show_cursor() && dirty.contains(m_cursor);
     const auto& color = ctx.color();
+    auto& font = ctx.font();
     ui_color_t fg = color.default_color(ui_color_code_foreground);
     ui_color_t bg = color.default_color(ui_color_code_background);
     for (int j = dirty.y(); j < height; j++) {
@@ -104,34 +100,25 @@ void UIGrid::draw(UIContext& ctx, CGContextRef context, const UIRect& dirty) con
                 CGFloat cellWidth = size.width;
                 if (cell->is_wide) cellWidth *= 2;
                 if (last_hl_id != 0) {
-                    ui_set_fill_color(context, bg);
+                    UIColor::set_fill_color(context, bg);
                     CGContextFillRect(context, CGRectMake(pt.x, pt.y, cellWidth, size.height));
                 }
                 uint32_t tc = fg;
                 if (need_cursor && m_cursor.x == i && m_cursor.y == j) {
-//                    if (ctx->mode_idx < ctx->mode_infos.size()) {
-//                        const auto& info = ctx->mode_infos[ctx->mode_idx];
-//                        ui_set_fill_color(context, nvc_ui_find_hl_color(ctx, info.attr_id, nvc_ui_color_code_foreground));
-//                        if (info.cursor_shape == "block") {
-//                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, cellWidth, size.height));
-//                            tc = nvc_ui_find_hl_color(ctx, info.attr_id, nvc_ui_color_code_background);
-//                        } else if (info.cursor_shape == "horizontal") {
-//                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, info.calc_cell_percentage(size.height)));
-//                        } else if (info.cursor_shape == "vertical") {
-//                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, info.calc_cell_percentage(size.width), size.height));
-//                        }
-//                    }
+                    const auto info = ctx.mode().info();
+                    if (info != nullptr) {
+                        UIColor::set_fill_color(context, ctx.color().find_hl_color(info->attr_id, ui_color_code_foreground));
+                        if (info->cursor_shape == "block") {
+                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, cellWidth, size.height));
+                            tc = ctx.color().find_hl_color(info->attr_id, ui_color_code_background);
+                        } else if (info->cursor_shape == "horizontal") {
+                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, info->calc_cell_percentage(size.height)));
+                        } else if (info->cursor_shape == "vertical") {
+                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, info->calc_cell_percentage(size.width), size.height));
+                        }
+                    }
                 }
-//                if (cell->glyph != 0) {
-//                    ui_set_fill_color(context, tc);
-//                    CGContextSetTextPosition(context, pt.x, pt.y + font_offset);
-                    // TODO: CTFontDrawGlyphs
-//                    if (!cell->is_wide_font) {
-//                        CTFontDrawGlyphs(ctx->fonts.at(cell->font_index), &cell->glyph, &CGPointZero, 1, context);
-//                    } else {
-//                        CTFontDrawGlyphs(ctx->font_wides.at(cell->font_index), &cell->glyph, &CGPointZero, 1, context);
-//                    }
-//                }
+                font.draw(context, cell->ch, tc, UIPoint(pt.x, pt.y + font_offset));
             }
             cell++;
         }

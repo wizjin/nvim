@@ -8,7 +8,7 @@
 #ifndef __NVC_UI_CELL_H__
 #define __NVC_UI_CELL_H__
 
-#include "nvc_util.h"
+#include "nvc_ui_char.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,8 +23,6 @@ struct UICell {
     int32_t     hl_id;
     bool        is_skip;
     bool        is_wide;
-    uint8_t     unused[4];
-
 };
 
 

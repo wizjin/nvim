@@ -11,9 +11,6 @@
 #include "nvc_ui_context.h"
 
 #define kNvcUiKeysMax                       64
-#define kNvcUiCacheGlyphMax                 127
-#define kNvcUiCacheGlyphSize                512
-#define kNvcUiFontAppleColorEmoji           "Apple Color Emoji"
 
 extern "C" void NSBeep(void);
 
@@ -473,6 +470,13 @@ void nvc_ui_input_mouse(nvc_ui_context_t *ptr, nvc_ui_mouse_info_t mouse) {
 }
 
 #pragma mark - NVC UI Option Actions
+static inline int nvc_ui_option_set_action_emoji(nvc::UIContext *ctx, int items) {
+    if (likely(items-- > 0)) {
+        ctx->font().emoji(nvc_rpc_read_bool(ctx->rpc()));
+    }
+    return items;
+}
+
 static inline int nvc_ui_option_set_action_guifont(nvc::UIContext *ctx, int items) {
     if (likely(items-- > 0)) {
         if (ctx->font().load(nvc_rpc_read_str(ctx->rpc()))) {
@@ -561,7 +565,7 @@ typedef int (*nvc_ui_option_set_action)(nvc::UIContext *ctx, int items);
 static const std::map<const std::string, nvc_ui_option_set_action> nvc_ui_option_set_actions = {
     NVC_UI_OPTION_SET_ACTION_NULL(arabicshape),
     NVC_UI_OPTION_SET_ACTION_NULL(ambiwidth),
-    NVC_UI_OPTION_SET_ACTION_NULL(emoji),
+    NVC_UI_OPTION_SET_ACTION(emoji),
     NVC_UI_OPTION_SET_ACTION(guifont),
     NVC_UI_OPTION_SET_ACTION(guifontwide),
     NVC_UI_OPTION_SET_ACTION_NULL(linespace),

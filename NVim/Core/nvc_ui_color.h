@@ -19,6 +19,8 @@ extern "C" {
 #ifdef __cplusplus
 namespace nvc {
 
+#define NVC_UI_COLOR_WHITE                  ((ui_color_t)0xffffffff)
+
 #define NVC_UI_COLOR_CODE_LIST              \
     NVC_UI_COLOR_CODE(foreground),          \
     NVC_UI_COLOR_CODE(background),          \
@@ -59,6 +61,12 @@ public:
     inline void default_color(UIColorCode code, ui_color_t color) { m_default_colors[code] = color; }
     inline void update_hl_attrs(int32_t hl, const UIColorSet& colorSet) { m_hl_attrs[hl] = colorSet; }
     inline void update_hl_groups(const std::string& name, int32_t hl) { m_hl_groups[name] = hl; }
+    
+    static inline void set_fill_color(CGContextRef context, ui_color_t rgb) {
+        const uint8_t *c = (const uint8_t *)&rgb;
+        CGContextSetRGBFillColor(context, c[2]/255.0, c[1]/255.0, c[0]/255.0, 1.0);
+    }
+
 };
 
 }

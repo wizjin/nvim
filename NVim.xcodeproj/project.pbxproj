@@ -35,6 +35,7 @@
 		6D9989902ABCA5C60001F1A6 /* NVSTDClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D99898F2ABCA5C60001F1A6 /* NVSTDClient.m */; };
 		6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */ = {isa = PBXBuildFile; fileRef = 6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */; };
 		6DB9E2A82ABF17C000F6D444 /* nvim in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6DB9E2A22ABF094E00F6D444 /* nvim */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		6DD47B452ADD6FC200CA3048 /* nvc_ui_char.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6DD47B432ADD6FC200CA3048 /* nvc_ui_char.cpp */; };
 		C4413092ED5EE9FA5A597797 /* libPods-NVim.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */; };
 /* End PBXBuildFile section */
 
@@ -112,6 +113,8 @@
 		6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSColor+NVExt.m"; sourceTree = "<group>"; };
 		6DB9E2A12ABF094E00F6D444 /* nvim.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = nvim.entitlements; path = Venders/NeoVim/nvim.entitlements; sourceTree = SOURCE_ROOT; };
 		6DB9E2A22ABF094E00F6D444 /* nvim */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = nvim; path = Venders/NeoVim/nvim; sourceTree = SOURCE_ROOT; };
+		6DD47B432ADD6FC200CA3048 /* nvc_ui_char.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_char.cpp; sourceTree = "<group>"; };
+		6DD47B442ADD6FC200CA3048 /* nvc_ui_char.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_char.h; sourceTree = "<group>"; };
 		95844A96CB9BC84A72565201 /* Pods-NVim.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.debug.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.debug.xcconfig"; sourceTree = "<group>"; };
 		CED193A2A6409B458DD5A4C3 /* Pods-NVim.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.release.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -182,6 +185,8 @@
 				6D455A5A2ADBDA7900DD58A2 /* nvc_ui_cell.cpp */,
 				6D455A5E2ADBDDBE00DD58A2 /* nvc_ui_grid.h */,
 				6D455A5D2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp */,
+				6DD47B442ADD6FC200CA3048 /* nvc_ui_char.h */,
+				6DD47B432ADD6FC200CA3048 /* nvc_ui_char.cpp */,
 				6D3296CD2ADA5233009CFCEF /* nvc_ui_font.h */,
 				6D3296CC2ADA5233009CFCEF /* nvc_ui_font.cpp */,
 				6D455A642ADC18EA00DD58A2 /* nvc_ui_color.h */,
@@ -399,6 +404,7 @@
 				6D20284D2AB20347008B3E3B /* cwpack.c in Sources */,
 				6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */,
 				6D1E29632AB58B5300E1AA79 /* NSString+NVExt.m in Sources */,
+				6DD47B452ADD6FC200CA3048 /* nvc_ui_char.cpp in Sources */,
 				6D455A5F2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp in Sources */,
 				6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */,
 				6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */,

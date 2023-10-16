@@ -9,46 +9,6 @@
 
 namespace nvc {
 
-#pragma mark - NVC UI Helper
-static inline nvc::UnicodeChar nvc_ui_utf82unicode(const uint8_t *str, uint8_t len) {
-    nvc::UnicodeChar unicode = 0;
-    switch (len) {
-        case 0:
-            break;
-        case 1:
-            unicode = str[0] & 0x7F;
-            break;
-        case 2:
-            if (likely(str[1] == 0x80)) {
-                unicode = ((str[0] & 0x1F) << 6)
-                        | (str[1] & 0x3F);
-            }
-            break;
-        case 3:
-            if (likely(((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80))) {
-                unicode = ((str[0] & 0x0F) << 12)
-                        | ((str[1] & 0x3F) << 6)
-                        | (str[2] & 0x3F);
-            }
-            break;
-        case 4:
-            if (likely(((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80) && ((str[3]&0xC0) == 0x80))) {
-                unicode = ((str[0] & 0x07) << 18)
-                        | ((str[1] & 0x3F) << 12)
-                        | ((str[2] & 0x3F) << 6)
-                        | (str[3] & 0x3F);
-                //cp -= 0x10000;
-                //unicode = (0xD800 + ((cp >> 10)&0x03FF)) | ((0xDC00 + (cp & 0x03FF)) << 16);
-            }
-            break;
-        default:
-            NVLogW("nvc ui invalid utf8 %d", len);
-            break;
-    }
-    return unicode;
-}
-
-#pragma mark - NVC UI Context
 UIContext::UIContext(const nvc_ui_callback_t& cb, CGFloat font_size, void *userdata) : m_cb(cb), m_font(font_size), m_userdata(userdata) {
     m_attached = false;
     m_mode_enabled = true;
@@ -220,7 +180,7 @@ void UIContext::update_grid_line(int items) {
                         if (len == 0) {
                             grid->skip_cell(nvc::UIPoint(offset, row));
                         } else {
-                            UnicodeChar ch = nvc_ui_utf82unicode(str, len);
+                            UnicodeChar ch = UICharacter::utf8_to_unicode(str, len);
                             if (cnum-- > 0) {
                                 int hl_id = nvc_rpc_read_int(rpc());
                                 if (hl_id != last_hl_id) {
@@ -242,11 +202,7 @@ void UIContext::update_grid_line(int items) {
         }
         nvc_rpc_read_skip_items(rpc(), narg);
     }
-    
-    
-    
-    
-    
+
 }
 
 }
