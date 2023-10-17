@@ -22,10 +22,18 @@ namespace nvc {
 class CTFontHolder {
 private:
     CTFontRef   m_font;
+    bool        m_underline;
 public:
-    inline CTFontHolder() : m_font(nullptr) {}
-    inline CTFontHolder(CTFontRef font) : m_font(font != nullptr ? reinterpret_cast<CTFontRef>(CFRetain(font)) : nullptr) {}
-    inline explicit CTFontHolder(const CTFontHolder& font) : CTFontHolder(font.m_font) {}
+    inline CTFontHolder() : m_font(nullptr), m_underline(false) {}
+    inline CTFontHolder(CTFontRef font) {
+        m_underline = false;
+        if (font == nullptr) {
+            m_font = nullptr;
+        } else {
+            m_font = reinterpret_cast<CTFontRef>(CFRetain(font));
+        }
+    }
+    inline explicit CTFontHolder(const CTFontHolder& holder) { *this = holder; }
 
     inline ~CTFontHolder() {
         if (m_font != nullptr) {
@@ -33,26 +41,30 @@ public:
             m_font = nullptr;
         }
     }
-
     inline explicit operator CTFontRef() const { return m_font; }
-    
-    inline bool operator==(CTFontRef rhs) const { return m_font == rhs; }
-    inline bool operator!=(CTFontRef rhs) const { return m_font != rhs; }
-
-    inline CTFontHolder& operator=(CTFontRef other) {
-        if (m_font != other) {
-            if (m_font != nullptr) CFRelease(m_font);
-            m_font = reinterpret_cast<CTFontRef>(CFRetain(other));
-        }
-        return *this;
-    }
+    inline bool operator!() const { return m_font == nullptr; }
+    inline bool underline(void) const { return m_underline; }
+    inline void underline(bool enable) { m_underline = enable; }
 
     inline CTFontHolder& operator=(const CTFontHolder& other) {
         if (this != &other) {
             if (m_font != nullptr) CFRelease(m_font);
-            m_font = reinterpret_cast<CTFontRef>(CFRetain(other.m_font));
+            m_font = (other.m_font != nullptr ? reinterpret_cast<CTFontRef>(CFRetain(other.m_font)) : nullptr);
+            m_underline = other.m_underline;
         }
         return *this;
+    }
+    
+    inline bool find_glyphs(const UniChar chs[], CGGlyph glyphs[], uint8_t count) const {
+        return (likely(m_font != nullptr) && CTFontGetGlyphsForCharacters(m_font, chs, glyphs, count));
+    }
+    
+    inline void draw(CGContextRef context, CGGlyph glyph, ui_color_t color, const UIPoint& pt) const {
+        if (likely(m_font != nullptr)) {
+            UIColor::set_fill_color(context, color);
+            CGContextSetTextPosition(context, pt.x, pt.y);
+            CTFontDrawGlyphs(m_font, &glyph, &CGPointZero, 1, context);
+        }
     }
 
 };
@@ -60,11 +72,12 @@ public:
 typedef std::vector<CTFontHolder> CTFontList;
 
 struct CTGlyphInfo {
-    CTFontRef   font;
-    CGGlyph     glyph;
-    bool        is_wide;
-    bool        is_skip;
-    bool        is_emoji;
+    const CTFontHolder* font;
+    CGGlyph             glyph;
+    bool                is_skip;
+    bool                is_wide;
+    bool                is_space;
+    bool                is_emoji;
 };
 
 class UIFont {
@@ -74,6 +87,8 @@ private:
     CGSize          m_glyph_size;
     CGFloat         m_font_size;
     CGFloat         m_font_offset;
+    CGFloat         m_underline;
+    CGFloat         m_underline_position;
     bool            m_emoji;
     CTFontList      m_fonts;
     CTFontList      m_font_wides;
@@ -81,7 +96,7 @@ private:
     CTGlyphInfoMap  m_glyph_cache;
 
     void update(void);
-    CTFontRef load_emoji(void);
+    const CTFontHolder *load_emoji(void);
     CTGlyphInfo *load_glyph(UnicodeChar ch);
 public:
     explicit UIFont(CGFloat font_size);

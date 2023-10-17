@@ -21,8 +21,8 @@ typedef uint32_t UnicodeChar;
 
 class UICharacter {
 private:
+    CFCharacterSetRef   m_spaceSet;
     CFCharacterSetRef   m_wideSet;
-    CFCharacterSetRef   m_skipSet;
     CFCharacterSetRef   m_cjkSet;
     CFCharacterSetRef   m_emojiSet;
 
@@ -30,25 +30,11 @@ private:
 public:
     ~UICharacter();
     
-    inline bool is_wide(UTF32Char ch) const {
-        return CFCharacterSetIsLongCharacterMember(m_wideSet, ch);
-    }
-
-    inline bool is_skip(UTF32Char ch) const {
-        return CFCharacterSetIsLongCharacterMember(m_skipSet, ch);
-    }
-
-    inline bool is_cjk(UTF32Char ch) const {
-        return CFCharacterSetIsLongCharacterMember(m_cjkSet, ch);
-    }
-
-    inline bool is_emoji(UTF32Char ch) const {
-        return CFCharacterSetIsLongCharacterMember(m_emojiSet, ch);
-    }
-    
-    inline static const UICharacter& instance(void) {
-        return g_character_set;
-    }
+    inline bool is_space(UTF32Char ch) const { return CFCharacterSetIsLongCharacterMember(m_spaceSet, ch); }
+    inline bool is_wide(UTF32Char ch) const { return CFCharacterSetIsLongCharacterMember(m_wideSet, ch); }
+    inline bool is_cjk(UTF32Char ch) const { return CFCharacterSetIsLongCharacterMember(m_cjkSet, ch); }
+    inline bool is_emoji(UTF32Char ch) const { return CFCharacterSetIsLongCharacterMember(m_emojiSet, ch); }
+    inline bool is_colorful(UnicodeChar ch) const { return (ch & 0xFE0F0000) == 0xFE0F0000; } // VARIATION SELECTOR-16
 
     static inline UnicodeChar utf8_to_unicode(const uint8_t *str, uint8_t len) {
         UnicodeChar unicode = 0;
@@ -81,12 +67,12 @@ public:
                 break;
             case 6:
                 if (likely(((str[1]&0xC0) == 0x80) && ((str[2]&0xC0) == 0x80) && ((str[4]&0xC0) == 0x80) && ((str[5]&0xC0) == 0x80))) {
-                    unicode = ((str[0] & 0x0F) << 28)
-                            | ((str[1] & 0x3F) << 22)
-                            | ((str[2] & 0x3F) << 16)
-                            | ((str[3] & 0x0F) << 12)
-                            | ((str[4] & 0x3F) << 6)
-                            | (str[5] & 0x3F);
+                    unicode = ((str[3] & 0x0F) << 28)
+                            | ((str[4] & 0x3F) << 22)
+                            | ((str[5] & 0x3F) << 16)
+                            | ((str[0] & 0x0F) << 12)
+                            | ((str[1] & 0x3F) << 6)
+                            | (str[2] & 0x3F);
                 }
                 break;
             default:
@@ -95,10 +81,11 @@ public:
         }
         return unicode;
     }
+
+    static inline const UICharacter& instance(void) { return g_character_set; }
 private:
     static UICharacter g_character_set;
 };
-
 
 }
 #endif

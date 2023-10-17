@@ -12,13 +12,13 @@ namespace nvc {
 UICharacter UICharacter::g_character_set;
 
 UICharacter::~UICharacter() {
+    if (m_spaceSet != nullptr) {
+        CFRelease(m_spaceSet);
+        m_spaceSet = nullptr;
+    }
     if (m_wideSet != nullptr) {
         CFRelease(m_wideSet);
         m_wideSet = nullptr;
-    }
-    if (m_skipSet != nullptr) {
-        CFRelease(m_skipSet);
-        m_skipSet = nullptr;
     }
     if (m_cjkSet != nullptr) {
         CFRelease(m_cjkSet);
@@ -256,20 +256,10 @@ UICharacter::UICharacter() {
         NVC_UI_CHAR_RANGE(0x1FAF0, 0x1FAF8),    // (🫰..🫸)    hand with index finger and thumb crossed..rightwards pushing hand
     };
 
+    m_spaceSet = CFCharacterSetGetPredefined(kCFCharacterSetWhitespace);
     m_wideSet = load_character_set(wide_ranges, countof(wide_ranges));
     m_cjkSet = load_character_set(cjk_ranges, countof(cjk_ranges));
     m_emojiSet = load_character_set(emoji_ranges, countof(emoji_ranges));
-    
-    CFMutableCharacterSetRef skipSet = CFCharacterSetCreateMutable(kCFAllocatorDefault);
-    if (likely(skipSet != nullptr)) {
-        CFCharacterSetAddCharactersInRange(skipSet, CFRangeMake(0, 1));
-        CFCharacterSetRef whitespace = CFCharacterSetGetPredefined(kCFCharacterSetWhitespace);
-        if (likely(whitespace != nullptr)) {
-            CFCharacterSetUnion(skipSet, whitespace);
-            CFRelease(whitespace);
-        }
-    }
-    m_skipSet = skipSet;
 }
 
 

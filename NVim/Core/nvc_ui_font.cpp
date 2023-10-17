@@ -17,6 +17,9 @@ namespace nvc {
 static inline bool load_fonts(const std::string& value, CGFloat default_font_size, CTFontList& fonts) {
     for (const auto& item : token_spliter(value, ',')) {
         std::string family;
+        bool is_bold = false;
+        bool is_italic = false;
+        bool is_underline = false;
         CGFloat font_size = default_font_size;
         for (const auto& p : token_spliter(item, ':')) {
             if (family.empty()) {
@@ -24,12 +27,19 @@ static inline bool load_fonts(const std::string& value, CGFloat default_font_siz
                 family = p;
             } else if (!p.empty()) {
                 size_t idx = 0;
-                if (p[idx] == 'h') idx++;
-                if (idx < p.size() && isdigit(p[idx])) {
-                    CGFloat size = std::stod(std::string(p.substr(idx)));
-                    if (size > 0) {
-                        font_size = size;
-                    }
+                switch (p[idx]) {
+                    case 'b': is_bold = true; break;
+                    case 'i': is_italic = true; break;
+                    case 'u': is_underline = true; break;
+                    case 'h': idx++;
+                    default:
+                        if (idx < p.size() && isdigit(p[idx])) {
+                            CGFloat size = std::stod(std::string(p.substr(idx)));
+                            if (size > 0) {
+                                font_size = size;
+                            }
+                        }
+                        break;
                 }
             }
         }
@@ -38,7 +48,17 @@ static inline bool load_fonts(const std::string& value, CGFloat default_font_siz
             if (likely(family_name)) {
                 CTFontRef font = CTFontCreateWithName(family_name, font_size, nullptr);
                 if (likely(font != nullptr)) {
-                    fonts.push_back(font);
+                    CTFontSymbolicTraits font_traits = kCTFontTraitMonoSpace;
+                    if (is_bold) font_traits |= kCTFontTraitBold;
+                    if (is_italic) font_traits |= kCTFontTraitItalic;
+                    CTFontRef traits_font = CTFontCreateCopyWithSymbolicTraits(font, 0, nullptr, font_traits, font_traits);
+                    if (traits_font != nullptr) {
+                        CFRelease(font);
+                        font = traits_font;
+                    }
+                    CTFontHolder holder = font;
+                    holder.underline(is_underline);
+                    fonts.push_back(holder);
                     CFRelease(font);
                 }
                 CFRelease(family_name);
@@ -49,11 +69,11 @@ static inline bool load_fonts(const std::string& value, CGFloat default_font_siz
     return !fonts.empty();
 }
 
-static inline void find_glyph(const CTFontList& fonts, UniChar *c, CFIndex n, CTGlyphInfo& info) {
+static inline void find_glyph(const CTFontList& fonts, UniChar *c, uint8_t n, CTGlyphInfo& info) {
     CGGlyph glyphs[2] = { 0, 0 };
     for (const auto& p : fonts) {
-        info.font = static_cast<CTFontRef>(p);
-        if (CTFontGetGlyphsForCharacters(info.font, c, glyphs, n) && glyphs[0] != 0) {
+        info.font = &p;
+        if (info.font->find_glyphs(c, glyphs, n) && glyphs[0] != 0) {
             info.glyph = glyphs[0];
             break;
         }
@@ -61,7 +81,7 @@ static inline void find_glyph(const CTFontList& fonts, UniChar *c, CFIndex n, CT
 }
 
 #pragma mark - UIFont
-UIFont::UIFont(CGFloat font_size) : m_glyph_size(CGSizeZero), m_font_offset(0), m_font_size(font_size), m_emoji(true) {
+UIFont::UIFont(CGFloat font_size) : m_glyph_size(CGSizeZero), m_font_offset(0), m_font_size(font_size), m_underline(0), m_underline_position(0), m_emoji(true) {
     CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontUserFixedPitch, m_font_size, nullptr);
     if (likely(font != nullptr)) {
         m_fonts.push_back(font);
@@ -73,7 +93,6 @@ UIFont::UIFont(CGFloat font_size) : m_glyph_size(CGSizeZero), m_font_offset(0), 
 void UIFont::update(void) {
     if (!m_fonts.empty()) {
         CTFontRef font = static_cast<CTFontRef>(m_fonts.front());
-        
         CGFloat ascent = CTFontGetAscent(font);
         CGFloat descent = CTFontGetDescent(font);
         CGFloat leading = CTFontGetLeading(font);
@@ -88,6 +107,8 @@ void UIFont::update(void) {
         m_glyph_size = CGSizeMake(width, height);
         m_font_size = CTFontGetSize(font);
         m_font_offset = descent;
+        m_underline = CTFontGetUnderlineThickness(font);
+        m_underline_position = CTFontGetUnderlinePosition(font);
     }
     m_glyph_cache.clear();
 }
@@ -121,33 +142,30 @@ bool UIFont::load_wide(const std::string& value) {
     return res;
 }
 
-CTFontRef UIFont::load_emoji(void) {
-    if (m_font_emoji == nullptr && likely(!m_fonts.empty())) {
-        CFStringRef family = CFStringCreateWithCString(nullptr, kNvcUiFontAppleColorEmoji, kCFStringEncodingASCII);
-        if (family != nullptr) {
-            bool found = false;
-            for (const auto& p : m_fonts) {
-                CFStringRef name = CTFontCopyFamilyName(static_cast<CTFontRef>(p));
-                if (name != nullptr) {
-                    CFRange range = CFStringFind(name, family, kCFCompareCaseInsensitive);
-                    CFRelease(name);
-                    if (range.location != kCFNotFound) {
-                        found = true;
-                        break;
-                    }
+const CTFontHolder *UIFont::load_emoji(void) {
+    if (!m_font_emoji && likely(!m_fonts.empty())) {
+        bool found = false;
+        CFStringRef family = CFSTR(kNvcUiFontAppleColorEmoji);
+        for (const auto& p : m_fonts) {
+            CFStringRef name = CTFontCopyFamilyName(static_cast<CTFontRef>(p));
+            if (name != nullptr) {
+                CFRange range = CFStringFind(name, family, kCFCompareCaseInsensitive);
+                CFRelease(name);
+                if (range.location != kCFNotFound) {
+                    found = true;
+                    break;
                 }
             }
-            if (!found) {
-                CTFontRef font = CTFontCreateCopyWithFamily(static_cast<CTFontRef>(m_fonts.front()), 0, nullptr, family);
-                if (font != nullptr) {
-                    m_font_emoji = font;
-                    CFRelease(font);
-                }
+        }
+        if (!found) {
+            CTFontRef font = CTFontCreateCopyWithFamily(static_cast<CTFontRef>(m_fonts.front()), 0, nullptr, family);
+            if (font != nullptr) {
+                m_font_emoji = font;
+                CFRelease(font);
             }
-            CFRelease(family);
         }
     }
-    return static_cast<CTFontRef>(m_font_emoji);
+    return &m_font_emoji;
 }
 
 CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
@@ -155,20 +173,24 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
     const auto& p = m_glyph_cache.find(ch);
     if (p != m_glyph_cache.end()) {
         result = &p->second;
-    } else {
+    } else if (likely(!m_fonts.empty())) {
         CTGlyphInfo info;
         bzero(&info, sizeof(info));
         const auto& chars = UICharacter::instance();
         info.is_wide = chars.is_wide(ch);
-        if (chars.is_skip(ch)) {
+        if (ch == 0) {
             info.is_skip = true;
+            info.font = &m_fonts.front();
+        } else if (chars.is_space(ch)) {
+            info.is_space = true;
+            info.font = &m_fonts.front();
         } else {
             UniChar c[2];
-            int n = 1;
+            uint8_t n = 1;
             if (ch < 0x10000) {
                 c[0] = (UniChar) ch;
-            } else if ((uint16_t)ch == 0xFE0F) { // VARIATION SELECTOR-16
-                c[0] = (UniChar) (ch >> 16);
+            } else if (chars.is_colorful(ch)) {
+                c[0] = (UniChar) ch;
                 info.is_emoji = m_emoji && chars.is_emoji(c[0]);
             } else {
                 UnicodeChar cp = ch - 0x10000;
@@ -184,7 +206,7 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
             }
             if (info.glyph == 0 && info.is_emoji) {
                 info.font = load_emoji();
-                if (likely(info.font != nullptr && CTFontGetGlyphsForCharacters(info.font, c, glyphs, n) && glyphs[0] != 0)) {
+                if (likely(info.font != nullptr && info.font->find_glyphs(c, glyphs, n) && glyphs[0] != 0)) {
                     info.glyph = glyphs[0];
                 }
             }
@@ -201,10 +223,19 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
 
 void UIFont::draw(CGContextRef context, UnicodeChar ch, ui_color_t color, const UIPoint& pt) {
     CTGlyphInfo *info = load_glyph(ch);
-    if (likely(info != nullptr) && !info->is_skip) {
-        UIColor::set_fill_color(context, !info->is_emoji ? color : NVC_UI_COLOR_WHITE);
-        CGContextSetTextPosition(context, pt.x, pt.y);
-        CTFontDrawGlyphs(info->font, &info->glyph, &CGPointZero, 1, context);
+    if (likely(info != nullptr && info->font != nullptr) && !info->is_skip) {
+        if (!info->is_space) {
+            info->font->draw(context, info->glyph, color, pt);
+        }
+        if (info->font->underline()) {
+            CGFloat y = pt.y - m_underline;
+            CGFloat width = m_glyph_size.width;
+            UIColor::set_stroke_color(context, color);
+            CGContextBeginPath(context);
+            CGContextMoveToPoint(context, pt.x, y);
+            CGContextAddLineToPoint(context, pt.x + (info->is_wide ? width * 2 : width), y);
+            CGContextStrokePath(context);
+        }
     }
 }
 

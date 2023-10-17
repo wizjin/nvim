@@ -19,7 +19,7 @@ extern "C" {
 #ifdef __cplusplus
 namespace nvc {
 
-#define NVC_UI_COLOR_WHITE                  ((ui_color_t)0xffffffff)
+#define kNvcUiColorWhite                    ((ui_color_t)0xffffffff)
 
 #define NVC_UI_COLOR_CODE_LIST              \
     NVC_UI_COLOR_CODE(foreground),          \
@@ -65,6 +65,11 @@ public:
     static inline void set_fill_color(CGContextRef context, ui_color_t rgb) {
         const uint8_t *c = (const uint8_t *)&rgb;
         CGContextSetRGBFillColor(context, c[2]/255.0, c[1]/255.0, c[0]/255.0, 1.0);
+    }
+    
+    static inline void set_stroke_color(CGContextRef context, ui_color_t rgb) {
+        const uint8_t *c = (const uint8_t *)&rgb;
+        CGContextSetRGBStrokeColor(context, c[2]/255.0, c[1]/255.0, c[0]/255.0, 1.0);
     }
 
 };
