@@ -8,9 +8,8 @@
 #ifndef __NVC_UI_FONT_H__
 #define __NVC_UI_FONT_H__
 
-#include <string>
+#include "nvc_ui_hl.h"
 #include "nvc_ui_cell.h"
-#include "nvc_ui_color.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,7 +60,7 @@ public:
     
     inline void draw(CGContextRef context, CGGlyph glyph, ui_color_t color, const UIPoint& pt) const {
         if (likely(m_font != nullptr)) {
-            UIColor::set_fill_color(context, color);
+            ui_set_fill_color(context, color);
             CGContextSetTextPosition(context, pt.x, pt.y);
             CTFontDrawGlyphs(m_font, &glyph, &CGPointZero, 1, context);
         }
@@ -87,6 +86,7 @@ private:
     CGSize          m_glyph_size;
     CGFloat         m_font_size;
     CGFloat         m_font_offset;
+    CGFloat         m_scale_factor;
     CGFloat         m_underline;
     CGFloat         m_underline_position;
     bool            m_emoji;
@@ -99,7 +99,7 @@ private:
     const CTFontHolder *load_emoji(void);
     CTGlyphInfo *load_glyph(UnicodeChar ch);
 public:
-    explicit UIFont(CGFloat font_size);
+    explicit UIFont(CGFloat font_size, CGFloat scale_factor);
     inline CGFloat font_offset(void) const { return m_font_offset; }
     inline const CGSize& glyph_size(void) const { return m_glyph_size; }
     void emoji(bool on);

@@ -13,15 +13,16 @@
 #define kNvcUiFontAppleColorEmoji       "Apple Color Emoji"
 
 namespace nvc {
+
 #pragma mark - Helper
 static inline bool load_fonts(const std::string& value, CGFloat default_font_size, CTFontList& fonts) {
-    for (const auto& item : token_spliter(value, ',')) {
+    for (const auto item : split_token(value, ',')) {
         std::string family;
         bool is_bold = false;
         bool is_italic = false;
         bool is_underline = false;
         CGFloat font_size = default_font_size;
-        for (const auto& p : token_spliter(item, ':')) {
+        for (const auto p : split_token(item, ':')) {
             if (family.empty()) {
                 if (p.empty() || p.front() == '*') break;
                 family = p;
@@ -81,7 +82,8 @@ static inline void find_glyph(const CTFontList& fonts, UniChar *c, uint8_t n, CT
 }
 
 #pragma mark - UIFont
-UIFont::UIFont(CGFloat font_size) : m_glyph_size(CGSizeZero), m_font_offset(0), m_font_size(font_size), m_underline(0), m_underline_position(0), m_emoji(true) {
+UIFont::UIFont(CGFloat font_size, CGFloat scale_factor)
+: m_glyph_size(CGSizeZero), m_font_offset(0), m_font_size(font_size), m_scale_factor(scale_factor), m_underline(0), m_underline_position(0), m_emoji(true) {
     CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontUserFixedPitch, m_font_size, nullptr);
     if (likely(font != nullptr)) {
         m_fonts.push_back(font);
@@ -96,13 +98,13 @@ void UIFont::update(void) {
         CGFloat ascent = CTFontGetAscent(font);
         CGFloat descent = CTFontGetDescent(font);
         CGFloat leading = CTFontGetLeading(font);
-        CGFloat height = ceil(ascent + descent + leading);
+        CGFloat height = std::ceil(ascent + descent + leading);
         CGGlyph glyph = (CGGlyph) 0;
-        UniChar capitalM = '\u004D';
+        UniChar capitalM = '\u0020';
         CGSize advancement = CGSizeZero;
         CTFontGetGlyphsForCharacters(font, &capitalM, &glyph, 1);
         CTFontGetAdvancesForGlyphs(font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
-        CGFloat width = ceil(advancement.width);
+        CGFloat width = std::ceil(advancement.width * m_scale_factor)/m_scale_factor;
 
         m_glyph_size = CGSizeMake(width, height);
         m_font_size = CTFontGetSize(font);
@@ -230,7 +232,7 @@ void UIFont::draw(CGContextRef context, UnicodeChar ch, ui_color_t color, const 
         if (info->font->underline()) {
             CGFloat y = pt.y - m_underline;
             CGFloat width = m_glyph_size.width;
-            UIColor::set_stroke_color(context, color);
+            ui_set_stroke_color(context, color);
             CGContextBeginPath(context);
             CGContextMoveToPoint(context, pt.x, y);
             CGContextAddLineToPoint(context, pt.x + (info->is_wide ? width * 2 : width), y);

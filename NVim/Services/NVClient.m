@@ -30,10 +30,10 @@
 }
 
 - (void)openWithRead:(int)read write:(int)write {
-    nvc_ui_config_t config;
-    bzero(&config, sizeof(config));
-    config.font = (__bridge CTFontRef)([NSFont monospacedSystemFontOfSize:kNVDefaultFontSize weight:NSFontWeightRegular]);
-    config.font_size = kNVDefaultFontSize;
+    nvc_ui_config_t config = {
+        .font_size = kNVDefaultFontSize,
+        .scale_factor = NSScreen.mainScreen.backingScaleFactor,
+    };
     ui_ctx = nvc_ui_create(read, write, &config, &nvclient_ui_callbacks, (__bridge void *)self);
     if (ui_ctx != nil) {
         NVLogI("NV Client open connect success - %s", self.info.cstr);

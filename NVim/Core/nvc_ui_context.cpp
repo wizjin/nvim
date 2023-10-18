@@ -9,7 +9,8 @@
 
 namespace nvc {
 
-UIContext::UIContext(const nvc_ui_callback_t& cb, CGFloat font_size, void *userdata) : m_cb(cb), m_font(font_size), m_userdata(userdata) {
+UIContext::UIContext(const nvc_ui_callback_t& cb, const nvc_ui_config_t& config, void *userdata)
+: m_cb(cb), m_font(config.font_size, config.scale_factor), m_userdata(userdata) {
     m_attached = false;
     m_mode_enabled = true;
     m_show_cursor = true;
@@ -61,8 +62,8 @@ void UIContext::draw(CGContextRef context) {
     if (likely(m_attached)) {
         nvc_lock_guard_t guard(m_locker);
         UIRect rc = rect2cell(CGContextGetClipBoundingBox(context));
-        for (const auto& [key, grid] : m_grids) {
-            grid->draw(*this, context, rc);
+        for (const auto& item : m_grids) {
+            item.second->draw(*this, context, rc);
         }
     }
 }
@@ -71,7 +72,8 @@ CGPoint UIContext::find_cursor(void) {
     CGPoint pt = CGPointZero;
     if (likely(m_attached)) {
         nvc_lock_guard_t guard(m_locker);
-        for (const auto& [key, grid] : m_grids) {
+        for (const auto& item : m_grids) {
+            const auto& grid = item.second;
             if (grid->has_cursor()) {
                 pt = cell2point(grid->cursor());
                 break;
@@ -84,7 +86,8 @@ CGPoint UIContext::find_cursor(void) {
 void UIContext::change_mode(const std::string& mode, int index) {
     nvc_lock_guard_t guard(m_locker);
     m_mode.change(mode, index);
-    for (const auto& [key, grid] : m_grids) {
+    for (const auto& item : m_grids) {
+        const auto& grid = item.second;
         if (grid->has_cursor()) {
             update_dirty(UIRect(grid->cursor(), UISize(1, 1)));
         }

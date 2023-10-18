@@ -22,7 +22,7 @@ void UIGrid::resize(const UISize& size) {
     m_size = size;
     m_cells.resize(size.area());
 }
-
+ 
 void UIGrid::skip_cell(const UIPoint& pt) {
     if (likely(m_size.contains(pt))) {
         UICell *cell = m_cells.data() + m_size.width * pt.y + pt.x;
@@ -78,10 +78,11 @@ void UIGrid::draw(UIContext& ctx, CGContextRef context, const UIRect& dirty) con
     int32_t width = std::min(wndSize.width, dirty.right());
     int32_t height = std::min(wndSize.height, dirty.bottom());
     bool need_cursor = ctx.mode_enabled() && ctx.show_cursor() && dirty.contains(m_cursor);
-    const auto& color = ctx.color();
+    const auto& hl_attrs = ctx.hl_attrs();
     auto& font = ctx.font();
-    ui_color_t fg = color.default_color(ui_color_code_foreground);
-    ui_color_t bg = color.default_color(ui_color_code_background);
+    ui_color_t fg = hl_attrs.default_foreground();
+    ui_color_t bg = hl_attrs.default_background();
+    ui_color_t sp = hl_attrs.default_special();
     for (int j = dirty.y(); j < height; j++) {
         int i = dirty.x();
         pt.y = size.height * j;
@@ -94,23 +95,24 @@ void UIGrid::draw(UIContext& ctx, CGContextRef context, const UIRect& dirty) con
                 pt.x = size.width * i;
                 if (cell->hl_id != last_hl_id) {
                     last_hl_id = cell->hl_id;
-                    fg = color.find_hl_color(last_hl_id, ui_color_code_foreground);
-                    bg = color.find_hl_color(last_hl_id, ui_color_code_background);
+                    fg = hl_attrs.find_hl_foreground(last_hl_id);
+                    bg = hl_attrs.find_hl_background(last_hl_id);
+                    sp = hl_attrs.find_hl_special(last_hl_id);
                 }
                 CGFloat cellWidth = size.width;
                 if (cell->is_wide) cellWidth *= 2;
                 if (last_hl_id != 0) {
-                    UIColor::set_fill_color(context, bg);
+                    ui_set_fill_color(context, bg);
                     CGContextFillRect(context, CGRectMake(pt.x, pt.y, cellWidth, size.height));
                 }
                 uint32_t tc = fg;
                 if (need_cursor && m_cursor.x == i && m_cursor.y == j) {
                     const auto info = ctx.mode().info();
                     if (info != nullptr) {
-                        UIColor::set_fill_color(context, ctx.color().find_hl_color(info->attr_id, ui_color_code_foreground));
+                        ui_set_fill_color(context, hl_attrs.find_hl_foreground(info->attr_id));
                         if (info->cursor_shape == "block") {
                             CGContextFillRect(context, CGRectMake(pt.x, pt.y, cellWidth, size.height));
-                            tc = ctx.color().find_hl_color(info->attr_id, ui_color_code_background);
+                            tc = hl_attrs.find_hl_background(info->attr_id);
                         } else if (info->cursor_shape == "horizontal") {
                             CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, info->calc_cell_percentage(size.height)));
                         } else if (info->cursor_shape == "vertical") {

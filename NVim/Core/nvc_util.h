@@ -10,7 +10,7 @@
 
 #include <CoreText/CoreText.h>
 #include <string>
-#include <iterator>
+#include <ranges>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,8 +49,8 @@ struct UISize {
 struct UIRect {
     UIPoint origin;
     UISize size;
-    
-    inline explicit UIRect() {}
+
+    inline explicit UIRect() = default;
     inline explicit UIRect(const UIPoint& _origin, const UISize& _size) : origin(_origin), size(_size) {}
     inline explicit UIRect(int32_t x, int32_t y, int32_t width, int32_t height) : origin(x, y), size(width, height) {}
     inline int32_t x(void) const { return origin.x; }
@@ -70,63 +70,23 @@ struct UIRect {
 };
 
 #pragma mark - Util Helper
-class token_spliter {
-public:
-    using value_type    = std::string_view;
-    
-    class iterator {
-    public:
-        using iterator_category = std::input_iterator_tag;
+inline constexpr const auto ranges_to_view = [] (const std::ranges::subrange<const char *> &sr) {
+    std::string_view    view(sr.begin(), sr.size());
+    ssize_t begin = view.find_first_not_of(' ');
+    if (begin == std::string_view::npos) {
+        view.remove_prefix(view.size());
+    } else {
+        view.remove_prefix(begin);
+    }
+    ssize_t end = view.find_last_not_of(' ');
+    if (end != std::string_view::npos) {
+        view.remove_suffix(view.size() - end - 1);
+    }
+    return view;
+};
 
-        inline iterator(const token_spliter& spliter, ssize_t pos) : m_spliter(spliter), m_pos(pos) {
-            m_end = m_spliter.m_data.find_first_of(m_spliter.m_delimiter, m_pos);
-            check_value();
-        }
-        
-        inline bool operator== (const iterator& rhs) const { return m_pos == rhs.m_pos && &m_spliter == &rhs.m_spliter; }
-        inline bool operator!= (const iterator& rhs) const { return m_pos != rhs.m_pos || &m_spliter != &rhs.m_spliter; }
-        
-        inline iterator& operator++() {
-            if (m_pos != value_type::npos) {
-                m_pos = m_end;
-                check_value();
-            }
-            return *this;
-        }
-
-        inline const value_type& operator*() const { return m_value; }
-    private:
-        inline void check_value(void) {
-            while(m_pos != value_type::npos) {
-                const auto& data = m_spliter.m_data;
-                m_value = data.substr(m_pos, m_end != value_type::npos ? m_end - m_pos : value_type::npos);
-                if (!m_value.empty()) {
-                    while (m_value.starts_with(' ')) m_value.remove_prefix(1);
-                    while (m_value.ends_with(' ')) m_value.remove_suffix(1);
-                    if (!m_value.empty()) break;
-                }
-                m_pos = m_end;
-                if (m_pos != value_type::npos) {
-                    m_end = m_spliter.m_data.find_first_of(m_spliter.m_delimiter, ++m_pos);
-                }
-            }
-        }
-
-        const token_spliter&    m_spliter;
-        value_type              m_value;
-        ssize_t                 m_pos;
-        ssize_t                 m_end;
-    };
-
-private:
-    const value_type&       m_data;
-    char                    m_delimiter;
-public:
-    inline token_spliter(const value_type& data, char delimiter) : m_data(data), m_delimiter(delimiter) {}
-    
-    inline iterator begin() const { return iterator(*this, 0); }
-    inline iterator end() const { return iterator(*this, std::string_view::npos); }
-
+inline constexpr const auto split_token = [] (const std::string_view &input, char delimiter) {
+    return std::ranges::split_view(input, delimiter) | std::views::transform(ranges_to_view) | std::views::filter(std::not_fn(std::mem_fn(&std::string_view::empty)));
 };
 
 }

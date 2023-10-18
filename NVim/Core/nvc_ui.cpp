@@ -6,8 +6,8 @@
 //
 
 #include "nvc_ui.h"
-#include <mutex>
 #include <map>
+#include <mutex>
 #include "nvc_ui_context.h"
 
 #define kNvcUiKeysMax                       64
@@ -44,61 +44,6 @@ static inline void nvc_rpc_call_command_end(nvc_rpc_context_t *ctx) {
 }
 
 #pragma mark - NVC UI Struct
-typedef int (*nvc_ui_action_t)(nvc::UIContext *ctx, int narg);
-
-#undef NVC_UI_COLOR_CODE
-#define NVC_UI_COLOR_CODE(_code)            { #_code, nvc::ui_color_code_##_code }
-static const std::map<const std::string, nvc::UIColorCode> nvc_ui_color_name_table = { NVC_UI_COLOR_CODE_LIST };
-
-typedef void (*nvc_ui_set_mode_info)(nvc::UIModeInfo &info, nvc_rpc_context_t *ctx);
-
-static inline void nvc_ui_set_mode_info_null(nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) {
-    nvc_rpc_read_skip_items(ctx, 1);
-}
-
-#define NVC_UI_SET_MODE_INFO_STR(_action)   { #_action, [](nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { info._action = nvc_rpc_read_str(ctx); } }
-#define NVC_UI_SET_MODE_INFO_INT(_action)   { #_action, [](nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { info._action = nvc_rpc_read_int(ctx); } }
-#define NVC_UI_SET_MODE_INFO_NULL(_action)  { #_action, nvc_ui_set_mode_info_null }
-static const std::map<const std::string, nvc_ui_set_mode_info> nvc_ui_set_mode_info_actions = {
-    NVC_UI_SET_MODE_INFO_STR(name),
-    NVC_UI_SET_MODE_INFO_STR(short_name),
-    NVC_UI_SET_MODE_INFO_STR(cursor_shape),
-    NVC_UI_SET_MODE_INFO_STR(mouse_shape),
-    NVC_UI_SET_MODE_INFO_INT(cell_percentage),
-    NVC_UI_SET_MODE_INFO_INT(blinkwait),
-    NVC_UI_SET_MODE_INFO_INT(blinkon),
-    NVC_UI_SET_MODE_INFO_INT(blinkoff),
-    NVC_UI_SET_MODE_INFO_NULL(hl_id),
-    NVC_UI_SET_MODE_INFO_NULL(id_lm),
-    NVC_UI_SET_MODE_INFO_INT(attr_id),
-    NVC_UI_SET_MODE_INFO_INT(attr_id_lm),
-};
-
-typedef uint8_t nvc_ui_font_index_t;
-
-typedef struct nvc_ui_glyph_info {
-    CGGlyph             glyph;
-    nvc_ui_font_index_t font_index;
-} nvc_ui_glyph_info_t;
-
-typedef struct nvc_ui_tab {
-    nvc_rpc_object_handler_t    tab;
-    std::string                 name;
-    
-    inline bool operator==(const struct nvc_ui_tab& rhl) const {
-        return this->tab == rhl.tab && this->name == rhl.name;
-    }
-} nvc_ui_tab_t;
-
-typedef void (*nvc_ui_set_ui_tab)(nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx);
-
-#define NVC_UI_SET_UI_TAB_EXT(_action)      { #_action, [](nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx) { tab._action = nvc_rpc_read_ext_handle(ctx); } }
-#define NVC_UI_SET_UI_TAB_STR(_action)      { #_action, [](nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx) { tab._action = nvc_rpc_read_str(ctx); } }
-static const std::map<const std::string, nvc_ui_set_ui_tab> nvc_ui_set_ui_tab_actions = {
-    NVC_UI_SET_UI_TAB_EXT(tab),
-    NVC_UI_SET_UI_TAB_STR(name),
-};
-
 static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items);
 static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items);
 static int nvc_ui_close_handler(nvc_rpc_context_t *ctx, int items);
@@ -124,11 +69,31 @@ static inline uint32_t nvc_ui_key_flags_encode(nvc_ui_key_flags_t flags, char ou
     return len;
 }
 
+namespace nvc {
+
+template <typename T> using DataSetterMap = std::unordered_map<std::string, const std::function<void(T &, nvc_rpc_context_t *)>>;
+template <typename T> static inline T parse_data_with_setter(UIContext *ctx, const DataSetterMap<T> setters) {
+    T result{};
+    for (int n = nvc_rpc_read_map_size(ctx->rpc()); n > 0; n--) {
+        const auto& name = nvc_rpc_read_str(ctx->rpc());
+        const auto& p = setters.find(name);
+        if (likely(p != setters.end())) {
+            p->second(result, ctx->rpc());
+        } else {
+            nvc_rpc_read_skip_items(ctx->rpc(), 1);
+            NVLogW("nvc ui unknown setter attr: %s", name.c_str());
+        }
+    }
+    return result;
+}
+
+}
+
 #pragma mark - NVC UI API
 nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *config, const nvc_ui_callback_t *callback, void *userdata) {
     nvc::UIContext *ctx = nullptr;
     if (inskt != INVALID_SOCKET && outskt != INVALID_SOCKET && config != NULL && callback != NULL) {
-        ctx = new nvc::UIContext(*callback, config->font_size, userdata);
+        ctx = new nvc::UIContext(*callback, *config, userdata);
         if (unlikely(ctx == nullptr)) {
             NVLogE("nvc ui create context failed");
         } else {
@@ -252,7 +217,7 @@ void nvc_ui_tab_next(nvc_ui_context_t *ptr, int count) {
 // Note: https://neovim.io/doc/user/intro.html#keycodes
 // <HIToolbox/Events.h>
 #define NVC_UI_KEYCODE(_code, _notation)    { _code, _notation }
-static const std::map<uint16_t, const std::string> nvc_ui_keycode_table = {
+static const std::unordered_map<uint16_t, const std::string> nvc_ui_keycode_table = {
     NVC_UI_KEYCODE(0x24, "CR"),         // kVK_Return
     NVC_UI_KEYCODE(0x30, "Tab"),        // kVK_Tab
     NVC_UI_KEYCODE(0x31, "Space"),      // kVK_Space
@@ -328,7 +293,7 @@ bool nvc_ui_input_key(nvc_ui_context_t *ctx, uint16_t key, nvc_ui_key_flags_t fl
 // Note: https://developer.apple.com/documentation/appkit/1535851-function-key_unicode_values?language=objc
 // <AppKit/NSEvent.h>
 #define NVC_UI_FUNCKEY(_code, _notation)    { _code, _notation }
-static const std::map<UniChar, const std::string> nvc_ui_funckey_table = {
+static const std::unordered_map<UniChar, const std::string> nvc_ui_funckey_table = {
     NVC_UI_FUNCKEY(0xF700, "Up"),       // NSUpArrowFunctionKey
     NVC_UI_FUNCKEY(0xF701, "Down"),     // NSDownArrowFunctionKey
     NVC_UI_FUNCKEY(0xF702, "Left"),     // NSLeftArrowFunctionKey
@@ -529,6 +494,24 @@ static inline int nvc_ui_redraw_action_set_title(nvc::UIContext *ctx, int count)
     return count;
 }
 
+static inline void nvc_ui_set_mode_info_null(nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { nvc_rpc_read_skip_items(ctx, 1); }
+#define NVC_UI_SET_MODE_INFO_STR(_target)   { #_target, [](nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { info._target = nvc_rpc_read_str(ctx); } }
+#define NVC_UI_SET_MODE_INFO_INT(_target)   { #_target, [](nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { info._target = nvc_rpc_read_int(ctx); } }
+#define NVC_UI_SET_MODE_INFO_NULL(_target)  { #_target, nvc_ui_set_mode_info_null }
+static const nvc::DataSetterMap<nvc::UIModeInfo> nvc_ui_mode_info_setters = {
+    NVC_UI_SET_MODE_INFO_STR(name),
+    NVC_UI_SET_MODE_INFO_STR(short_name),
+    NVC_UI_SET_MODE_INFO_STR(cursor_shape),
+    NVC_UI_SET_MODE_INFO_STR(mouse_shape),
+    NVC_UI_SET_MODE_INFO_INT(cell_percentage),
+    NVC_UI_SET_MODE_INFO_INT(blinkwait),
+    NVC_UI_SET_MODE_INFO_INT(blinkon),
+    NVC_UI_SET_MODE_INFO_INT(blinkoff),
+    NVC_UI_SET_MODE_INFO_NULL(hl_id),
+    NVC_UI_SET_MODE_INFO_NULL(id_lm),
+    NVC_UI_SET_MODE_INFO_INT(attr_id),
+    NVC_UI_SET_MODE_INFO_INT(attr_id_lm),
+};
 static inline int nvc_ui_redraw_action_mode_info_set(nvc::UIContext *ctx, int items) {
     if (likely(items-- > 0)) {
         int narg = nvc_rpc_read_array_size(ctx->rpc());
@@ -538,18 +521,7 @@ static inline int nvc_ui_redraw_action_mode_info_set(nvc::UIContext *ctx, int it
             bool enabled = nvc_rpc_read_bool(ctx->rpc());
             nvc::UIModeInfoList infos;
             for (int n = nvc_rpc_read_array_size(ctx->rpc()); n > 0; n--) {
-                nvc::UIModeInfo info;
-                for (int mn = nvc_rpc_read_map_size(ctx->rpc()); mn > 0; mn--) {
-                    const auto& name = nvc_rpc_read_str(ctx->rpc());
-                    const auto& p = nvc_ui_set_mode_info_actions.find(name);
-                    if (likely(p != nvc_ui_set_mode_info_actions.end())) {
-                        p->second(info, ctx->rpc());
-                    } else {
-                        nvc_rpc_read_skip_items(ctx->rpc(), 1);
-                        NVLogW("nvc ui unknown mode info: %s", name.c_str());
-                    }
-                }
-                infos.push_back(info);
+                infos.push_back(nvc::parse_data_with_setter(ctx, nvc_ui_mode_info_setters));
             }
             mode.infos(infos);
             mode.enabled(enabled);
@@ -559,10 +531,9 @@ static inline int nvc_ui_redraw_action_mode_info_set(nvc::UIContext *ctx, int it
     return items;
 }
 
-typedef int (*nvc_ui_option_set_action)(nvc::UIContext *ctx, int items);
 #define NVC_UI_OPTION_SET_ACTION(_action)       { #_action, nvc_ui_option_set_action_##_action }
 #define NVC_UI_OPTION_SET_ACTION_NULL(_action)  { #_action, nullptr }
-static const std::map<const std::string, nvc_ui_option_set_action> nvc_ui_option_set_actions = {
+static const std::unordered_map<std::string, const std::function<int(nvc::UIContext *, int)>> nvc_ui_option_set_actions = {
     NVC_UI_OPTION_SET_ACTION_NULL(arabicshape),
     NVC_UI_OPTION_SET_ACTION_NULL(ambiwidth),
     NVC_UI_OPTION_SET_ACTION(emoji),
@@ -684,61 +655,67 @@ static inline int nvc_ui_redraw_action_default_colors_set(nvc::UIContext *ctx, i
         int narg = nvc_rpc_read_array_size(ctx->rpc());
         if (likely(narg >= 3)) {
             narg -= 3;
-            auto& color = ctx->color();
-            color.default_color(nvc::ui_color_code_foreground, nvc_rpc_read_uint32(ctx->rpc()));
-            color.default_color(nvc::ui_color_code_background, nvc_rpc_read_uint32(ctx->rpc()));
-            color.default_color(nvc::ui_color_code_special, nvc_rpc_read_uint32(ctx->rpc()));
-            ctx->cb().update_background(ctx->userdata(), color.default_color(nvc::ui_color_code_background));
+            auto& hl_attrs = ctx->hl_attrs();
+            hl_attrs.default_foreground(nvc_rpc_read_uint32(ctx->rpc()));
+            hl_attrs.default_background(nvc_rpc_read_uint32(ctx->rpc()));
+            hl_attrs.default_special(nvc_rpc_read_uint32(ctx->rpc()));
+            ctx->cb().update_background(ctx->userdata(), hl_attrs.default_background());
         }
         nvc_rpc_read_skip_items(ctx->rpc(), narg);
     }
     return items;
 }
 
+#define NVC_UI_SET_HL_ATTR_BOOL(_target)    { #_target, [](nvc::UIHLAttr &attr, nvc_rpc_context_t *ctx) { attr._target = nvc_rpc_read_bool(ctx); } }
+#define NVC_UI_SET_HL_ATTR_INT(_target)     { #_target, [](nvc::UIHLAttr &attr, nvc_rpc_context_t *ctx) { attr._target = nvc_rpc_read_int(ctx); attr.has_##_target = true; } }
+#define NVC_UI_SET_HL_ATTR_COLOR(_target)   { #_target, [](nvc::UIHLAttr &attr, nvc_rpc_context_t *ctx) { attr._target = nvc_rpc_read_uint32(ctx); attr.has_##_target = true; } }
+#define NVC_UI_SET_HL_ATTR_UNDER(_target)   { #_target, [](nvc::UIHLAttr &attr, nvc_rpc_context_t *ctx) { if (nvc_rpc_read_bool(ctx)) attr.understyle = nvc::ui_under_style_##_target; } }
+static const nvc::DataSetterMap<nvc::UIHLAttr> nvc_ui_hl_attr_setters = {
+    NVC_UI_SET_HL_ATTR_COLOR(foreground),
+    NVC_UI_SET_HL_ATTR_COLOR(background),
+    NVC_UI_SET_HL_ATTR_COLOR(special),
+    NVC_UI_SET_HL_ATTR_INT(blend),
+    NVC_UI_SET_HL_ATTR_UNDER(underline),
+    NVC_UI_SET_HL_ATTR_UNDER(undercurl),
+    NVC_UI_SET_HL_ATTR_UNDER(underdouble),
+    NVC_UI_SET_HL_ATTR_UNDER(underdotted),
+    NVC_UI_SET_HL_ATTR_UNDER(underdashed),
+    NVC_UI_SET_HL_ATTR_BOOL(strikethrough),
+    NVC_UI_SET_HL_ATTR_BOOL(bold),
+    NVC_UI_SET_HL_ATTR_BOOL(italic),
+    NVC_UI_SET_HL_ATTR_BOOL(reverse),
+    NVC_UI_SET_HL_ATTR_BOOL(nocombine),
+};
+
 static inline int nvc_ui_redraw_action_hl_attr_define(nvc::UIContext *ctx, int items) {
     while (items-- > 0) {
         int narg = nvc_rpc_read_array_size(ctx->rpc());
         if (likely(narg >= 2)) {
             narg -= 2;
-            int hl_id = nvc_rpc_read_int(ctx->rpc());
-            nvc::UIColorSet colors;
-            for (int mn = nvc_rpc_read_map_size(ctx->rpc()); mn > 0; mn--) {
-                const auto& key = nvc_rpc_read_str(ctx->rpc());
-                const auto& p = nvc_ui_color_name_table.find(key);
-                if (unlikely(p != nvc_ui_color_name_table.end())) {
-                    colors[p->second] = nvc_rpc_read_uint32(ctx->rpc());
-                } else {
-                    NVLogW("nvc ui invalid hl attr %s", key.c_str());
-                    nvc_rpc_read_skip_items(ctx->rpc(), 1);
-                }
-            }
-            ctx->color().update_hl_attrs(hl_id, colors);
+            ctx->hl_attrs().update_hl_attrs(nvc_rpc_read_int(ctx->rpc()), nvc::parse_data_with_setter<nvc::UIHLAttr>(ctx, nvc_ui_hl_attr_setters));
         }
         nvc_rpc_read_skip_items(ctx->rpc(), narg);
     }
     return 0;
 }
 
-typedef void (*nvc_ui_hl_attrs_notification)(nvc::UIContext *ctx, const nvc::UIColorSet &attrs);
-
-static inline void nvc_ui_hl_attrs_notification_TabLineFill(nvc::UIContext *ctx, const nvc::UIColorSet &attrs) {
-    const auto& p = attrs.find(nvc::ui_color_code_background);
-    if (p != attrs.end()) {
-        ctx->cb().update_tab_background(ctx->userdata(), p->second);
+static inline void nvc_ui_hl_attrs_notification_TabLineFill(nvc::UIContext *ctx, const nvc::UIHLAttr &attrs) {
+    if (attrs.has_background) {
+        ctx->cb().update_tab_background(ctx->userdata(), attrs.background);
     }
 }
 
 #define NVC_UI_HL_ATTRS_NOTIFICATION(_action)    { #_action, nvc_ui_hl_attrs_notification_##_action }
-static const std::map<const std::string, nvc_ui_hl_attrs_notification> nvc_ui_hl_groups_notification = {
+static const std::unordered_map<std::string, const std::function<void(nvc::UIContext *, const nvc::UIHLAttr &)>> nvc_ui_hl_groups_notification = {
     NVC_UI_HL_ATTRS_NOTIFICATION(TabLineFill),
 };
 
 static inline void nvc_ui_notify_hl_attrs(nvc::UIContext *ctx, const std::string& name) {
     const auto& notification = nvc_ui_hl_groups_notification.find(name);
     if (notification != nvc_ui_hl_groups_notification.end()) {
-        auto colors = ctx->color().find_hl_colors(name);
-        if (colors != nullptr) {
-            notification->second(ctx, *colors);
+        auto hl_attr = ctx->hl_attrs().find_hl_attr(name);
+        if (hl_attr != nullptr) {
+            notification->second(ctx, *hl_attr);
         }
     }
 }
@@ -749,7 +726,7 @@ static inline int nvc_ui_redraw_action_hl_group_set(nvc::UIContext *ctx, int ite
         if (likely(narg >= 2)) {
             narg -= 2;
             const auto& name = nvc_rpc_read_str(ctx->rpc());
-            ctx->color().update_hl_groups(name, nvc_rpc_read_int(ctx->rpc()));
+            ctx->hl_attrs().update_hl_groups(name, nvc_rpc_read_int(ctx->rpc()));
             nvc_ui_notify_hl_attrs(ctx, name);
         }
         nvc_rpc_read_skip_items(ctx->rpc(), narg);
@@ -819,6 +796,21 @@ static inline int nvc_ui_redraw_action_grid_scroll(nvc::UIContext *ctx, int item
     return items;
 }
 
+typedef struct nvc_ui_tab {
+    nvc_rpc_object_handler_t    tab;
+    std::string                 name;
+    
+    inline bool operator==(const struct nvc_ui_tab& rhl) const {
+        return this->tab == rhl.tab && this->name == rhl.name;
+    }
+} nvc_ui_tab_t;
+
+#define NVC_UI_SET_UI_TAB_EXT(_target)      { #_target, [](nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx) { tab._target = nvc_rpc_read_ext_handle(ctx); } }
+#define NVC_UI_SET_UI_TAB_STR(_target)      { #_target, [](nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx) { tab._target = nvc_rpc_read_str(ctx); } }
+static const std::unordered_map<std::string, const std::function<void(nvc_ui_tab_t &, nvc_rpc_context_t *)>> nvc_ui_tab_setters = {
+    NVC_UI_SET_UI_TAB_EXT(tab),
+    NVC_UI_SET_UI_TAB_STR(name),
+};
 static inline int nvc_ui_redraw_action_tabline_update(nvc::UIContext *ctx, int items) {
     if (likely(items-- > 0)) {
         int narg = nvc_rpc_read_array_size(ctx->rpc());
@@ -833,8 +825,8 @@ static inline int nvc_ui_redraw_action_tabline_update(nvc::UIContext *ctx, int i
                 int mn = nvc_rpc_read_map_size(ctx->rpc());
                 while (mn-- > 0) {
                     const auto& name = nvc_rpc_read_str(ctx->rpc());
-                    const auto& p = nvc_ui_set_ui_tab_actions.find(name);
-                    if (likely(p != nvc_ui_set_ui_tab_actions.end())) {
+                    const auto& p = nvc_ui_tab_setters.find(name);
+                    if (likely(p != nvc_ui_tab_setters.end())) {
                         p->second(tab, ctx->rpc());
                     } else {
                         nvc_rpc_read_skip_items(ctx->rpc(), 1);
@@ -858,7 +850,7 @@ static inline int nvc_ui_redraw_action_tabline_update(nvc::UIContext *ctx, int i
 #define NVC_REDRAW_ACTION(_action)          { #_action, nvc_ui_redraw_action_##_action }
 #define NVC_REDRAW_ACTION_IGNORE(_action)   { #_action, nullptr }
 // NOTE: https://neovim.io/doc/user/ui.html
-static const std::map<const std::string, nvc_ui_action_t> nvc_ui_redraw_actions = {
+static const std::unordered_map<std::string, const std::function<int(nvc::UIContext *, int)>> nvc_ui_redraw_actions = {
     // Global Events
     NVC_REDRAW_ACTION_IGNORE(set_icon),
     NVC_REDRAW_ACTION(set_title),
@@ -937,7 +929,7 @@ static inline int nvc_ui_notification_action_redraw(nvc::UIContext *ctx, int ite
 }
 
 #define NVC_NOTIFICATION_ACTION(_action)    { #_action, nvc_ui_notification_action_##_action}
-static const std::map<const std::string, nvc_ui_action_t> nvc_ui_notification_actions = {
+static const std::unordered_map<std::string, const std::function<int(nvc::UIContext *, int)>> nvc_ui_notification_actions = {
     NVC_NOTIFICATION_ACTION(redraw),
 };
 

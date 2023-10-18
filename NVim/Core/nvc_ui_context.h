@@ -13,7 +13,6 @@
 #include "nvc_ui.h"
 #include "mvc_ui_mode.h"
 #include "nvc_ui_grid.h"
-#include "nvc_ui_color.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,14 +32,14 @@ private:
     bool                m_mode_enabled;
     bool                m_show_cursor;
     std::mutex          m_locker;
-    UIColor             m_color;
+    UIHLAttrGroups      m_hl_attrs;
     UIFont              m_font;
     UIMode              m_mode;
     UISize              m_window_size;
     CGRect              m_dirty_rect;
     UIGridMap           m_grids;
 public:
-    explicit UIContext(const nvc_ui_callback_t& cb, CGFloat font_size, void *userdata);
+    explicit UIContext(const nvc_ui_callback_t& cb, const nvc_ui_config_t& config, void *userdata);
     inline nvc_rpc_context_t* rpc() { return &m_rpc; }
     inline const nvc_ui_callback_t& cb() const { return m_cb; }
     inline void *userdata(void) const { return m_userdata; }
@@ -48,7 +47,7 @@ public:
     inline bool mode_enabled(void) const { return m_mode_enabled; }
     inline bool show_cursor(void) const { return m_show_cursor; }
     inline void show_cursor(bool value) { m_show_cursor = value; }
-    inline UIColor& color(void) { return m_color; }
+    inline UIHLAttrGroups& hl_attrs(void) { return m_hl_attrs; }
     inline UIFont& font(void) { return m_font; }
     inline UIMode& mode(void) { return m_mode; }
     inline const CGSize& cell_size(void) const { return m_font.glyph_size(); }

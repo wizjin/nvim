@@ -18,7 +18,6 @@
 		6D455A5C2ADBDA7900DD58A2 /* nvc_ui_cell.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A5A2ADBDA7900DD58A2 /* nvc_ui_cell.cpp */; };
 		6D455A5F2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A5D2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp */; };
 		6D455A622ADC14E500DD58A2 /* nvc_ui_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A602ADC14E500DD58A2 /* nvc_ui_context.cpp */; };
-		6D455A652ADC18EA00DD58A2 /* nvc_ui_color.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A632ADC18EA00DD58A2 /* nvc_ui_color.cpp */; };
 		6D455A682ADC307B00DD58A2 /* mvc_ui_mode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A662ADC307B00DD58A2 /* mvc_ui_mode.cpp */; };
 		6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FCF2AADF5DA00B25717 /* AppDelegate.m */; };
 		6D681FD22AADF5DB00B25717 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6D681FD12AADF5DB00B25717 /* Assets.xcassets */; };
@@ -29,6 +28,7 @@
 		6D6A336B2AB0AFE900BF791C /* NSString+Localized.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A33692AB0AFE900BF791C /* NSString+Localized.m */; };
 		6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A336E2AB0B03100BF791C /* NVEditView.m */; };
 		6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A336F2AB0B03100BF791C /* NVMainMenu.m */; };
+		6D8014752ADECCEF009559D1 /* nvc_ui_hl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D8014732ADECCEF009559D1 /* nvc_ui_hl.cpp */; };
 		6D8DEA472AC01918008C9552 /* NVEditViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D8DEA462AC01918008C9552 /* NVEditViewController.m */; };
 		6D8E43862AC705D8000E3DF2 /* NVView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D8E43852AC705D8000E3DF2 /* NVView.m */; };
 		6D8E43892AC70B57000E3DF2 /* NVTabView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D8E43882AC70B57000E3DF2 /* NVTabView.m */; };
@@ -77,8 +77,6 @@
 		6D455A5E2ADBDDBE00DD58A2 /* nvc_ui_grid.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_grid.h; sourceTree = "<group>"; };
 		6D455A602ADC14E500DD58A2 /* nvc_ui_context.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_context.cpp; sourceTree = "<group>"; };
 		6D455A612ADC14E500DD58A2 /* nvc_ui_context.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_context.h; sourceTree = "<group>"; };
-		6D455A632ADC18EA00DD58A2 /* nvc_ui_color.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_color.cpp; sourceTree = "<group>"; };
-		6D455A642ADC18EA00DD58A2 /* nvc_ui_color.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_color.h; sourceTree = "<group>"; };
 		6D455A662ADC307B00DD58A2 /* mvc_ui_mode.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = mvc_ui_mode.cpp; sourceTree = "<group>"; };
 		6D455A672ADC307B00DD58A2 /* mvc_ui_mode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mvc_ui_mode.h; sourceTree = "<group>"; };
 		6D681FCB2AADF5DA00B25717 /* NVim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NVim.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -101,6 +99,8 @@
 		6D6A336E2AB0B03100BF791C /* NVEditView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NVEditView.m; sourceTree = "<group>"; };
 		6D6A336F2AB0B03100BF791C /* NVMainMenu.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NVMainMenu.m; sourceTree = "<group>"; };
 		6D6A33722AB0B03100BF791C /* NVMainMenu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NVMainMenu.h; sourceTree = "<group>"; };
+		6D8014732ADECCEF009559D1 /* nvc_ui_hl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_hl.cpp; sourceTree = "<group>"; };
+		6D8014742ADECCEF009559D1 /* nvc_ui_hl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_hl.h; sourceTree = "<group>"; };
 		6D8DEA452AC01918008C9552 /* NVEditViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVEditViewController.h; sourceTree = "<group>"; };
 		6D8DEA462AC01918008C9552 /* NVEditViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVEditViewController.m; sourceTree = "<group>"; };
 		6D8E43842AC705D8000E3DF2 /* NVView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVView.h; sourceTree = "<group>"; };
@@ -181,6 +181,8 @@
 				6D3296CF2ADA5CF9009CFCEF /* nvc_util.cpp */,
 				6D6A047E2AB8A38800A78E12 /* nvc_rpc.h */,
 				6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */,
+				6D8014742ADECCEF009559D1 /* nvc_ui_hl.h */,
+				6D8014732ADECCEF009559D1 /* nvc_ui_hl.cpp */,
 				6D455A5B2ADBDA7900DD58A2 /* nvc_ui_cell.h */,
 				6D455A5A2ADBDA7900DD58A2 /* nvc_ui_cell.cpp */,
 				6D455A5E2ADBDDBE00DD58A2 /* nvc_ui_grid.h */,
@@ -189,8 +191,6 @@
 				6DD47B432ADD6FC200CA3048 /* nvc_ui_char.cpp */,
 				6D3296CD2ADA5233009CFCEF /* nvc_ui_font.h */,
 				6D3296CC2ADA5233009CFCEF /* nvc_ui_font.cpp */,
-				6D455A642ADC18EA00DD58A2 /* nvc_ui_color.h */,
-				6D455A632ADC18EA00DD58A2 /* nvc_ui_color.cpp */,
 				6D455A672ADC307B00DD58A2 /* mvc_ui_mode.h */,
 				6D455A662ADC307B00DD58A2 /* mvc_ui_mode.cpp */,
 				6D455A612ADC14E500DD58A2 /* nvc_ui_context.h */,
@@ -413,11 +413,11 @@
 				6D1E29602AB5853100E1AA79 /* NVTCPClient.m in Sources */,
 				6D8E43862AC705D8000E3DF2 /* NVView.m in Sources */,
 				6D6A04802AB8A38800A78E12 /* nvc_rpc.c in Sources */,
-				6D455A652ADC18EA00DD58A2 /* nvc_ui_color.cpp in Sources */,
 				6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */,
 				6D8DEA472AC01918008C9552 /* NVEditViewController.m in Sources */,
 				6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */,
 				6D3296D12ADA5CF9009CFCEF /* nvc_util.cpp in Sources */,
+				6D8014752ADECCEF009559D1 /* nvc_ui_hl.cpp in Sources */,
 				6D681FD72AADF5DB00B25717 /* main.m in Sources */,
 				6D8E43892AC70B57000E3DF2 /* NVTabView.m in Sources */,
 				6D3296CE2ADA5233009CFCEF /* nvc_ui_font.cpp in Sources */,

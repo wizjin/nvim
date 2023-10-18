@@ -34,8 +34,8 @@ typedef struct nvc_ui_callback {
 } nvc_ui_callback_t;
 
 typedef struct nvc_ui_config {
-    CTFontRef   font;
     CGFloat     font_size;
+    CGFloat     scale_factor;
 } nvc_ui_config_t;
 
 typedef struct nvc_ui_key_flags {
