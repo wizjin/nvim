@@ -6,7 +6,7 @@
 //
 
 #include "nvc_ui_font.h"
-#include "nvc_util.h"
+#include "nvc_ui_render.h"
 
 #define kNvcUiFontUserMax               32
 #define kNvcUiFontGlyphCacheSize        2048
@@ -74,7 +74,7 @@ static inline void find_glyph(const CTFontList& fonts, UniChar *c, uint8_t n, CT
     CGGlyph glyphs[2] = { 0, 0 };
     for (const auto& p : fonts) {
         info.font = &p;
-        if (info.font->find_glyphs(c, glyphs, n) && glyphs[0] != 0) {
+        if (info.font->find_glyphs(c, glyphs, n)) {
             info.glyph = glyphs[0];
             break;
         }
@@ -208,7 +208,7 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
             }
             if (info.glyph == 0 && info.is_emoji) {
                 info.font = load_emoji();
-                if (likely(info.font != nullptr && info.font->find_glyphs(c, glyphs, n) && glyphs[0] != 0)) {
+                if (likely(info.font != nullptr && info.font->find_glyphs(c, glyphs, n))) {
                     info.glyph = glyphs[0];
                 }
             }
@@ -223,20 +223,18 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
     return result;
 }
 
-void UIFont::draw(CGContextRef context, UnicodeChar ch, ui_color_t color, const UIPoint& pt) {
+void UIFont::draw(UIRender& render, UnicodeChar ch, const UIPoint& pt) {
     CTGlyphInfo *info = load_glyph(ch);
     if (likely(info != nullptr && info->font != nullptr) && !info->is_skip) {
         if (!info->is_space) {
-            info->font->draw(context, info->glyph, color, pt);
+            render.draw_glyph(static_cast<CTFontRef>(*info->font), info->glyph, pt);
         }
         if (info->font->underline()) {
             CGFloat y = pt.y - m_underline;
             CGFloat width = m_glyph_size.width;
-            ui_set_stroke_color(context, color);
-            CGContextBeginPath(context);
-            CGContextMoveToPoint(context, pt.x, y);
-            CGContextAddLineToPoint(context, pt.x + (info->is_wide ? width * 2 : width), y);
-            CGContextStrokePath(context);
+            render.set_stroke_color(render.text_color());
+            render.line_width(m_underline);
+            render.draw_line(pt.x, y, pt.x + (info->is_wide ? width * 2 : width), y);
         }
     }
 }

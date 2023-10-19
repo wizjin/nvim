@@ -34,6 +34,8 @@
         drawLayer.masksToBounds = YES;
         drawLayer.doubleSided = NO;
         drawLayer.delegate = self;
+        
+        [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
     }
     return self;
 }

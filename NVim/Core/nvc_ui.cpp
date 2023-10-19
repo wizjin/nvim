@@ -110,7 +110,7 @@ nvc_ui_context_t *nvc_ui_create(int inskt, int outskt, const nvc_ui_config_t *co
 }
 
 void nvc_ui_destroy(nvc_ui_context_t *ptr) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (ctx != nullptr) {
         nvc_rpc_final(ctx->rpc());
         for (const auto& p : ctx->grids()) {
@@ -123,7 +123,7 @@ void nvc_ui_destroy(nvc_ui_context_t *ptr) {
 
 bool nvc_ui_is_attached(nvc_ui_context_t *ptr) {
     bool res = false;
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr)) {
         res = ctx->attached();
     }
@@ -131,7 +131,7 @@ bool nvc_ui_is_attached(nvc_ui_context_t *ptr) {
 }
 
 CGSize nvc_ui_attach(nvc_ui_context_t *ptr, CGSize size) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr) && ctx->attach(size)) {
         const auto& wndSize = ctx->window_size();
         nvc_rpc_call_const_begin(ctx->rpc(), "nvim_ui_attach", 3);
@@ -151,7 +151,7 @@ CGSize nvc_ui_attach(nvc_ui_context_t *ptr, CGSize size) {
 }
 
 void nvc_ui_detach(nvc_ui_context_t *ptr) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr) && ctx->detach()) {
         nvc_rpc_call_const_begin(ctx->rpc(), "nvim_ui_detach", 0);
         nvc_rpc_call_end(ctx->rpc());
@@ -159,14 +159,14 @@ void nvc_ui_detach(nvc_ui_context_t *ptr) {
 }
 
 void nvc_ui_redraw(nvc_ui_context_t *ptr, CGContextRef context) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr && context != nullptr)) {
         ctx->draw(context);
     }
 }
 
 CGSize nvc_ui_resize(nvc_ui_context_t *ptr, CGSize size) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr) && ctx->update_size(size)) {
         const auto& wndSize = ctx->window_size();
         nvc_rpc_call_const_begin(ctx->rpc(), "nvim_ui_try_resize", 2);
@@ -179,8 +179,8 @@ CGSize nvc_ui_resize(nvc_ui_context_t *ptr, CGSize size) {
 }
 
 CGFloat nvc_ui_get_line_height(nvc_ui_context_t *ptr) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
     CGFloat height = 0;
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr && ctx->attached())) {
         height = ctx->cell_size().height;
     }
@@ -188,8 +188,8 @@ CGFloat nvc_ui_get_line_height(nvc_ui_context_t *ptr) {
 }
 
 CGPoint nvc_ui_get_cursor_position(nvc_ui_context_t *ptr) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
     CGPoint pt = CGPointZero;
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr)) {
         pt = ctx->find_cursor();
     }
@@ -197,7 +197,7 @@ CGPoint nvc_ui_get_cursor_position(nvc_ui_context_t *ptr) {
 }
 
 void nvc_ui_open_file(nvc_ui_context_t *ptr, const char *file, uint32_t len, bool new_tab) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr && ctx->attached() && len > 0)) {
         nvc_rpc_call_command_const_begin(ctx->rpc(), (new_tab ? "tabnew" : "edit"), 1);
         nvc_rpc_write_str(ctx->rpc(), file, len);
@@ -206,7 +206,7 @@ void nvc_ui_open_file(nvc_ui_context_t *ptr, const char *file, uint32_t len, boo
 }
 
 void nvc_ui_tab_next(nvc_ui_context_t *ptr, int count) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr && ctx->attached())) {
         nvc_rpc_call_command_const_begin(ctx->rpc(), "tabnext", 1);
         nvc_rpc_write_signed(ctx->rpc(), count);
@@ -401,7 +401,7 @@ void nvc_ui_input_keystr(nvc_ui_context_t *ctx, nvc_ui_key_flags_t flags, const 
 }
 
 void nvc_ui_input_rawkey(nvc_ui_context_t *ptr, const char* keys, uint32_t len) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr && ctx->attached())) {
         nvc_rpc_call_const_begin(ctx->rpc(), "nvim_input", 1);
         nvc_rpc_write_str(ctx->rpc(), keys, len);
@@ -418,7 +418,7 @@ static const std::string nvc_ui_mouse_key_name[]  = { NVC_UI_MOUSE_KEY_LIST };
 static const std::string nvc_ui_mouse_action_name[]  = { NVC_UI_MOUSE_ACTION_LIST };
 
 void nvc_ui_input_mouse(nvc_ui_context_t *ptr, nvc_ui_mouse_info_t mouse) {
-    nvc::UIContext *ctx = static_cast<nvc::UIContext *>(ptr);
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr && ctx->attached())) {
         nvc_rpc_call_const_begin(ctx->rpc(), "nvim_input_mouse", 6);
         nvc_rpc_write_string(ctx->rpc(), nvc_ui_mouse_key_name[mouse.key]);
@@ -713,7 +713,7 @@ static const std::unordered_map<std::string, const std::function<void(nvc::UICon
 static inline void nvc_ui_notify_hl_attrs(nvc::UIContext *ctx, const std::string& name) {
     const auto& notification = nvc_ui_hl_groups_notification.find(name);
     if (notification != nvc_ui_hl_groups_notification.end()) {
-        auto hl_attr = ctx->hl_attrs().find_hl_attr(name);
+        const auto hl_attr = ctx->hl_attrs().find_hl_attr(name);
         if (hl_attr != nullptr) {
             notification->second(ctx, *hl_attr);
         }
@@ -965,7 +965,7 @@ static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items) {
         if (unlikely(p == nvc_ui_notification_actions.end())) {
             NVLogW("nvc ui unknown notification action: %s", action.c_str());
         } else if (likely(items-- > 0)) {
-            nvc_rpc_read_skip_items(ctx, p->second((nvc::UIContext *)nvc_rpc_get_userdata(ctx), nvc_rpc_read_array_size(ctx)));
+            nvc_rpc_read_skip_items(ctx, p->second(reinterpret_cast<nvc::UIContext *>(nvc_rpc_get_userdata(ctx)), nvc_rpc_read_array_size(ctx)));
         }
     }
     return items;
@@ -973,7 +973,7 @@ static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items) {
 
 static int nvc_ui_close_handler(nvc_rpc_context_t *ctx, int items) {
     if (ctx != nullptr) {
-        nvc::UIContext *ui_ctx = (nvc::UIContext *)nvc_rpc_get_userdata(ctx);
+        auto ui_ctx = reinterpret_cast<nvc::UIContext *>(nvc_rpc_get_userdata(ctx));
         ui_ctx->cb().close(ui_ctx->userdata());
     }
     return items;

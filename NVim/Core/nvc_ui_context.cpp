@@ -6,6 +6,7 @@
 //
 
 #include "nvc_ui_context.h"
+#include "nvc_ui_render.h"
 
 namespace nvc {
 
@@ -49,7 +50,7 @@ void UIContext::update_dirty(const UIRect& dirty) {
 bool UIContext::update_size(const CGSize& size) {
     bool res = false;
     if (likely(m_attached)) {
-        UISize wnd_size = size2cell(size);
+        const auto& wnd_size = size2cell(size);
         if (m_window_size != wnd_size) {
             m_window_size = wnd_size;
             res = true;
@@ -61,9 +62,10 @@ bool UIContext::update_size(const CGSize& size) {
 void UIContext::draw(CGContextRef context) {
     if (likely(m_attached)) {
         nvc_lock_guard_t guard(m_locker);
-        UIRect rc = rect2cell(CGContextGetClipBoundingBox(context));
+        UIRender render(*this, context);
+        const auto& rc = rect2cell(CGContextGetClipBoundingBox(context));
         for (const auto& item : m_grids) {
-            item.second->draw(*this, context, rc);
+            item.second->draw(render, rc);
         }
     }
 }

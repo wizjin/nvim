@@ -52,7 +52,7 @@ public:
     }
     inline const UIModeInfo *info(void) const {
         const UIModeInfo *res = nullptr;
-        if (likely(m_index < m_infos.size())) {
+        if (likely(m_index >= 0 && m_index < m_infos.size())) {
             res = m_infos.data() + m_index;
         }
         return res;

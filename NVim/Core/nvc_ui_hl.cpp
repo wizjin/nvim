@@ -51,5 +51,14 @@ const UIHLAttr* UIHLAttrGroups::find_hl_attr(const std::string& name) const {
     return hl_attr;
 }
 
+const UIHLAttr* UIHLAttrGroups::find_hl_attr(int32_t hl) const {
+    const UIHLAttr* hl_attr = nullptr;
+    const auto& p = m_hl_attrs.find(hl);
+    if (likely(p != m_hl_attrs.end())) {
+        hl_attr = &p->second;
+    }
+    return hl_attr;
+}
+
 
 }

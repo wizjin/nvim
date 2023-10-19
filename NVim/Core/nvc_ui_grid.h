@@ -19,7 +19,7 @@ extern "C" {
 #ifdef __cplusplus
 namespace nvc {
 
-class UIContext;
+class UIRender;
 
 class UIGrid {
 private:
@@ -37,7 +37,7 @@ public:
     void skip_cell(const UIPoint& pt);
     UIRect scroll(const UIRect& rect, int32_t rows);
     void update(const UIPoint& pt, int32_t count, UnicodeChar ch, int32_t hl_id);
-    void draw(UIContext& ctx, CGContextRef context, const UIRect& dirty) const;
+    void draw(UIRender& render, const UIRect& dirty) const;
 };
 
 

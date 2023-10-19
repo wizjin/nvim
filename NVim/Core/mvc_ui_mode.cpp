@@ -10,7 +10,6 @@
 namespace nvc {
 
 UIMode::UIMode() : m_index(0), m_enabled(false) {
-    
 }
 
 }

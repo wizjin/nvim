@@ -18,6 +18,8 @@ extern "C" {
 #ifdef __cplusplus
 namespace nvc {
 
+class UIRender;
+
 class CTFontHolder {
 private:
     CTFontRef   m_font;
@@ -55,15 +57,7 @@ public:
     }
     
     inline bool find_glyphs(const UniChar chs[], CGGlyph glyphs[], uint8_t count) const {
-        return (likely(m_font != nullptr) && CTFontGetGlyphsForCharacters(m_font, chs, glyphs, count));
-    }
-    
-    inline void draw(CGContextRef context, CGGlyph glyph, ui_color_t color, const UIPoint& pt) const {
-        if (likely(m_font != nullptr)) {
-            ui_set_fill_color(context, color);
-            CGContextSetTextPosition(context, pt.x, pt.y);
-            CTFontDrawGlyphs(m_font, &glyph, &CGPointZero, 1, context);
-        }
+        return likely(m_font != nullptr) && CTFontGetGlyphsForCharacters(m_font, chs, glyphs, count) && glyphs[0] != 0;
     }
 
 };
@@ -102,10 +96,12 @@ public:
     explicit UIFont(CGFloat font_size, CGFloat scale_factor);
     inline CGFloat font_offset(void) const { return m_font_offset; }
     inline const CGSize& glyph_size(void) const { return m_glyph_size; }
+    inline CGFloat underline_position(void) const { return m_underline_position; }
+    inline CGFloat scale_factor(void) const { return m_scale_factor; }
     void emoji(bool on);
     bool load(const std::string& value);
     bool load_wide(const std::string& value);
-    void draw(CGContextRef context, UnicodeChar ch, ui_color_t color, const UIPoint& pt);
+    void draw(UIRender& render, UnicodeChar ch, const UIPoint& pt);
 
 };
 

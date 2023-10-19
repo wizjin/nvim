@@ -20,17 +20,7 @@ namespace nvc {
 
 typedef uint32_t ui_color_t;
 
-#define kNvcUiColorWhite                    ((ui_color_t)0xffffffff)
-
-static inline void ui_set_fill_color(CGContextRef context, ui_color_t rgb) {
-    const uint8_t *c = (const uint8_t *)&rgb;
-    CGContextSetRGBFillColor(context, c[2]/255.0, c[1]/255.0, c[0]/255.0, 1.0);
-}
-
-static inline void ui_set_stroke_color(CGContextRef context, ui_color_t rgb) {
-    const uint8_t *c = (const uint8_t *)&rgb;
-    CGContextSetRGBStrokeColor(context, c[2]/255.0, c[1]/255.0, c[0]/255.0, 1.0);
-}
+#define kNvcUiColorWhite            ((ui_color_t)0xffffffff)
 
 enum UIUnderStyle: uint8_t {
     ui_under_style_none             = 0,
@@ -60,8 +50,8 @@ struct UIHLAttr {
 
 class UIHLAttrGroups {
 private:
-    typedef std::map<int32_t, UIHLAttr>     UIHLAttrMap;
-    typedef std::map<std::string, int32_t>  UIGroupMap;
+    typedef std::unordered_map<int32_t, UIHLAttr>       UIHLAttrMap;
+    typedef std::unordered_map<std::string, int32_t>    UIGroupMap;
 
     ui_color_t      m_default_foreground;
     ui_color_t      m_default_background;
@@ -78,12 +68,11 @@ public:
     inline void update_hl_attrs(int32_t hl, const UIHLAttr& hl_attr) { m_hl_attrs[hl] = hl_attr; }
     inline void update_hl_groups(const std::string& name, int32_t hl) { m_hl_groups[name] = hl; }
     const UIHLAttr* find_hl_attr(const std::string& name) const;
+    const UIHLAttr* find_hl_attr(int32_t hl) const;
     ui_color_t find_hl_foreground(int32_t hl) const;
     ui_color_t find_hl_background(int32_t hl) const;
     ui_color_t find_hl_special(int32_t hl) const;
 };
-
-//
 
 }
 #endif

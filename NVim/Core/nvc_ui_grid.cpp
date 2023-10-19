@@ -6,7 +6,7 @@
 //
 
 #include "nvc_ui_grid.h"
-#include "nvc_ui_context.h"
+#include "nvc_ui_render.h"
 
 namespace nvc {
 
@@ -38,7 +38,7 @@ void UIGrid::skip_cell(const UIPoint& pt) {
 }
 
 UIRect UIGrid::scroll(const UIRect& rect, int32_t rows) {
-    if (likely(rows != 0 && rect.width() > 0 && rect.height() > 0)) {
+    if (likely(rows != 0 && !rect.empty())) {
         UICell *cells = m_cells.data() + rect.left();
         size_t size = sizeof(UICell) * rect.width();
         if (rows < 0) {
@@ -69,20 +69,13 @@ void UIGrid::update(const UIPoint& pt, int32_t count, UnicodeChar ch, int32_t hl
     }
 }
 
-void UIGrid::draw(UIContext& ctx, CGContextRef context, const UIRect& dirty) const {
+void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
     CGPoint pt;
-    CGSize size = ctx.cell_size();
-    UISize wndSize = ctx.window_size();
-    CGFloat font_offset = size.height - ctx.font().font_offset();
-    int32_t last_hl_id = 0;
+    CGSize size = render.ctx().cell_size();
+    UISize wndSize = render.ctx().window_size();
     int32_t width = std::min(wndSize.width, dirty.right());
     int32_t height = std::min(wndSize.height, dirty.bottom());
-    bool need_cursor = ctx.mode_enabled() && ctx.show_cursor() && dirty.contains(m_cursor);
-    const auto& hl_attrs = ctx.hl_attrs();
-    auto& font = ctx.font();
-    ui_color_t fg = hl_attrs.default_foreground();
-    ui_color_t bg = hl_attrs.default_background();
-    ui_color_t sp = hl_attrs.default_special();
+    bool need_cursor = render.need_cursor() && dirty.contains(m_cursor);
     for (int j = dirty.y(); j < height; j++) {
         int i = dirty.x();
         pt.y = size.height * j;
@@ -93,39 +86,71 @@ void UIGrid::draw(UIContext& ctx, CGContextRef context, const UIRect& dirty) con
         for (; i < width; i++) {
             if (!cell->is_skip) {
                 pt.x = size.width * i;
-                if (cell->hl_id != last_hl_id) {
-                    last_hl_id = cell->hl_id;
-                    fg = hl_attrs.find_hl_foreground(last_hl_id);
-                    bg = hl_attrs.find_hl_background(last_hl_id);
-                    sp = hl_attrs.find_hl_special(last_hl_id);
-                }
+                const auto cell_hl = render.update_hl_id(cell->hl_id);
                 CGFloat cellWidth = size.width;
                 if (cell->is_wide) cellWidth *= 2;
-                if (last_hl_id != 0) {
-                    ui_set_fill_color(context, bg);
-                    CGContextFillRect(context, CGRectMake(pt.x, pt.y, cellWidth, size.height));
-                }
-                uint32_t tc = fg;
+                render.draw_background(CGRectMake(pt.x, pt.y, cellWidth, size.height));
                 if (need_cursor && m_cursor.x == i && m_cursor.y == j) {
-                    const auto info = ctx.mode().info();
-                    if (info != nullptr) {
-                        ui_set_fill_color(context, hl_attrs.find_hl_foreground(info->attr_id));
+                    const auto info = render.mode_info();
+                    if (likely(info != nullptr)) {
+                        render.set_fill_color(render.hl_attrs().find_hl_foreground(info->attr_id));
                         if (info->cursor_shape == "block") {
-                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, cellWidth, size.height));
-                            tc = hl_attrs.find_hl_background(info->attr_id);
+                            render.draw_rect(CGRectMake(pt.x, pt.y, cellWidth, size.height));
+                            render.text_color(render.hl_attrs().find_hl_background(info->attr_id));
                         } else if (info->cursor_shape == "horizontal") {
-                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, size.width, info->calc_cell_percentage(size.height)));
+                            render.draw_rect(CGRectMake(pt.x, pt.y, size.width, info->calc_cell_percentage(size.height)));
                         } else if (info->cursor_shape == "vertical") {
-                            CGContextFillRect(context, CGRectMake(pt.x, pt.y, info->calc_cell_percentage(size.width), size.height));
+                            render.draw_rect(CGRectMake(pt.x, pt.y, info->calc_cell_percentage(size.width), size.height));
                         }
                     }
                 }
-                font.draw(context, cell->ch, tc, UIPoint(pt.x, pt.y + font_offset));
+                CGFloat ypos = pt.y + render.font_offset();
+                render.font().draw(render, cell->ch, UIPoint(pt.x, ypos));
+                if (cell_hl != nullptr) {
+                    if (cell_hl->understyle != ui_under_style_none) {
+                        CGFloat underline_position = render.font().underline_position();
+                        CGFloat line_position = ypos - underline_position;
+                        render.set_stroke_color(render.stroke_color());
+                        render.line_width(render.one_pixel());
+                        switch (cell_hl->understyle) {
+                            case ui_under_style_underline:
+                                render.line_dash(nullptr, 0);
+                                render.draw_line(pt.x, line_position, pt.x + cellWidth, line_position);
+                                break;
+                            case ui_under_style_undercurl:
+                                render.line_dash(nullptr, 0);
+                                render.draw_wavy_line(pt.x, line_position, size.width, std::floor(underline_position - 1)*0.5, cell->is_wide);
+                                break;
+                            case ui_under_style_underdouble:
+                                render.line_dash(nullptr, 0);
+                                line_position -= render.one_pixel() * 2;
+                                render.draw_line(pt.x, line_position, pt.x + cellWidth, line_position);
+                                line_position += render.one_pixel() * 4;
+                                render.draw_line(pt.x, line_position, pt.x + cellWidth, line_position);
+                                break;
+                            case ui_under_style_underdotted:
+                                render.line_dash((CGFloat[2]){ 1, size.width/3.0 - 1 }, 2);
+                                render.draw_line(pt.x, line_position, pt.x + cellWidth, line_position);
+                                break;
+                            case ui_under_style_underdashed:
+                                render.line_dash((CGFloat[4]){ size.width*0.4, size.width*0.3 - 0.5, 1, size.width*0.3 - 0.5 }, 4);
+                                render.draw_line(pt.x, line_position, pt.x + cellWidth, line_position);
+                                break;
+                            default: break;
+                        }
+                    }
+                    if (cell_hl->strikethrough) {
+                        CGFloat line_position = pt.y + size.height/2;
+                        render.set_stroke_color(render.stroke_color());
+                        render.line_dash(nullptr, 0);
+                        render.draw_line(pt.x, line_position, pt.x + cellWidth, line_position);
+                    }
+                }
             }
             cell++;
         }
     }
-    
+
 }
 
 }
