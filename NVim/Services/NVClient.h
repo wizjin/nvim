@@ -18,7 +18,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)client:(NVClient *)client updateBackground:(NSColor *)color;
 - (void)client:(NVClient *)client updateTabBackground:(NSColor *)color;
 - (void)client:(NVClient *)client updateTabList:(BOOL)listUpdated;
-- (void)client:(NVClient *)client updateMouse:(BOOL)enabled;
+- (void)client:(NVClient *)client enableMouse:(BOOL)enabled;
+- (void)client:(NVClient *)client enableMouseMove:(BOOL)enabled;
 - (void)client:(NVClient *)client hideTabline:(BOOL)hidden;
 - (void)clientUpdated:(NVClient *)client;
 - (void)clientClosed:(NVClient *)client;
@@ -30,6 +31,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, strong) NSString *info;
 @property (nonatomic, readonly, assign) CGFloat lineHeight;
 @property (nonatomic, readonly, assign) CGPoint cursorPosition;
+@property (nonatomic, readwrite, assign) BOOL autoHideMouse;
 
 - (BOOL)isAttached;
 - (void)openWithRead:(int)read write:(int)write;
@@ -45,6 +47,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)scrollWheel:(NSEvent *)event inView:(NSView *)view;
 - (void)mouseUp:(NSEvent *)event inView:(NSView *)view;
 - (void)mouseDown:(NSEvent *)event inView:(NSView *)view;
+- (void)mouseMoved:(NSEvent *)event inView:(NSView *)view;
 - (void)mouseDragged:(NSEvent *)event inView:(NSView *)view;
 - (void)rightMouseUp:(NSEvent *)event inView:(NSView *)view;
 - (void)rightMouseDown:(NSEvent *)event inView:(NSView *)view;

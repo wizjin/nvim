@@ -11,23 +11,32 @@
 		6D1E29632AB58B5300E1AA79 /* NSString+NVExt.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D1E29622AB58B5300E1AA79 /* NSString+NVExt.m */; };
 		6D2028442AB20034008B3E3B /* NVClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D2028432AB20034008B3E3B /* NVClient.m */; };
 		6D20284D2AB20347008B3E3B /* cwpack.c in Sources */ = {isa = PBXBuildFile; fileRef = 6D20284B2AB20347008B3E3B /* cwpack.c */; };
+		6D3296CA2ADA125D009CFCEF /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 6D3296C92ADA125D009CFCEF /* Localizable.xcstrings */; };
+		6D3296CE2ADA5233009CFCEF /* nvc_ui_font.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D3296CC2ADA5233009CFCEF /* nvc_ui_font.cpp */; };
+		6D3296D12ADA5CF9009CFCEF /* nvc_util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D3296CF2ADA5CF9009CFCEF /* nvc_util.cpp */; };
 		6D3C11742ABB4BFB00BDFE31 /* nvc_ui.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D3C11722ABB4BFB00BDFE31 /* nvc_ui.cpp */; };
+		6D455A5C2ADBDA7900DD58A2 /* nvc_ui_cell.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A5A2ADBDA7900DD58A2 /* nvc_ui_cell.cpp */; };
+		6D455A5F2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A5D2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp */; };
+		6D455A622ADC14E500DD58A2 /* nvc_ui_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A602ADC14E500DD58A2 /* nvc_ui_context.cpp */; };
+		6D455A682ADC307B00DD58A2 /* mvc_ui_mode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A662ADC307B00DD58A2 /* mvc_ui_mode.cpp */; };
 		6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FCF2AADF5DA00B25717 /* AppDelegate.m */; };
 		6D681FD22AADF5DB00B25717 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6D681FD12AADF5DB00B25717 /* Assets.xcassets */; };
 		6D681FD72AADF5DB00B25717 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FD62AADF5DB00B25717 /* main.m */; };
 		6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FED2AADFC0800B25717 /* NVLogger.m */; };
 		6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FF02AADFC3F00B25717 /* NVUtils.m */; };
 		6D6A04802AB8A38800A78E12 /* nvc_rpc.c in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */; };
-		6D6A33672AB0AF9800BF791C /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6D6A33652AB0AF9800BF791C /* Localizable.strings */; };
 		6D6A336B2AB0AFE900BF791C /* NSString+Localized.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A33692AB0AFE900BF791C /* NSString+Localized.m */; };
 		6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A336E2AB0B03100BF791C /* NVEditView.m */; };
 		6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A336F2AB0B03100BF791C /* NVMainMenu.m */; };
+		6D8014752ADECCEF009559D1 /* nvc_ui_hl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D8014732ADECCEF009559D1 /* nvc_ui_hl.cpp */; };
 		6D8DEA472AC01918008C9552 /* NVEditViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D8DEA462AC01918008C9552 /* NVEditViewController.m */; };
 		6D8E43862AC705D8000E3DF2 /* NVView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D8E43852AC705D8000E3DF2 /* NVView.m */; };
 		6D8E43892AC70B57000E3DF2 /* NVTabView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D8E43882AC70B57000E3DF2 /* NVTabView.m */; };
 		6D9989902ABCA5C60001F1A6 /* NVSTDClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D99898F2ABCA5C60001F1A6 /* NVSTDClient.m */; };
 		6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */ = {isa = PBXBuildFile; fileRef = 6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */; };
 		6DB9E2A82ABF17C000F6D444 /* nvim in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6DB9E2A22ABF094E00F6D444 /* nvim */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		6DD47B452ADD6FC200CA3048 /* nvc_ui_char.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6DD47B432ADD6FC200CA3048 /* nvc_ui_char.cpp */; };
+		6DDFCFEB2AE09FC200D1957F /* nvc_ui_render.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6DDFCFE92AE09FC200D1957F /* nvc_ui_render.cpp */; };
 		C4413092ED5EE9FA5A597797 /* libPods-NVim.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */; };
 /* End PBXBuildFile section */
 
@@ -56,8 +65,21 @@
 		6D20284A2AB20347008B3E3B /* cwpack_config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cwpack_config.h; path = Venders/CWPack/cwpack_config.h; sourceTree = SOURCE_ROOT; };
 		6D20284B2AB20347008B3E3B /* cwpack.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cwpack.c; path = Venders/CWPack/cwpack.c; sourceTree = SOURCE_ROOT; };
 		6D20284C2AB20347008B3E3B /* cwpack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cwpack.h; path = Venders/CWPack/cwpack.h; sourceTree = SOURCE_ROOT; };
+		6D3296C92ADA125D009CFCEF /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		6D3296CC2ADA5233009CFCEF /* nvc_ui_font.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_font.cpp; sourceTree = "<group>"; };
+		6D3296CD2ADA5233009CFCEF /* nvc_ui_font.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_font.h; sourceTree = "<group>"; };
+		6D3296CF2ADA5CF9009CFCEF /* nvc_util.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_util.cpp; sourceTree = "<group>"; };
+		6D3296D02ADA5CF9009CFCEF /* nvc_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_util.h; sourceTree = "<group>"; };
 		6D3C11722ABB4BFB00BDFE31 /* nvc_ui.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui.cpp; sourceTree = "<group>"; };
 		6D3C11732ABB4BFB00BDFE31 /* nvc_ui.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui.h; sourceTree = "<group>"; };
+		6D455A5A2ADBDA7900DD58A2 /* nvc_ui_cell.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_cell.cpp; sourceTree = "<group>"; };
+		6D455A5B2ADBDA7900DD58A2 /* nvc_ui_cell.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_cell.h; sourceTree = "<group>"; };
+		6D455A5D2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_grid.cpp; sourceTree = "<group>"; };
+		6D455A5E2ADBDDBE00DD58A2 /* nvc_ui_grid.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_grid.h; sourceTree = "<group>"; };
+		6D455A602ADC14E500DD58A2 /* nvc_ui_context.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_context.cpp; sourceTree = "<group>"; };
+		6D455A612ADC14E500DD58A2 /* nvc_ui_context.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_context.h; sourceTree = "<group>"; };
+		6D455A662ADC307B00DD58A2 /* mvc_ui_mode.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = mvc_ui_mode.cpp; sourceTree = "<group>"; };
+		6D455A672ADC307B00DD58A2 /* mvc_ui_mode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mvc_ui_mode.h; sourceTree = "<group>"; };
 		6D681FCB2AADF5DA00B25717 /* NVim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NVim.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D681FCE2AADF5DA00B25717 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		6D681FCF2AADF5DA00B25717 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -72,13 +94,14 @@
 		6D681FF02AADFC3F00B25717 /* NVUtils.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVUtils.m; sourceTree = "<group>"; };
 		6D6A047E2AB8A38800A78E12 /* nvc_rpc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_rpc.h; sourceTree = "<group>"; };
 		6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = nvc_rpc.c; sourceTree = "<group>"; };
-		6D6A33662AB0AF9800BF791C /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = Base.lproj/Localizable.strings; sourceTree = "<group>"; };
 		6D6A33692AB0AFE900BF791C /* NSString+Localized.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+Localized.m"; sourceTree = "<group>"; };
 		6D6A336A2AB0AFE900BF791C /* NSString+Localized.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+Localized.h"; sourceTree = "<group>"; };
 		6D6A336D2AB0B03100BF791C /* NVEditView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NVEditView.h; sourceTree = "<group>"; };
 		6D6A336E2AB0B03100BF791C /* NVEditView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NVEditView.m; sourceTree = "<group>"; };
 		6D6A336F2AB0B03100BF791C /* NVMainMenu.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NVMainMenu.m; sourceTree = "<group>"; };
 		6D6A33722AB0B03100BF791C /* NVMainMenu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NVMainMenu.h; sourceTree = "<group>"; };
+		6D8014732ADECCEF009559D1 /* nvc_ui_hl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_hl.cpp; sourceTree = "<group>"; };
+		6D8014742ADECCEF009559D1 /* nvc_ui_hl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_hl.h; sourceTree = "<group>"; };
 		6D8DEA452AC01918008C9552 /* NVEditViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVEditViewController.h; sourceTree = "<group>"; };
 		6D8DEA462AC01918008C9552 /* NVEditViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVEditViewController.m; sourceTree = "<group>"; };
 		6D8E43842AC705D8000E3DF2 /* NVView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVView.h; sourceTree = "<group>"; };
@@ -91,6 +114,10 @@
 		6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSColor+NVExt.m"; sourceTree = "<group>"; };
 		6DB9E2A12ABF094E00F6D444 /* nvim.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = nvim.entitlements; path = Venders/NeoVim/nvim.entitlements; sourceTree = SOURCE_ROOT; };
 		6DB9E2A22ABF094E00F6D444 /* nvim */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = nvim; path = Venders/NeoVim/nvim; sourceTree = SOURCE_ROOT; };
+		6DD47B432ADD6FC200CA3048 /* nvc_ui_char.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_char.cpp; sourceTree = "<group>"; };
+		6DD47B442ADD6FC200CA3048 /* nvc_ui_char.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_char.h; sourceTree = "<group>"; };
+		6DDFCFE92AE09FC200D1957F /* nvc_ui_render.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_render.cpp; sourceTree = "<group>"; };
+		6DDFCFEA2AE09FC200D1957F /* nvc_ui_render.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_render.h; sourceTree = "<group>"; };
 		95844A96CB9BC84A72565201 /* Pods-NVim.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.debug.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.debug.xcconfig"; sourceTree = "<group>"; };
 		CED193A2A6409B458DD5A4C3 /* Pods-NVim.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.release.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -124,10 +151,6 @@
 				6D1E295F2AB5853100E1AA79 /* NVTCPClient.m */,
 				6D99898E2ABCA5C60001F1A6 /* NVSTDClient.h */,
 				6D99898F2ABCA5C60001F1A6 /* NVSTDClient.m */,
-				6D3C11732ABB4BFB00BDFE31 /* nvc_ui.h */,
-				6D3C11722ABB4BFB00BDFE31 /* nvc_ui.cpp */,
-				6D6A047E2AB8A38800A78E12 /* nvc_rpc.h */,
-				6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -152,6 +175,35 @@
 			name = CWPack;
 			sourceTree = "<group>";
 		};
+		6D3296CB2ADA14AE009CFCEF /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				6D3C11732ABB4BFB00BDFE31 /* nvc_ui.h */,
+				6D3C11722ABB4BFB00BDFE31 /* nvc_ui.cpp */,
+				6D3296D02ADA5CF9009CFCEF /* nvc_util.h */,
+				6D3296CF2ADA5CF9009CFCEF /* nvc_util.cpp */,
+				6D6A047E2AB8A38800A78E12 /* nvc_rpc.h */,
+				6D6A047F2AB8A38800A78E12 /* nvc_rpc.c */,
+				6D8014742ADECCEF009559D1 /* nvc_ui_hl.h */,
+				6D8014732ADECCEF009559D1 /* nvc_ui_hl.cpp */,
+				6D455A5B2ADBDA7900DD58A2 /* nvc_ui_cell.h */,
+				6D455A5A2ADBDA7900DD58A2 /* nvc_ui_cell.cpp */,
+				6D455A5E2ADBDDBE00DD58A2 /* nvc_ui_grid.h */,
+				6D455A5D2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp */,
+				6DD47B442ADD6FC200CA3048 /* nvc_ui_char.h */,
+				6DD47B432ADD6FC200CA3048 /* nvc_ui_char.cpp */,
+				6D3296CD2ADA5233009CFCEF /* nvc_ui_font.h */,
+				6D3296CC2ADA5233009CFCEF /* nvc_ui_font.cpp */,
+				6D455A672ADC307B00DD58A2 /* mvc_ui_mode.h */,
+				6D455A662ADC307B00DD58A2 /* mvc_ui_mode.cpp */,
+				6DDFCFEA2AE09FC200D1957F /* nvc_ui_render.h */,
+				6DDFCFE92AE09FC200D1957F /* nvc_ui_render.cpp */,
+				6D455A612ADC14E500DD58A2 /* nvc_ui_context.h */,
+				6D455A602ADC14E500DD58A2 /* nvc_ui_context.cpp */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
 		6D681FC22AADF5DA00B25717 = {
 			isa = PBXGroup;
 			children = (
@@ -173,6 +225,7 @@
 		6D681FCD2AADF5DA00B25717 /* NVim */ = {
 			isa = PBXGroup;
 			children = (
+				6D3296CB2ADA14AE009CFCEF /* Core */,
 				6D6A336C2AB0AFF300BF791C /* Views */,
 				6D681FDE2AADF7C400B25717 /* Classes */,
 				6D2028412AB20017008B3E3B /* Services */,
@@ -203,8 +256,8 @@
 		6D681FE32AADF91700B25717 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				6D6A33652AB0AF9800BF791C /* Localizable.strings */,
 				6D681FD12AADF5DB00B25717 /* Assets.xcassets */,
+				6D3296C92ADA125D009CFCEF /* Localizable.xcstrings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -316,8 +369,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6D3296CA2ADA125D009CFCEF /* Localizable.xcstrings in Resources */,
 				6D681FD22AADF5DB00B25717 /* Assets.xcassets in Resources */,
-				6D6A33672AB0AF9800BF791C /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -356,6 +409,8 @@
 				6D20284D2AB20347008B3E3B /* cwpack.c in Sources */,
 				6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */,
 				6D1E29632AB58B5300E1AA79 /* NSString+NVExt.m in Sources */,
+				6DD47B452ADD6FC200CA3048 /* nvc_ui_char.cpp in Sources */,
+				6D455A5F2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp in Sources */,
 				6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */,
 				6D681FEE2AADFC0800B25717 /* NVLogger.m in Sources */,
 				6D9989902ABCA5C60001F1A6 /* NVSTDClient.m in Sources */,
@@ -366,26 +421,22 @@
 				6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */,
 				6D8DEA472AC01918008C9552 /* NVEditViewController.m in Sources */,
 				6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */,
+				6D3296D12ADA5CF9009CFCEF /* nvc_util.cpp in Sources */,
+				6D8014752ADECCEF009559D1 /* nvc_ui_hl.cpp in Sources */,
 				6D681FD72AADF5DB00B25717 /* main.m in Sources */,
 				6D8E43892AC70B57000E3DF2 /* NVTabView.m in Sources */,
+				6D3296CE2ADA5233009CFCEF /* nvc_ui_font.cpp in Sources */,
+				6D455A682ADC307B00DD58A2 /* mvc_ui_mode.cpp in Sources */,
+				6DDFCFEB2AE09FC200D1957F /* nvc_ui_render.cpp in Sources */,
 				6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */,
 				6D6A336B2AB0AFE900BF791C /* NSString+Localized.m in Sources */,
 				6D3C11742ABB4BFB00BDFE31 /* nvc_ui.cpp in Sources */,
+				6D455A622ADC14E500DD58A2 /* nvc_ui_context.cpp in Sources */,
+				6D455A5C2ADBDA7900DD58A2 /* nvc_ui_cell.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXVariantGroup section */
-		6D6A33652AB0AF9800BF791C /* Localizable.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				6D6A33662AB0AF9800BF791C /* Base */,
-			);
-			name = Localizable.strings;
-			sourceTree = "<group>";
-		};
-/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		6D681FD92AADF5DB00B25717 /* Debug */ = {

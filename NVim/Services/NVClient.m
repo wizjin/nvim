@@ -20,6 +20,7 @@
 - (instancetype)init {
     if (self = [super init]) {
         ui_ctx = NULL;
+        _autoHideMouse = YES;
     }
     return self;
 }
@@ -29,10 +30,10 @@
 }
 
 - (void)openWithRead:(int)read write:(int)write {
-    nvc_ui_config_t config;
-    bzero(&config, sizeof(config));
-    config.font = (__bridge CTFontRef)([NSFont monospacedSystemFontOfSize:kNVDefaultFontSize weight:NSFontWeightRegular]);
-    config.font_size = kNVDefaultFontSize;
+    nvc_ui_config_t config = {
+        .font_size = kNVDefaultFontSize,
+        .scale_factor = NSScreen.mainScreen.backingScaleFactor,
+    };
     ui_ctx = nvc_ui_create(read, write, &config, &nvclient_ui_callbacks, (__bridge void *)self);
     if (ui_ctx != nil) {
         NVLogI("NV Client open connect success - %s", self.info.cstr);
@@ -116,6 +117,10 @@
 
 - (void)mouseDown:(NSEvent *)event inView:(NSView *)view {
     nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_left, nvc_ui_mouse_action_press);
+}
+
+- (void)mouseMoved:(NSEvent *)event inView:(NSView *)view {
+    nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_move, nvc_ui_mouse_action_none);
 }
 
 - (void)mouseDragged:(NSEvent *)event inView:(NSView *)view {
@@ -220,7 +225,7 @@ static inline void nvclient_ui_mouse_on(void *userdata) {
     @weakify(client);
     dispatch_main_async(^{
         @strongify(client);
-        [client.delegate client:client updateMouse:YES];
+        [client.delegate client:client enableMouse:YES];
     });
 }
 
@@ -229,7 +234,7 @@ static inline void nvclient_ui_mouse_off(void *userdata) {
     @weakify(client);
     dispatch_main_async(^{
         @strongify(client);
-        [client.delegate client:client updateMouse:NO];
+        [client.delegate client:client enableMouse:NO];
     });
 }
 
@@ -239,6 +244,24 @@ static inline void nvclient_ui_font_updated(void *userdata) {
     dispatch_main_async(^{
         @strongify(client);
         [client.delegate clientUpdated:client];
+    });
+}
+
+static inline void nvclient_ui_enable_mouse_autohide(void *userdata, bool enabled) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        client.autoHideMouse = enabled;
+    });
+}
+
+static inline void nvclient_ui_enable_mouse_move(void *userdata, bool enabled) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate client:client enableMouseMove:enabled];
     });
 }
 
@@ -270,6 +293,8 @@ static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(mouse_on),
     NVCLIENT_CALLBACK(mouse_off),
     NVCLIENT_CALLBACK(font_updated),
+    NVCLIENT_CALLBACK(enable_mouse_autohide),
+    NVCLIENT_CALLBACK(enable_mouse_move),
     NVCLIENT_CALLBACK(enable_ext_tabline),
     NVCLIENT_CALLBACK(close),
 };

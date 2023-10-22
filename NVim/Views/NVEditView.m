@@ -88,6 +88,9 @@
 }
 
 - (void)keyDown:(NSEvent *)event {
+    if (self.client.autoHideMouse) {
+        [NSCursor setHiddenUntilMouseMoves:YES];
+    }
     if (![self.client functionKeyDown:event] && ![self.textInputContext handleEvent:event]) {
         [self.client keyDown:event];
     }
@@ -107,6 +110,10 @@
 
 - (void)mouseDown:(NSEvent *)event {
     [self.client mouseDown:event inView:self];
+}
+
+- (void)mouseMoved:(NSEvent *)event {
+    [self.client mouseMoved:event inView:self];
 }
 
 - (void)mouseDragged:(NSEvent *)event {
