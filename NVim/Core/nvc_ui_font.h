@@ -23,11 +23,9 @@ class UIRender;
 class CTFontHolder {
 private:
     CTFontRef   m_font;
-    bool        m_underline;
 public:
-    inline CTFontHolder() : m_font(nullptr), m_underline(false) {}
+    inline CTFontHolder() : m_font(nullptr) {}
     inline CTFontHolder(CTFontRef font) {
-        m_underline = false;
         if (font == nullptr) {
             m_font = nullptr;
         } else {
@@ -44,16 +42,17 @@ public:
     }
     inline explicit operator CTFontRef() const { return m_font; }
     inline bool operator!() const { return m_font == nullptr; }
-    inline bool underline(void) const { return m_underline; }
-    inline void underline(bool enable) { m_underline = enable; }
 
     inline CTFontHolder& operator=(const CTFontHolder& other) {
         if (this != &other) {
             if (m_font != nullptr) CFRelease(m_font);
             m_font = (other.m_font != nullptr ? reinterpret_cast<CTFontRef>(CFRetain(other.m_font)) : nullptr);
-            m_underline = other.m_underline;
         }
         return *this;
+    }
+    
+    inline CTFontHolder copy(CTFontSymbolicTraits traits) {
+        return likely(m_font != nullptr) ? CTFontCreateCopyWithSymbolicTraits(m_font, 0, nullptr, traits, traits) : nullptr;
     }
     
     inline bool find_glyphs(const UniChar chs[], CGGlyph glyphs[], uint8_t count) const {
@@ -62,15 +61,54 @@ public:
 
 };
 
-typedef std::vector<CTFontHolder> CTFontList;
+class UIFontInfo {
+private:
+    CTFontHolder    m_font;
+    CTFontHolder    m_font_bold;
+    CTFontHolder    m_font_italic;
+    CTFontHolder    m_font_bold_italic;
+    bool            m_underline;
+public:
+    inline UIFontInfo() : m_underline(false) {}
+    inline UIFontInfo(CTFontRef font) : m_font(font), m_underline(false) {}
+    inline bool operator!() const { return !m_font; }
+    inline bool underline(void) const { return m_underline; }
+    inline void underline(bool enable) { m_underline = enable; }
+    inline explicit operator CTFontRef() const { return static_cast<CTFontRef>(m_font); }
+    inline bool find_glyphs(const UniChar chs[], CGGlyph glyphs[], uint8_t count) const { return m_font.find_glyphs(chs, glyphs, count); }
+    inline CTFontRef find(UIFontTraits traits) {
+        CTFontRef font = nullptr;
+        switch(traits) {
+            default:
+            case ui_font_traits_none:
+                font = static_cast<CTFontRef>(m_font);
+                break;
+            case ui_font_traits_bold:
+                if (!m_font_bold) m_font_bold = m_font.copy(kCTFontTraitBold);
+                font = static_cast<CTFontRef>(m_font_bold);
+                break;
+            case ui_font_traits_italic:
+                if (!m_font_italic) m_font_italic = m_font.copy(kCTFontTraitItalic);
+                font = static_cast<CTFontRef>(m_font_italic);
+                break;
+            case ui_font_traits_bold_italic:
+                if (!m_font_bold_italic) m_font_bold_italic = m_font.copy(kCTFontTraitBold|kCTFontTraitItalic);
+                font = static_cast<CTFontRef>(m_font_bold_italic);
+                break;
+        }
+        return font;
+    }
+};
+
+typedef std::vector<UIFontInfo> CTFontList;
 
 struct CTGlyphInfo {
-    const CTFontHolder* font;
-    CGGlyph             glyph;
-    bool                is_skip;
-    bool                is_wide;
-    bool                is_space;
-    bool                is_emoji;
+    UIFontInfo*     font;
+    CGGlyph         glyph;
+    bool            is_skip;
+    bool            is_wide;
+    bool            is_space;
+    bool            is_emoji;
 };
 
 class UIFont {
@@ -86,11 +124,11 @@ private:
     bool            m_emoji;
     CTFontList      m_fonts;
     CTFontList      m_font_wides;
-    CTFontHolder    m_font_emoji;
+    UIFontInfo      m_font_emoji;
     CTGlyphInfoMap  m_glyph_cache;
 
     void update(void);
-    const CTFontHolder *load_emoji(void);
+    UIFontInfo *load_emoji(void);
     CTGlyphInfo *load_glyph(UnicodeChar ch);
 public:
     explicit UIFont(CGFloat font_size, CGFloat scale_factor);
@@ -101,7 +139,7 @@ public:
     void emoji(bool on);
     bool load(const std::string& value);
     bool load_wide(const std::string& value);
-    void draw(UIRender& render, UnicodeChar ch, const UIPoint& pt);
+    void draw(UIRender& render, UnicodeChar ch, UIFontTraits traits, const UIPoint& pt);
 
 };
 

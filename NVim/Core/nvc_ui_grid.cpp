@@ -105,8 +105,10 @@ void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
                     }
                 }
                 CGFloat ypos = pt.y + render.font_offset();
-                render.font().draw(render, cell->ch, UIPoint(pt.x, ypos));
-                if (cell_hl != nullptr) {
+                if (cell_hl == nullptr) {
+                    render.font().draw(render, cell->ch, ui_font_traits_none, UIPoint(pt.x, ypos));
+                } else {
+                    render.font().draw(render, cell->ch, cell_hl->traits, UIPoint(pt.x, ypos));
                     if (cell_hl->understyle != ui_under_style_none) {
                         CGFloat underline_position = render.font().underline_position();
                         CGFloat line_position = ypos - underline_position;

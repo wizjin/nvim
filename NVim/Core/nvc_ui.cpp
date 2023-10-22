@@ -670,6 +670,9 @@ static inline int nvc_ui_redraw_action_default_colors_set(nvc::UIContext *ctx, i
 #define NVC_UI_SET_HL_ATTR_INT(_target)     { #_target, [](nvc::UIHLAttr &attr, nvc_rpc_context_t *ctx) { attr._target = nvc_rpc_read_int(ctx); attr.has_##_target = true; } }
 #define NVC_UI_SET_HL_ATTR_COLOR(_target)   { #_target, [](nvc::UIHLAttr &attr, nvc_rpc_context_t *ctx) { attr._target = nvc_rpc_read_uint32(ctx); attr.has_##_target = true; } }
 #define NVC_UI_SET_HL_ATTR_UNDER(_target)   { #_target, [](nvc::UIHLAttr &attr, nvc_rpc_context_t *ctx) { if (nvc_rpc_read_bool(ctx)) attr.understyle = nvc::ui_under_style_##_target; } }
+#define NVC_UI_SET_HL_ATTR_TRAITS(_target)  { #_target, [](nvc::UIHLAttr &attr, nvc_rpc_context_t *ctx) {   \
+    if (nvc_rpc_read_bool(ctx)) attr.traits = static_cast<nvc::UIFontTraits>(static_cast<uint8_t>(attr.traits) | static_cast<uint8_t>(nvc::ui_font_traits_##_target));  \
+}}
 static const nvc::DataSetterMap<nvc::UIHLAttr> nvc_ui_hl_attr_setters = {
     NVC_UI_SET_HL_ATTR_COLOR(foreground),
     NVC_UI_SET_HL_ATTR_COLOR(background),
@@ -681,8 +684,8 @@ static const nvc::DataSetterMap<nvc::UIHLAttr> nvc_ui_hl_attr_setters = {
     NVC_UI_SET_HL_ATTR_UNDER(underdotted),
     NVC_UI_SET_HL_ATTR_UNDER(underdashed),
     NVC_UI_SET_HL_ATTR_BOOL(strikethrough),
-    NVC_UI_SET_HL_ATTR_BOOL(bold),
-    NVC_UI_SET_HL_ATTR_BOOL(italic),
+    NVC_UI_SET_HL_ATTR_TRAITS(bold),
+    NVC_UI_SET_HL_ATTR_TRAITS(italic),
     NVC_UI_SET_HL_ATTR_BOOL(reverse),
     NVC_UI_SET_HL_ATTR_BOOL(nocombine),
 };
@@ -919,7 +922,6 @@ static inline int nvc_ui_notification_action_redraw(nvc::UIContext *ctx, int ite
             if (unlikely(p == nvc_ui_redraw_actions.end())) {
                 NVLogW("nvc ui unknown redraw action: %s", action.c_str());
             } else if (p->second != nullptr) {
-                //NVLogW("nvc ui redraw action: %s", action.c_str());
                 narg = p->second(ctx, narg);
             }
             nvc_rpc_read_skip_items(ctx->rpc(), narg);

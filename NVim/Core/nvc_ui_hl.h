@@ -31,19 +31,25 @@ enum UIUnderStyle: uint8_t {
     ui_under_style_underdashed      = 5,
 };
 
+enum UIFontTraits: uint8_t {
+    ui_font_traits_none             = 0,
+    ui_font_traits_bold             = 1,
+    ui_font_traits_italic           = 2,
+    ui_font_traits_bold_italic      = 3,
+};
+
 struct UIHLAttr {
     ui_color_t      foreground;
     ui_color_t      background;
     ui_color_t      special;
     uint8_t         blend;
+    UIFontTraits    traits;
     UIUnderStyle    understyle;
     bool            has_foreground  :1;
     bool            has_background  :1;
     bool            has_special     :1;
     bool            has_blend       :1;
     bool            strikethrough   :1;
-    bool            bold            :1;
-    bool            italic          :1;
     bool            reverse         :1;
     bool            nocombine       :1;
 };

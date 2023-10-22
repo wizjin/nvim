@@ -57,9 +57,9 @@ static inline bool load_fonts(const std::string& value, CGFloat default_font_siz
                         CFRelease(font);
                         font = traits_font;
                     }
-                    CTFontHolder holder = font;
-                    holder.underline(is_underline);
-                    fonts.push_back(holder);
+                    UIFontInfo fontInfo = font;
+                    fontInfo.underline(is_underline);
+                    fonts.push_back(fontInfo);
                     CFRelease(font);
                 }
                 CFRelease(family_name);
@@ -70,9 +70,9 @@ static inline bool load_fonts(const std::string& value, CGFloat default_font_siz
     return !fonts.empty();
 }
 
-static inline void find_glyph(const CTFontList& fonts, UniChar *c, uint8_t n, CTGlyphInfo& info) {
+static inline void find_glyph(CTFontList& fonts, UniChar *c, uint8_t n, CTGlyphInfo& info) {
     CGGlyph glyphs[2] = { 0, 0 };
-    for (const auto& p : fonts) {
+    for (auto& p : fonts) {
         info.font = &p;
         if (info.font->find_glyphs(c, glyphs, n)) {
             info.glyph = glyphs[0];
@@ -100,7 +100,7 @@ void UIFont::update(void) {
         CGFloat leading = CTFontGetLeading(font);
         CGFloat height = std::ceil(ascent + descent + leading);
         CGGlyph glyph = (CGGlyph) 0;
-        UniChar capitalM = '\u0020';
+        UniChar capitalM = '\u004D';
         CGSize advancement = CGSizeZero;
         CTFontGetGlyphsForCharacters(font, &capitalM, &glyph, 1);
         CTFontGetAdvancesForGlyphs(font, kCTFontOrientationHorizontal, &glyph, &advancement, 1);
@@ -144,7 +144,7 @@ bool UIFont::load_wide(const std::string& value) {
     return res;
 }
 
-const CTFontHolder *UIFont::load_emoji(void) {
+UIFontInfo *UIFont::load_emoji(void) {
     if (!m_font_emoji && likely(!m_fonts.empty())) {
         bool found = false;
         CFStringRef family = CFSTR(kNvcUiFontAppleColorEmoji);
@@ -223,11 +223,11 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
     return result;
 }
 
-void UIFont::draw(UIRender& render, UnicodeChar ch, const UIPoint& pt) {
+void UIFont::draw(UIRender& render, UnicodeChar ch, UIFontTraits traits, const UIPoint& pt) {
     CTGlyphInfo *info = load_glyph(ch);
     if (likely(info != nullptr && info->font != nullptr) && !info->is_skip) {
         if (!info->is_space) {
-            render.draw_glyph(static_cast<CTFontRef>(*info->font), info->glyph, pt);
+            render.draw_glyph(info->font->find(traits), info->glyph, pt);
         }
         if (info->font->underline()) {
             CGFloat y = pt.y - m_underline;
