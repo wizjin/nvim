@@ -95,6 +95,14 @@
     [self.editView endContentResize];
 }
 
+- (void)windowDidBecomeKey:(NSNotification *)notification {
+    [self.client active];
+}
+
+- (void)windowDidResignKey:(NSNotification *)notification {
+    [self.client deactive];
+}
+
 #pragma mark - NVClientDelegate
 - (void)client:(NVClient *)client flush:(CGRect)dirty {
     [self.editView updateDisplayRect:dirty];

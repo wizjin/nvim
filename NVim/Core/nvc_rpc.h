@@ -63,6 +63,7 @@ NVC_API void nvc_rpc_call_end(nvc_rpc_context_t *ctx);
 #define nvc_rpc_read_skip_items(_ctx, _n)   cw_skip_items(&(_ctx)->cin, _n)
 #define nvc_rpc_write_signed(_ctx, _v)      cw_pack_signed(&(_ctx)->cout, _v)
 #define nvc_rpc_write_unsigned(_ctx, _v)    cw_pack_signed(&(_ctx)->cout, _v)
+#define nvc_rpc_write_boolean(_ctx, _v)     cw_pack_boolean(&(_ctx)->cout, _v)
 #define nvc_rpc_write_array_size(_ctx, _n)  cw_pack_array_size(&(_ctx)->cout, _n)
 #define nvc_rpc_write_map_size(_ctx, _n)    cw_pack_map_size(&(_ctx)->cout, _n)
 #define nvc_rpc_write_str(_ctx, _v, _l)     cw_pack_str(&(_ctx)->cout, _v, _l)

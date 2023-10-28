@@ -115,11 +115,21 @@ public:
         CGContextStrokePath(m_context);
     }
     
-    inline void draw_glyph(CTFontRef font, CGGlyph glyph, const UIPoint& pt) {
-        if (likely(font != nullptr)) {
-            set_fill_color(m_text_color);
-            CGContextSetTextPosition(m_context, pt.x, pt.y);
-            CTFontDrawGlyphs(font, &glyph, &CGPointZero, 1, m_context);
+    inline void draw(UIFont& font, UnicodeChar ch, UIFontTraits traits, const UIPoint& pt) {
+        CTGlyphInfo *info = font.load_glyph(ch);
+        if (likely(info != nullptr && info->font != nullptr) && !info->is_skip) {
+            if (!info->is_space) {
+                set_fill_color(m_text_color);
+                CGContextSetTextPosition(m_context, pt.x, pt.y);
+                CTFontDrawGlyphs(info->font->find(traits), &info->glyph, &CGPointZero, 1, m_context);
+            }
+            if (info->font->underline()) {
+                CGFloat y = pt.y - font.underline_position();
+                CGFloat width = font.glyph_size().width;
+                set_stroke_color(m_text_color);
+                line_width(font.underline_thickness());
+                draw_line(pt.x, y, pt.x + (info->is_wide ? width * 2 : width), y);
+            }
         }
     }
 

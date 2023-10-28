@@ -37,11 +37,13 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)openWithRead:(int)read write:(int)write;
 - (void)close;
 - (CGSize)attachUIWithSize:(CGSize)size;
+- (void)active;
+- (void)deactive;
 - (void)detachUI;
 - (void)redrawUI:(CGContextRef)context;
 - (CGSize)resizeUIWithSize:(CGSize)size;
 - (BOOL)openFiles:(NSArray<NSString *> *)files;
-- (void)keyDown:(NSEvent *)event;
+- (BOOL)keyDown:(NSEvent *)event;
 - (BOOL)functionKeyDown:(NSEvent *)event;
 - (void)inputText:(NSString *)text flags:(NSEventModifierFlags)flags;
 - (void)scrollWheel:(NSEvent *)event inView:(NSView *)view;
@@ -55,6 +57,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)middleMouseUp:(NSEvent *)event inView:(NSView *)view;
 - (void)middleMouseDown:(NSEvent *)event inView:(NSView *)view;
 - (void)middleMouseDragged:(NSEvent *)event inView:(NSView *)view;
+- (BOOL)actionCut;
+- (BOOL)actionCopy;
+- (BOOL)actionPaste;
 
 @end
 

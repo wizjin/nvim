@@ -7,6 +7,8 @@
 
 #import "NVEditView.h"
 
+#define kNSEventModifierMask    (NSEventModifierFlagShift|NSEventModifierFlagControl|NSEventModifierFlagOption|NSEventModifierFlagCommand)
+
 @interface NVEditView () <CALayerDelegate, NSTextInputClient>
 
 @property (nonatomic, readonly, strong) CALayer *drawLayer;
@@ -201,8 +203,29 @@
 }
 
 - (BOOL)performKeyEquivalent:(NSEvent *)event {
-    [self.client keyDown:event];
-    return YES;
+    BOOL res = NO;
+    if ((event.modifierFlags&kNSEventModifierMask) == NSEventModifierFlagCommand) {
+        NSString *c = event.charactersIgnoringModifiers;
+        if (c.length > 0) {
+            switch ([c characterAtIndex:0]) {
+                case 'x':
+                    res = [self.client actionCut];
+                    break;
+                case 'c':
+                    res = [self.client actionCopy];
+                    break;
+                case 'v':
+                    res = [self.client actionPaste];
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    if (!res) {
+        res = [self.client keyDown:event];
+    }
+    return res;
 }
 
 - (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange {
@@ -257,7 +280,7 @@ static inline NSString *get_string(id val) {
     if ([val isKindOfClass:NSAttributedString.class]) {
         return [val string];
     }
-    return  @"";
+    return @"";
 }
 
 

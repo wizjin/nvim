@@ -93,6 +93,11 @@ NVC_API bool nvc_ui_input_function_key(nvc_ui_context_t *ctx, UniChar ch, nvc_ui
 NVC_API void nvc_ui_input_keystr(nvc_ui_context_t *ctx, nvc_ui_key_flags_t flags, const char* keys, uint32_t len);
 NVC_API void nvc_ui_input_rawkey(nvc_ui_context_t *ctx, const char* keys, uint32_t len);
 NVC_API void nvc_ui_input_mouse(nvc_ui_context_t *ctx, nvc_ui_mouse_info_t mouse);
+NVC_API void nvc_ui_set_pasteboard(nvc_ui_context_t *ctx, const char* data, uint32_t len);
+NVC_API void nvc_ui_get_pasteboard(nvc_ui_context_t *ctx);
+NVC_API void nvc_ui_action_paste(nvc_ui_context_t *ctx, const char* data, uint32_t len);
+NVC_API void nvc_ui_action_copy(nvc_ui_context_t *ctx);
+NVC_API void nvc_ui_action_cut(nvc_ui_context_t *ctx);
 
 #ifdef __cplusplus
 }
