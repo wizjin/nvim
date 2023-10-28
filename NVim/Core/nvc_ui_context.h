@@ -23,7 +23,9 @@ namespace nvc {
 
 class UIContext {
 public:
-    typedef std::map<int, UIGrid *, std::less<int>>    UIGridMap;
+    using UIGridMap         = std::map<int, UIGrid *, std::less<int>>;
+    using RPCCallback       = std::function<int(UIContext *, int, int)>;
+    using RPCCallbackMap    = std::unordered_map<int64_t, RPCCallback>;
 private:
     nvc_rpc_context_t   m_rpc;
     nvc_ui_callback_t   m_cb;
@@ -38,6 +40,7 @@ private:
     UISize              m_window_size;
     CGRect              m_dirty_rect;
     UIGridMap           m_grids;
+    RPCCallbackMap      m_rpc_callbacks;
 public:
     explicit UIContext(const nvc_ui_callback_t& cb, const nvc_ui_config_t& config, void *userdata);
     inline nvc_rpc_context_t* rpc() { return &m_rpc; }
@@ -74,6 +77,7 @@ public:
         return rc;
     }
     
+    void close(void);
     bool attach(const CGSize& size);
     bool detach(void);
     void update_dirty(const UIRect& dirty);
@@ -88,6 +92,8 @@ public:
     void scroll_grid(int grid_id, const UIRect& rc, int32_t rows);
     void update_grid_line(int items);
 
+    void set_rpc_callback(int64_t msgid, const RPCCallback& cb);
+    bool find_rpc_callback(int64_t msgid, RPCCallback& cb);
 };
 
 }

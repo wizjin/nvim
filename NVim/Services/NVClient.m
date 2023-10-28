@@ -70,10 +70,7 @@
 - (void)deactive {
     if (nvc_ui_is_attached(ui_ctx) && self.pasteboardNeedUpdate) {
         _pasteboardNeedUpdate = NO;
-        nvc_ui_get_pasteboard(ui_ctx);
-        //    NSPasteboard *pasteBoard = NSPasteboard.generalPasteboard;
-        //    [pasteBoard declareTypes:[NSArray arrayWithObject:NSPasteboardTypeString] owner:nil];
-        //    [pasteBoard setString:@"" forType:NSPasteboardTypeString];
+        nvc_ui_update_pasteboard(ui_ctx);
     }
 }
 
@@ -184,15 +181,21 @@
 }
 
 - (BOOL)actionCut {
-    nvc_ui_action_cut(ui_ctx);
-    _pasteboardNeedUpdate = YES;
-    return YES;
+    BOOL res = NO;
+    if (nvc_ui_action_cut(ui_ctx)) {
+        _pasteboardNeedUpdate = YES;
+        res = YES;
+    }
+    return res;
 }
 
 - (BOOL)actionCopy {
-    nvc_ui_action_copy(ui_ctx);
-    _pasteboardNeedUpdate = YES;
-    return YES;
+    BOOL res = NO;
+    if (nvc_ui_action_copy(ui_ctx)) {
+        _pasteboardNeedUpdate = YES;
+        res = YES;
+    }
+    return res;
 }
 
 - (BOOL)actionPaste {
@@ -201,6 +204,25 @@
         NSData *data = [str dataUsingEncoding:NSUTF8StringEncoding];
         nvc_ui_action_paste(ui_ctx, (const char *)data.bytes, (uint32_t)data.length);
     }
+    return YES;
+}
+
+- (BOOL)actionSelectAll {
+    nvc_ui_action_select_all(ui_ctx);
+    return YES;
+}
+
+- (BOOL)actionDelete {
+    return nvc_ui_action_delete(ui_ctx);
+}
+
+- (BOOL)actionUndo {
+    nvc_ui_action_undo(ui_ctx);
+    return YES;
+}
+
+- (BOOL)actionRedo {
+    nvc_ui_action_redo(ui_ctx);
     return YES;
 }
 
@@ -327,6 +349,21 @@ static inline void nvclient_ui_enable_ext_tabline(void *userdata, bool enabled) 
     });
 }
 
+static inline void nvclient_ui_update_pasteboard(void *userdata, const char *str, uint32_t len) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    if (str != NULL && len > 0) {
+        NSString *value = [[NSString alloc] initWithBytes:str length:len encoding:NSUTF8StringEncoding];
+        @weakify(client);
+        dispatch_main_async(^{
+            @strongify(client);
+            NSPasteboard *pasteBoard = NSPasteboard.generalPasteboard;
+            [pasteBoard declareTypes:[NSArray arrayWithObject:NSPasteboardTypeString] owner:nil];
+            [pasteBoard setString:value forType:NSPasteboardTypeString];
+            client->_pasteboardChangeCount = pasteBoard.changeCount;
+        });
+    }
+}
+
 static inline void nvclient_ui_close(void *userdata) {
     NVClient *client = (__bridge NVClient *)userdata;
     @weakify(client);
@@ -349,6 +386,7 @@ static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(enable_mouse_autohide),
     NVCLIENT_CALLBACK(enable_mouse_move),
     NVCLIENT_CALLBACK(enable_ext_tabline),
+    NVCLIENT_CALLBACK(update_pasteboard),
     NVCLIENT_CALLBACK(close),
 };
 

@@ -60,6 +60,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)actionCut;
 - (BOOL)actionCopy;
 - (BOOL)actionPaste;
+- (BOOL)actionSelectAll;
+- (BOOL)actionDelete;
+- (BOOL)actionUndo;
+- (BOOL)actionRedo;
 
 @end
 

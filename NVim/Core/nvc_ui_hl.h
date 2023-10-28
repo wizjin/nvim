@@ -56,8 +56,8 @@ struct UIHLAttr {
 
 class UIHLAttrGroups {
 private:
-    typedef std::unordered_map<int32_t, UIHLAttr>       UIHLAttrMap;
-    typedef std::unordered_map<std::string, int32_t>    UIGroupMap;
+    using UIHLAttrMap   = std::unordered_map<int32_t, UIHLAttr>;
+    using UIGroupMap    = std::unordered_map<std::string, int32_t>;
 
     ui_color_t      m_default_foreground;
     ui_color_t      m_default_background;

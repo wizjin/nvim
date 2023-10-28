@@ -7,7 +7,8 @@
 
 #import "NVEditView.h"
 
-#define kNSEventModifierMask    (NSEventModifierFlagShift|NSEventModifierFlagControl|NSEventModifierFlagOption|NSEventModifierFlagCommand)
+#define kNSEventModifierMask    (NSEventModifierFlagControl|NSEventModifierFlagOption|NSEventModifierFlagCommand)
+#define kVK_Delete              0x33
 
 @interface NVEditView () <CALayerDelegate, NSTextInputClient>
 
@@ -205,20 +206,37 @@
 - (BOOL)performKeyEquivalent:(NSEvent *)event {
     BOOL res = NO;
     if ((event.modifierFlags&kNSEventModifierMask) == NSEventModifierFlagCommand) {
-        NSString *c = event.charactersIgnoringModifiers;
-        if (c.length > 0) {
-            switch ([c characterAtIndex:0]) {
-                case 'x':
-                    res = [self.client actionCut];
-                    break;
-                case 'c':
-                    res = [self.client actionCopy];
-                    break;
-                case 'v':
-                    res = [self.client actionPaste];
-                    break;
-                default:
-                    break;
+        if (event.keyCode == kVK_Delete) {
+            if ((event.modifierFlags&NSEventModifierFlagShift) == 0) {
+                res = [self.client actionDelete];
+            }
+        } else {
+            NSString *cs = event.charactersIgnoringModifiers;
+            if (cs.length > 0) {
+                unichar c = [cs characterAtIndex:0];
+                if ((event.modifierFlags&NSEventModifierFlagShift) == NSEventModifierFlagShift) c = toupper(c);
+                switch (c) {
+                    case 'x':
+                        res = [self.client actionCut];
+                        break;
+                    case 'c':
+                        res = [self.client actionCopy];
+                        break;
+                    case 'v':
+                        res = [self.client actionPaste];
+                        break;
+                    case 'a':
+                        res = [self.client actionSelectAll];
+                        break;
+                    case 'z':
+                        res = [self.client actionUndo];
+                        break;
+                    case 'Z':
+                        res = [self.client actionRedo];
+                        break;
+                    default:
+                        break;
+                }
             }
         }
     }

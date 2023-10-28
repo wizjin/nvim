@@ -30,6 +30,7 @@ typedef struct nvc_ui_callback {
     void (*enable_mouse_autohide)(void *userdata, bool enabled);
     void (*enable_mouse_move)(void *userdata, bool enabled);
     void (*enable_ext_tabline)(void *userdata, bool enabled);
+    void (*update_pasteboard)(void *userdata, const char *str, uint32_t len);
     void (*close)(void *userdata);
 } nvc_ui_callback_t;
 
@@ -94,10 +95,14 @@ NVC_API void nvc_ui_input_keystr(nvc_ui_context_t *ctx, nvc_ui_key_flags_t flags
 NVC_API void nvc_ui_input_rawkey(nvc_ui_context_t *ctx, const char* keys, uint32_t len);
 NVC_API void nvc_ui_input_mouse(nvc_ui_context_t *ctx, nvc_ui_mouse_info_t mouse);
 NVC_API void nvc_ui_set_pasteboard(nvc_ui_context_t *ctx, const char* data, uint32_t len);
-NVC_API void nvc_ui_get_pasteboard(nvc_ui_context_t *ctx);
+NVC_API void nvc_ui_update_pasteboard(nvc_ui_context_t *ctx);
+NVC_API void nvc_ui_action_select_all(nvc_ui_context_t *ctx);
 NVC_API void nvc_ui_action_paste(nvc_ui_context_t *ctx, const char* data, uint32_t len);
-NVC_API void nvc_ui_action_copy(nvc_ui_context_t *ctx);
-NVC_API void nvc_ui_action_cut(nvc_ui_context_t *ctx);
+NVC_API bool nvc_ui_action_delete(nvc_ui_context_t *ctx);
+NVC_API bool nvc_ui_action_copy(nvc_ui_context_t *ctx);
+NVC_API bool nvc_ui_action_cut(nvc_ui_context_t *ctx);
+NVC_API void nvc_ui_action_undo(nvc_ui_context_t *ctx);
+NVC_API void nvc_ui_action_redo(nvc_ui_context_t *ctx);
 
 #ifdef __cplusplus
 }
