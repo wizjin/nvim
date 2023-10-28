@@ -93,27 +93,34 @@ void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
                 if (need_cursor && m_cursor.x == i && m_cursor.y == j) {
                     const auto info = render.mode_info();
                     if (likely(info != nullptr)) {
-                        render.set_fill_color(render.hl_attrs().find_hl_foreground(info->attr_id));
-                        if (info->cursor_shape == "block") {
-                            render.draw_rect(CGRectMake(pt.x, pt.y, cellWidth, size.height));
-                            render.text_color(render.hl_attrs().find_hl_background(info->attr_id));
-                        } else if (info->cursor_shape == "horizontal") {
-                            render.draw_rect(CGRectMake(pt.x, pt.y, size.width, info->calc_cell_percentage(size.height)));
-                        } else if (info->cursor_shape == "vertical") {
-                            render.draw_rect(CGRectMake(pt.x, pt.y, info->calc_cell_percentage(size.width), size.height));
+                        const auto& hl_attrs = render.hl_attrs();
+                        render.set_fill_color(hl_attrs.find_hl_foreground(info->attr_id));
+                        switch (info->cursor_shape) {
+                            default: break;
+                            case ui_cursor_shape_horizontal:
+                                render.draw_rect(CGRectMake(pt.x, pt.y, size.width, info->calc_cell_percentage(size.height)));
+                                break;
+                            case ui_cursor_shape_vertical:
+                                render.draw_rect(CGRectMake(pt.x, pt.y, info->calc_cell_percentage(size.width), size.height));
+                                break;
+                            case ui_cursor_shape_block:
+                                render.draw_rect(CGRectMake(pt.x, pt.y, cellWidth, size.height));
+                                render.text_color(hl_attrs.find_hl_background(info->attr_id));
+                                break;
                         }
                     }
                 }
+                UIFont &font = render.font();
                 CGFloat ypos = pt.y + render.font_offset();
                 if (cell_hl == nullptr) {
-                    render.font().draw(render, cell->ch, ui_font_traits_none, UIPoint(pt.x, ypos));
+                    render.draw(font, cell->ch, ui_font_traits_none, UIPoint(pt.x, ypos));
                 } else {
-                    render.font().draw(render, cell->ch, cell_hl->traits, UIPoint(pt.x, ypos));
+                    render.draw(font, cell->ch, cell_hl->traits, UIPoint(pt.x, ypos));
                     if (cell_hl->understyle != ui_under_style_none) {
-                        CGFloat underline_position = render.font().underline_position();
+                        CGFloat underline_position = font.underline_position();
                         CGFloat line_position = ypos - underline_position;
                         render.set_stroke_color(render.stroke_color());
-                        render.line_width(render.one_pixel());
+                        render.line_width(font.underline_thickness());
                         switch (cell_hl->understyle) {
                             case ui_under_style_underline:
                                 render.line_dash(nullptr, 0);
@@ -142,7 +149,7 @@ void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
                         }
                     }
                     if (cell_hl->strikethrough) {
-                        CGFloat line_position = pt.y + size.height/2;
+                        CGFloat line_position = pt.y + size.height * 0.5;
                         render.set_stroke_color(render.stroke_color());
                         render.line_dash(nullptr, 0);
                         render.draw_line(pt.x, line_position, pt.x + cellWidth, line_position);

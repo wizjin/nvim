@@ -25,8 +25,8 @@ static inline const std::string nvc_rpc_read_str(nvc_rpc_context_t *ctx) {
     return likely(str != nullptr) ? std::string(str, len) : nvc_rpc_empty_str;
 }
 
-static inline void nvc_rpc_write_string(nvc_rpc_context_t *ctx, const std::string& str) {
-    nvc_rpc_write_str(ctx, str.c_str(), (uint32_t)str.size());
+static inline void nvc_rpc_write_string(nvc_rpc_context_t *ctx, const std::string_view& str) {
+    nvc_rpc_write_str(ctx, str.data(), (uint32_t)str.size());
 }
 
 static inline void nvc_rpc_call_command_begin(nvc_rpc_context_t *ctx, const char *cmd, uint32_t cmdlen, uint32_t args) {
@@ -281,7 +281,7 @@ bool nvc_ui_input_key(nvc_ui_context_t *ctx, uint16_t key, nvc_ui_key_flags_t fl
         uint32_t len = 0;
         keys[len++] = '<';
         len = nvc_ui_key_flags_encode(flags, keys, len, false);
-        memcpy(keys + len, notation.c_str(), notation.size());
+        memcpy(keys + len, notation.data(), notation.size());
         len += notation.size();
         keys[len++] = '>';
         nvc_ui_input_rawkey(ctx, keys, len);
@@ -377,7 +377,7 @@ bool nvc_ui_input_function_key(nvc_ui_context_t *ctx, UniChar ch, nvc_ui_key_fla
         uint32_t len = 0;
         keys[len++] = '<';
         len = nvc_ui_key_flags_encode(flags, keys, len, false);
-        memcpy(keys + len, notation.c_str(), notation.size());
+        memcpy(keys + len, notation.data(), notation.size());
         len += notation.size();
         keys[len++] = '>';
         nvc_ui_input_rawkey(ctx, keys, len);
@@ -396,7 +396,7 @@ void nvc_ui_input_keystr(nvc_ui_context_t *ctx, nvc_ui_key_flags_t flags, const 
         }
     }
     if (!value.empty()) {
-        nvc_ui_input_rawkey(ctx, value.c_str(), (uint32_t)value.size());
+        nvc_ui_input_rawkey(ctx, value.data(), (uint32_t)value.size());
     }
 }
 
@@ -431,6 +431,126 @@ void nvc_ui_input_mouse(nvc_ui_context_t *ptr, nvc_ui_mouse_info_t mouse) {
         nvc_rpc_write_signed(ctx->rpc(), mouse.point.y/ctx->cell_size().height);
         nvc_rpc_write_signed(ctx->rpc(), mouse.point.x/ctx->cell_size().width);
         nvc_rpc_call_end(ctx->rpc());
+    }
+}
+
+void nvc_ui_set_pasteboard(nvc_ui_context_t *ptr, const char* data, uint32_t len) {
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
+    if (likely(ctx != nullptr && ctx->attached())) {
+        nvc_rpc_call_const_begin(ctx->rpc(), "nvim_call_function", 2);
+        nvc_rpc_write_const_str(ctx->rpc(), "setreg");
+        nvc_rpc_write_array_size(ctx->rpc(), 2);
+        nvc_rpc_write_const_str(ctx->rpc(), "");
+        nvc_rpc_write_str(ctx->rpc(), data, len);
+        nvc_rpc_call_end(ctx->rpc());
+    }
+}
+
+static inline int nvc_ui_update_pasteboard_callback(nvc::UIContext *ctx, int err, int args) {
+    if (likely(args-- > 0)) {
+        uint32_t len = 0;
+        const char *str = nvc_rpc_read_str(ctx->rpc(), &len);
+        ctx->cb().update_pasteboard(ctx->userdata(), str, len);
+    }
+    return args;
+}
+
+void nvc_ui_update_pasteboard(nvc_ui_context_t *ptr) {
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
+    if (likely(ctx != nullptr && ctx->attached())) {
+        int64_t msgid = nvc_rpc_call_const_begin(ctx->rpc(), "nvim_call_function", 2);
+        ctx->set_rpc_callback(msgid, nvc_ui_update_pasteboard_callback);
+        nvc_rpc_write_const_str(ctx->rpc(), "getreg");
+        nvc_rpc_write_array_size(ctx->rpc(), 1);
+        nvc_rpc_write_const_str(ctx->rpc(), "*");
+        nvc_rpc_call_end(ctx->rpc());
+    }
+}
+
+void nvc_ui_action_select_all(nvc_ui_context_t *ptr) {
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
+    if (likely(ctx != nullptr && ctx->attached())) {
+        nvc_rpc_call_const_begin(ctx->rpc(), "nvim_input", 1);
+        nvc_rpc_write_const_str(ctx->rpc(), "<Esc>ggVG");
+        nvc_rpc_call_end(ctx->rpc());
+    }
+}
+
+void nvc_ui_action_paste(nvc_ui_context_t *ptr, const char* data, uint32_t len) {
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
+    if (likely(ctx != nullptr && ctx->attached())) {
+        nvc_rpc_call_const_begin(ctx->rpc(), "nvim_paste", 3);
+        nvc_rpc_write_str(ctx->rpc(), data, len);
+        nvc_rpc_write_boolean(ctx->rpc(), true);
+        nvc_rpc_write_signed(ctx->rpc(), -1);
+        nvc_rpc_call_end(ctx->rpc());
+    }
+}
+
+bool nvc_ui_action_delete(nvc_ui_context_t *ptr) {
+    bool res = false;
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
+    if (likely(ctx != nullptr && ctx->attached())) {
+        auto info = ctx->mode().info();
+        if (likely(info != nullptr && info->name.starts_with("visual"))) {
+            nvc_rpc_call_const_begin(ctx->rpc(), "nvim_feedkeys", 3);
+            nvc_rpc_write_const_str(ctx->rpc(), "\"+x");
+            nvc_rpc_write_string(ctx->rpc(), info->short_name);
+            nvc_rpc_write_boolean(ctx->rpc(), false);
+            nvc_rpc_call_end(ctx->rpc());
+            res = true;
+        }
+    }
+    return res;
+}
+
+bool nvc_ui_action_copy(nvc_ui_context_t *ptr) {
+    bool res = false;
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
+    if (likely(ctx != nullptr && ctx->attached())) {
+        auto info = ctx->mode().info();
+        if (likely(info != nullptr && info->name.starts_with("visual"))) {
+            nvc_rpc_call_const_begin(ctx->rpc(), "nvim_feedkeys", 3);
+            nvc_rpc_write_const_str(ctx->rpc(), "\"+y");
+            nvc_rpc_write_string(ctx->rpc(), info->short_name);
+            nvc_rpc_write_boolean(ctx->rpc(), false);
+            nvc_rpc_call_end(ctx->rpc());
+            res = true;
+        }
+    }
+    return res;
+}
+
+bool nvc_ui_action_cut(nvc_ui_context_t *ptr) {
+    bool res = false;
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
+    if (likely(ctx != nullptr && ctx->attached())) {
+        auto info = ctx->mode().info();
+        if (likely(info != nullptr && info->name.starts_with("visual"))) {
+            nvc_rpc_call_const_begin(ctx->rpc(), "nvim_feedkeys", 3);
+            nvc_rpc_write_const_str(ctx->rpc(), "\"+c");
+            nvc_rpc_write_string(ctx->rpc(), info->short_name);
+            nvc_rpc_write_boolean(ctx->rpc(), false);
+            nvc_rpc_call_end(ctx->rpc());
+            res = true;
+        }
+    }
+    return res;
+}
+
+void nvc_ui_action_undo(nvc_ui_context_t *ptr) {
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
+    if (likely(ctx != nullptr && ctx->attached())) {
+        nvc_rpc_call_command_const_begin(ctx->rpc(), "undo", 0);
+        nvc_rpc_call_command_end(ctx->rpc());
+    }
+}
+
+void nvc_ui_action_redo(nvc_ui_context_t *ptr) {
+    auto ctx = static_cast<nvc::UIContext *>(ptr);
+    if (likely(ctx != nullptr && ctx->attached())) {
+        nvc_rpc_call_command_const_begin(ctx->rpc(), "redo", 0);
+        nvc_rpc_call_command_end(ctx->rpc());
     }
 }
 
@@ -494,15 +614,26 @@ static inline int nvc_ui_redraw_action_set_title(nvc::UIContext *ctx, int count)
     return count;
 }
 
+static inline void nvc_ui_set_mode_info_cursor_shape(nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) {
+    auto shape = nvc_rpc_read_str(ctx);
+    if (shape == "block") {
+        info.cursor_shape = nvc::ui_cursor_shape_block;
+    } else if (shape == "horizontal") {
+        info.cursor_shape = nvc::ui_cursor_shape_horizontal;
+    } else if (shape == "vertical") {
+        info.cursor_shape = nvc::ui_cursor_shape_vertical;
+    }
+}
 static inline void nvc_ui_set_mode_info_null(nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { nvc_rpc_read_skip_items(ctx, 1); }
-#define NVC_UI_SET_MODE_INFO_STR(_target)   { #_target, [](nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { info._target = nvc_rpc_read_str(ctx); } }
-#define NVC_UI_SET_MODE_INFO_INT(_target)   { #_target, [](nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { info._target = nvc_rpc_read_int(ctx); } }
-#define NVC_UI_SET_MODE_INFO_NULL(_target)  { #_target, nvc_ui_set_mode_info_null }
+#define NVC_UI_SET_MODE_INFO_STR(_target)       { #_target, [](nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { info._target = nvc_rpc_read_str(ctx); } }
+#define NVC_UI_SET_MODE_INFO_INT(_target)       { #_target, [](nvc::UIModeInfo &info, nvc_rpc_context_t *ctx) { info._target = nvc_rpc_read_int(ctx); } }
+#define NVC_UI_SET_MODE_INFO_FUNC(_target)      { #_target, nvc_ui_set_mode_info_##_target }
+#define NVC_UI_SET_MODE_INFO_NULL(_target)      { #_target, nvc_ui_set_mode_info_null }
 static const nvc::DataSetterMap<nvc::UIModeInfo> nvc_ui_mode_info_setters = {
     NVC_UI_SET_MODE_INFO_STR(name),
     NVC_UI_SET_MODE_INFO_STR(short_name),
-    NVC_UI_SET_MODE_INFO_STR(cursor_shape),
-    NVC_UI_SET_MODE_INFO_STR(mouse_shape),
+    NVC_UI_SET_MODE_INFO_FUNC(cursor_shape),
+    NVC_UI_SET_MODE_INFO_NULL(mouse_shape),
     NVC_UI_SET_MODE_INFO_INT(cell_percentage),
     NVC_UI_SET_MODE_INFO_INT(blinkwait),
     NVC_UI_SET_MODE_INFO_INT(blinkon),
@@ -940,21 +1071,21 @@ static int nvc_ui_response_handler(nvc_rpc_context_t *ctx, int items) {
     if (likely(items-- > 0)) {
         uint64_t msgid = nvc_rpc_read_uint64(ctx);
         NVLogD("nvc ui recive response msgid: %lu", msgid);
+        int err_code = 0;
         if (likely(items-- > 0)) {
             int n = nvc_rpc_read_array_size(ctx);
             if (n >= 2) {
                 n -= 2;
-                int64_t code = nvc_rpc_read_int64(ctx);
+                err_code = nvc_rpc_read_int(ctx);
                 const auto& msg = nvc_rpc_read_str(ctx);
-                NVLogE("nvc ui match request %ld failed(%lu): %s", msgid, code, msg.c_str());
+                NVLogE("nvc ui match request %ld failed(%lu): %s", msgid, err_code, msg.c_str());
             }
             nvc_rpc_read_skip_items(ctx, n);
         }
-        if (likely(items-- > 0)) {
-            int n = nvc_rpc_read_map_size(ctx);
-            if (n > 0) {
-                nvc_rpc_read_skip_items(ctx, n * 2);
-            }
+        auto ui_ctx = reinterpret_cast<nvc::UIContext *>(nvc_rpc_get_userdata(ctx));
+        nvc::UIContext::RPCCallback cb;
+        if (ui_ctx->find_rpc_callback(msgid, cb)) {
+            items = cb(ui_ctx, err_code, items);
         }
     }
     return items;
@@ -976,6 +1107,7 @@ static int nvc_ui_notification_handler(nvc_rpc_context_t *ctx, int items) {
 static int nvc_ui_close_handler(nvc_rpc_context_t *ctx, int items) {
     if (ctx != nullptr) {
         auto ui_ctx = reinterpret_cast<nvc::UIContext *>(nvc_rpc_get_userdata(ctx));
+        ui_ctx->close();
         ui_ctx->cb().close(ui_ctx->userdata());
     }
     return items;

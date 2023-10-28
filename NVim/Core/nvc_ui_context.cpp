@@ -38,6 +38,16 @@ bool UIContext::detach(void) {
     return res;
 }
 
+void UIContext::close(void) {
+    nvc_lock_guard_t guard(m_locker);
+    for (const auto& p : m_rpc_callbacks) {
+        if (likely(p.second)) {
+            p.second(this, -1, 0);
+        }
+    }
+    m_rpc_callbacks.clear();
+}
+
 void UIContext::update_dirty(const UIRect& dirty) {
     CGRect rc = CGRectMake(dirty.x(), dirty.y(), dirty.width(), dirty.height());
     if (CGRectIsEmpty(m_dirty_rect)) {
@@ -208,6 +218,29 @@ void UIContext::update_grid_line(int items) {
         nvc_rpc_read_skip_items(rpc(), narg);
     }
 
+}
+
+void UIContext::set_rpc_callback(int64_t msgid, const UIContext::RPCCallback& cb) {
+    if (likely(cb)) {
+        nvc_lock_guard_t guard(m_locker);
+        const auto& p = m_rpc_callbacks.find(msgid);
+        if (unlikely(p != m_rpc_callbacks.end())) {
+            p->second(this, -1, 0);
+        }
+        m_rpc_callbacks[msgid] = cb;
+    }
+}
+
+bool UIContext::find_rpc_callback(int64_t msgid, UIContext::RPCCallback& cb) {
+    bool res = false;
+    nvc_lock_guard_t guard(m_locker);
+    const auto& p = m_rpc_callbacks.find(msgid);
+    if (p != m_rpc_callbacks.end()) {
+        cb = p->second;
+        m_rpc_callbacks.erase(p);
+        res = true;
+    }
+    return res;
 }
 
 }

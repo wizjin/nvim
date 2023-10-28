@@ -51,10 +51,10 @@ public:
         return *this;
     }
     
-    inline CTFontHolder copy(CTFontSymbolicTraits traits) {
+    inline CTFontHolder copy(CTFontSymbolicTraits traits) const {
         return likely(m_font != nullptr) ? CTFontCreateCopyWithSymbolicTraits(m_font, 0, nullptr, traits, traits) : nullptr;
     }
-    
+
     inline bool find_glyphs(const UniChar chs[], CGGlyph glyphs[], uint8_t count) const {
         return likely(m_font != nullptr) && CTFontGetGlyphsForCharacters(m_font, chs, glyphs, count) && glyphs[0] != 0;
     }
@@ -119,8 +119,8 @@ private:
     CGFloat         m_font_size;
     CGFloat         m_font_offset;
     CGFloat         m_scale_factor;
-    CGFloat         m_underline;
     CGFloat         m_underline_position;
+    CGFloat         m_underline_thickness;
     bool            m_emoji;
     CTFontList      m_fonts;
     CTFontList      m_font_wides;
@@ -129,17 +129,17 @@ private:
 
     void update(void);
     UIFontInfo *load_emoji(void);
-    CTGlyphInfo *load_glyph(UnicodeChar ch);
 public:
     explicit UIFont(CGFloat font_size, CGFloat scale_factor);
-    inline CGFloat font_offset(void) const { return m_font_offset; }
     inline const CGSize& glyph_size(void) const { return m_glyph_size; }
+    inline CGFloat font_offset(void) const { return m_font_offset; }
     inline CGFloat underline_position(void) const { return m_underline_position; }
+    inline CGFloat underline_thickness(void) const { return m_underline_thickness; }
     inline CGFloat scale_factor(void) const { return m_scale_factor; }
     void emoji(bool on);
     bool load(const std::string& value);
     bool load_wide(const std::string& value);
-    void draw(UIRender& render, UnicodeChar ch, UIFontTraits traits, const UIPoint& pt);
+    CTGlyphInfo *load_glyph(UnicodeChar ch);
 
 };
 

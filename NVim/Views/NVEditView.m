@@ -7,6 +7,9 @@
 
 #import "NVEditView.h"
 
+#define kNSEventModifierMask    (NSEventModifierFlagControl|NSEventModifierFlagOption|NSEventModifierFlagCommand)
+#define kVK_Delete              0x33
+
 @interface NVEditView () <CALayerDelegate, NSTextInputClient>
 
 @property (nonatomic, readonly, strong) CALayer *drawLayer;
@@ -201,8 +204,46 @@
 }
 
 - (BOOL)performKeyEquivalent:(NSEvent *)event {
-    [self.client keyDown:event];
-    return YES;
+    BOOL res = NO;
+    if ((event.modifierFlags&kNSEventModifierMask) == NSEventModifierFlagCommand) {
+        if (event.keyCode == kVK_Delete) {
+            if ((event.modifierFlags&NSEventModifierFlagShift) == 0) {
+                res = [self.client actionDelete];
+            }
+        } else {
+            NSString *cs = event.charactersIgnoringModifiers;
+            if (cs.length > 0) {
+                unichar c = [cs characterAtIndex:0];
+                if ((event.modifierFlags&NSEventModifierFlagShift) == NSEventModifierFlagShift) c = toupper(c);
+                switch (c) {
+                    case 'x':
+                        res = [self.client actionCut];
+                        break;
+                    case 'c':
+                        res = [self.client actionCopy];
+                        break;
+                    case 'v':
+                        res = [self.client actionPaste];
+                        break;
+                    case 'a':
+                        res = [self.client actionSelectAll];
+                        break;
+                    case 'z':
+                        res = [self.client actionUndo];
+                        break;
+                    case 'Z':
+                        res = [self.client actionRedo];
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+    if (!res) {
+        res = [self.client keyDown:event];
+    }
+    return res;
 }
 
 - (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange {
@@ -257,7 +298,7 @@ static inline NSString *get_string(id val) {
     if ([val isKindOfClass:NSAttributedString.class]) {
         return [val string];
     }
-    return  @"";
+    return @"";
 }
 
 

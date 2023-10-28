@@ -13,6 +13,9 @@
     nvc_ui_context_t *ui_ctx;
 }
 
+@property (nonatomic, readonly, assign) NSInteger pasteboardChangeCount;
+@property (nonatomic, readonly, assign) BOOL pasteboardNeedUpdate;
+
 @end
 
 @implementation NVClient
@@ -21,6 +24,8 @@
     if (self = [super init]) {
         ui_ctx = NULL;
         _autoHideMouse = YES;
+        _pasteboardChangeCount = 0;
+        _pasteboardNeedUpdate = NO;
     }
     return self;
 }
@@ -48,6 +53,27 @@
     }
 }
 
+- (void)active {
+    if (nvc_ui_is_attached(ui_ctx)) {
+        NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+        if (self.pasteboardChangeCount != pasteboard.changeCount) {
+            _pasteboardChangeCount = pasteboard.changeCount;
+            NSString *str = [pasteboard stringForType:NSPasteboardTypeString];
+            if (str.length > 0) {
+                NSData *data = [str dataUsingEncoding:NSUTF8StringEncoding];
+                nvc_ui_set_pasteboard(ui_ctx, (const char *)data.bytes, (uint32_t)data.length);
+            }
+        }
+    }
+}
+
+- (void)deactive {
+    if (nvc_ui_is_attached(ui_ctx) && self.pasteboardNeedUpdate) {
+        _pasteboardNeedUpdate = NO;
+        nvc_ui_update_pasteboard(ui_ctx);
+    }
+}
+
 - (CGFloat)lineHeight {
     return nvc_ui_get_line_height(ui_ctx);
 }
@@ -57,7 +83,9 @@
 }
 
 - (CGSize)attachUIWithSize:(CGSize)size {
-    return nvc_ui_attach(ui_ctx, size);
+    CGSize sz = nvc_ui_attach(ui_ctx, size);
+    [self active];
+    return sz;
 }
 
 - (void)detachUI {
@@ -86,7 +114,7 @@
     return res;
 }
 
-- (void)keyDown:(NSEvent *)event {
+- (BOOL)keyDown:(NSEvent *)event {
     nvc_ui_key_flags_t flags = nvc_ui_key_flags_init(event.modifierFlags);
     if (!nvc_ui_input_key(ui_ctx, event.keyCode, flags)) {
         NSString *c = event.characters;
@@ -95,6 +123,7 @@
             nvc_ui_input_keystr(ui_ctx, flags, (const char *)keys.bytes, (uint32_t)keys.length);
         }
     }
+    return YES;
 }
 
 - (BOOL)functionKeyDown:(NSEvent *)event {
@@ -149,6 +178,52 @@
 
 - (void)middleMouseDragged:(NSEvent *)event inView:(NSView *)view {
     nvclient_ui_input_mouse(ui_ctx, event, view, nvc_ui_mouse_key_middle, nvc_ui_mouse_action_drag);
+}
+
+- (BOOL)actionCut {
+    BOOL res = NO;
+    if (nvc_ui_action_cut(ui_ctx)) {
+        _pasteboardNeedUpdate = YES;
+        res = YES;
+    }
+    return res;
+}
+
+- (BOOL)actionCopy {
+    BOOL res = NO;
+    if (nvc_ui_action_copy(ui_ctx)) {
+        _pasteboardNeedUpdate = YES;
+        res = YES;
+    }
+    return res;
+}
+
+- (BOOL)actionPaste {
+    NSString *str = [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString];
+    if (str.length > 0) {
+        NSData *data = [str dataUsingEncoding:NSUTF8StringEncoding];
+        nvc_ui_action_paste(ui_ctx, (const char *)data.bytes, (uint32_t)data.length);
+    }
+    return YES;
+}
+
+- (BOOL)actionSelectAll {
+    nvc_ui_action_select_all(ui_ctx);
+    return YES;
+}
+
+- (BOOL)actionDelete {
+    return nvc_ui_action_delete(ui_ctx);
+}
+
+- (BOOL)actionUndo {
+    nvc_ui_action_undo(ui_ctx);
+    return YES;
+}
+
+- (BOOL)actionRedo {
+    nvc_ui_action_redo(ui_ctx);
+    return YES;
 }
 
 static inline void nvclient_ui_input_mouse(nvc_ui_context_t *ctx, NSEvent *event, NSView *view, nvc_ui_mouse_key_t key, nvc_ui_mouse_action_t action) {
@@ -274,6 +349,21 @@ static inline void nvclient_ui_enable_ext_tabline(void *userdata, bool enabled) 
     });
 }
 
+static inline void nvclient_ui_update_pasteboard(void *userdata, const char *str, uint32_t len) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    if (str != NULL && len > 0) {
+        NSString *value = [[NSString alloc] initWithBytes:str length:len encoding:NSUTF8StringEncoding];
+        @weakify(client);
+        dispatch_main_async(^{
+            @strongify(client);
+            NSPasteboard *pasteBoard = NSPasteboard.generalPasteboard;
+            [pasteBoard declareTypes:[NSArray arrayWithObject:NSPasteboardTypeString] owner:nil];
+            [pasteBoard setString:value forType:NSPasteboardTypeString];
+            client->_pasteboardChangeCount = pasteBoard.changeCount;
+        });
+    }
+}
+
 static inline void nvclient_ui_close(void *userdata) {
     NVClient *client = (__bridge NVClient *)userdata;
     @weakify(client);
@@ -296,6 +386,7 @@ static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(enable_mouse_autohide),
     NVCLIENT_CALLBACK(enable_mouse_move),
     NVCLIENT_CALLBACK(enable_ext_tabline),
+    NVCLIENT_CALLBACK(update_pasteboard),
     NVCLIENT_CALLBACK(close),
 };
 

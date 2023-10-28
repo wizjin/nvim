@@ -45,7 +45,7 @@ static inline bool load_fonts(const std::string& value, CGFloat default_font_siz
             }
         }
         if (!family.empty()) {
-            CFStringRef family_name = CFStringCreateWithBytes(nullptr, (const UInt8 *)family.c_str(), family.size(), kCFStringEncodingUTF8, false);
+            CFStringRef family_name = CFStringCreateWithBytes(nullptr, (const UInt8 *)family.data(), family.size(), kCFStringEncodingUTF8, false);
             if (likely(family_name)) {
                 CTFontRef font = CTFontCreateWithName(family_name, font_size, nullptr);
                 if (likely(font != nullptr)) {
@@ -83,7 +83,7 @@ static inline void find_glyph(CTFontList& fonts, UniChar *c, uint8_t n, CTGlyphI
 
 #pragma mark - UIFont
 UIFont::UIFont(CGFloat font_size, CGFloat scale_factor)
-: m_glyph_size(CGSizeZero), m_font_offset(0), m_font_size(font_size), m_scale_factor(scale_factor), m_underline(0), m_underline_position(0), m_emoji(true) {
+: m_glyph_size(CGSizeZero), m_font_offset(0), m_font_size(font_size), m_scale_factor(scale_factor), m_underline_position(0), m_underline_thickness(0), m_emoji(true) {
     CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontUserFixedPitch, m_font_size, nullptr);
     if (likely(font != nullptr)) {
         m_fonts.push_back(font);
@@ -109,7 +109,7 @@ void UIFont::update(void) {
         m_glyph_size = CGSizeMake(width, height);
         m_font_size = CTFontGetSize(font);
         m_font_offset = descent;
-        m_underline = CTFontGetUnderlineThickness(font);
+        m_underline_thickness = CTFontGetUnderlineThickness(font);
         m_underline_position = CTFontGetUnderlinePosition(font);
     }
     m_glyph_cache.clear();
@@ -200,13 +200,13 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
                 c[1] = 0xDC00 + (cp & 0x03FF);
                 n = 2;
             }
-            CGGlyph glyphs[2] = { 0, 0 };
             if (!info.is_emoji) {
                 if (info.is_wide) find_glyph(m_font_wides, c, n, info);
                 if (info.glyph == 0) find_glyph(m_fonts, c, n, info);
                 if (info.glyph == 0) info.is_emoji = chars.is_emoji(ch);
             }
             if (info.glyph == 0 && info.is_emoji) {
+                CGGlyph glyphs[2] = { 0, 0 };
                 info.font = load_emoji();
                 if (likely(info.font != nullptr && info.font->find_glyphs(c, glyphs, n))) {
                     info.glyph = glyphs[0];
@@ -221,22 +221,6 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
         result = &m_glyph_cache[ch];
     }
     return result;
-}
-
-void UIFont::draw(UIRender& render, UnicodeChar ch, UIFontTraits traits, const UIPoint& pt) {
-    CTGlyphInfo *info = load_glyph(ch);
-    if (likely(info != nullptr && info->font != nullptr) && !info->is_skip) {
-        if (!info->is_space) {
-            render.draw_glyph(info->font->find(traits), info->glyph, pt);
-        }
-        if (info->font->underline()) {
-            CGFloat y = pt.y - m_underline;
-            CGFloat width = m_glyph_size.width;
-            render.set_stroke_color(render.text_color());
-            render.line_width(m_underline);
-            render.draw_line(pt.x, y, pt.x + (info->is_wide ? width * 2 : width), y);
-        }
-    }
 }
 
 }
