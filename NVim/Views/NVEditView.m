@@ -6,13 +6,14 @@
 //
 
 #import "NVEditView.h"
+#import "NVLayer.h"
 
 #define kNSEventModifierMask    (NSEventModifierFlagControl|NSEventModifierFlagOption|NSEventModifierFlagCommand)
 #define kVK_Delete              0x33
 
 @interface NVEditView () <CALayerDelegate, NSTextInputClient>
 
-@property (nonatomic, readonly, strong) CALayer *drawLayer;
+@property (nonatomic, readonly, strong) NSMutableDictionary<NSNumber *, NVLayer *> *drawLayers;
 @property (nonatomic, readonly, strong) NSTextInputContext *textInputContext;
 @property (nonatomic, readonly, assign) NSEventModifierFlags flags;
 @property (nonatomic, readonly, strong) NSString *markedText;
@@ -27,16 +28,9 @@
         _textInputContext = [[NSTextInputContext alloc] initWithClient:self];
         _flags = 0;
         _markedText = nil;
-        
+        _drawLayers = [NSMutableDictionary new];
+
         self.wantsLayer = YES;
-        CALayer *drawLayer = [CALayer new];
-        [self.layer addSublayer:(_drawLayer = drawLayer)];
-        drawLayer.contentsScale = self.layer.contentsScale;
-        drawLayer.allowsEdgeAntialiasing = NO;
-        drawLayer.allowsGroupOpacity = NO;
-        drawLayer.masksToBounds = YES;
-        drawLayer.doubleSided = NO;
-        drawLayer.delegate = self;
         
         [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
     }
@@ -151,7 +145,6 @@
 - (void)setContentSize:(CGSize)contentSize {
     if (!CGSizeEqualToSize(self.contentSize, contentSize)) {
         _contentSize = contentSize;
-        self.drawLayer.frame = CGRectMake(0, 0, contentSize.width, contentSize.height);
     }
 }
 
@@ -159,23 +152,39 @@
     if (![self.backgroundColor isEqualTo:backgroundColor]) {
         _backgroundColor = backgroundColor;
         self.layer.backgroundColor = backgroundColor.CGColor;
-        self.drawLayer.backgroundColor = self.layer.backgroundColor;
     }
 }
 
-- (void)updateDisplayRect:(CGRect)dirty {
-    [self.drawLayer setNeedsDisplayInRect:dirty];
+- (void)layer:(NSInteger)grid flush:(CGRect)dirty {
+    [[self findLayer:@(grid)] setNeedsDisplayInRect:dirty];
+}
+
+- (void)layer:(NSInteger)grid resize:(CGRect)frame {
+    [[self findLayer:@(grid)] setFrame:frame];
+}
+
+- (void)closeLayer:(NSInteger)grid {
+    NSNumber *gid = @(grid);
+    NVLayer *layer = [self.drawLayers objectForKey:gid];
+    if (layer != nil) {
+        [layer removeFromSuperlayer];
+        [self.drawLayers removeObjectForKey:gid];
+    }
 }
 
 - (void)startContentResize {
-    [self.drawLayer setHidden:YES];
+    for (NVLayer *layer in self.drawLayers.allValues) {
+        [layer setHidden:YES];
+    }
 }
 
 - (void)endContentResize {
     @weakify(self);
     dispatch_main_async(^{
         @strongify(self);
-        [self.drawLayer setHidden:NO];
+        for (NVLayer *layer in self.drawLayers.allValues) {
+            [layer setHidden:NO];
+        }
     });
 }
 
@@ -186,7 +195,7 @@
     CGContextSetShouldAntialias(context, true);
     CGContextSetShouldSmoothFonts(context, false);
     CGContextSetTextDrawingMode(context, kCGTextFill);
-    [self.client redrawUI:context];
+    [self.client redrawLayer:[(NVLayer *)layer grid] context:context];
     CGContextFlush(context);
 }
 
@@ -291,6 +300,19 @@
 }
 
 #pragma mark - Helper
+- (NVLayer *)findLayer:(NSNumber *)grid {
+    NVLayer *layer = [self.drawLayers objectForKey:grid];
+    if (layer == nil) {
+        layer = [NVLayer new];
+        [self.drawLayers setObject:layer forKey:grid];
+        layer.contentsScale = self.layer.contentsScale;
+        layer.grid = grid.integerValue;
+        layer.delegate = self;
+        [self.layer addSublayer:layer];
+    }
+    return layer;
+}
+
 static inline NSString *get_string(id val) {
     if ([val isKindOfClass:NSString.class]) {
         return val;

@@ -69,7 +69,7 @@ void UIGrid::update(const UIPoint& pt, int32_t count, UnicodeChar ch, int32_t hl
     }
 }
 
-void UIGrid::draw(UIRender& render, const UIRect& dirty, const UIPoint& offset) const {
+void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
     CGPoint pt;
     CGSize size = render.ctx().cell_size();
     UISize wndSize = render.ctx().window_size();
@@ -78,14 +78,14 @@ void UIGrid::draw(UIRender& render, const UIRect& dirty, const UIPoint& offset) 
     bool need_cursor = render.need_cursor() && dirty.contains(m_cursor);
     for (int j = dirty.y(); j < height; j++) {
         int i = dirty.x();
-        pt.y = (offset.y + j) * size.height;
+        pt.y = j * size.height;
         const UICell *cell = m_cells.data() + j * m_size.width + i;
         if (cell->is_skip && i > 0) {
             cell--; i--;
         }
         for (; i < width; i++) {
             if (!cell->is_skip) {
-                pt.x = (offset.x + i) * size.width;
+                pt.x = i * size.width;
                 const auto cell_hl = render.update_hl_id(cell->hl_id);
                 CGFloat cellWidth = size.width;
                 if (cell->is_wide) cellWidth *= 2;

@@ -15,7 +15,6 @@ UIContext::UIContext(const nvc_ui_callback_t& cb, const nvc_ui_config_t& config,
     m_attached = false;
     m_mode_enabled = true;
     m_show_cursor = true;
-    m_dirty_rect = CGRectZero;
     bzero(&m_rpc, sizeof(m_rpc));
 }
 
@@ -69,28 +68,14 @@ bool UIContext::update_size(const CGSize& size) {
     return res;
 }
 
-void UIContext::draw(CGContextRef context) {
+void UIContext::draw(int grid, CGContextRef context) {
     if (likely(m_attached)) {
         nvc_lock_guard_t guard(m_locker);
         UIRender render(*this, context);
         const auto& dirty = rect2cell(CGContextGetClipBoundingBox(context));
-        const auto& p = m_grids.find(1);
+        const auto& p = m_grids.find(grid);
         if (likely(p != m_grids.end())) {
-            p->second->draw(render, dirty, UIPoint());
-        }
-        for (const auto& w : m_wins) {
-            const auto win = w.second;
-            if (!win->hidden()) {
-                auto rc = win->frame().intersection(dirty);
-                if (!rc.empty()) {
-                    const auto& p = m_grids.find(win->grid_id());
-                    if (likely(p != m_grids.end())) {
-                        const auto offset = win->frame().origin;
-                        rc.origin -= offset;
-                        p->second->draw(render, rc, offset);
-                    }
-                }
-            }
+            p->second->draw(render, dirty);
         }
     }
 }
@@ -131,6 +116,16 @@ void UIContext::resize_grid(int grid_id, int32_t width, int32_t height) {
     } else {
         grid = p->second;
         grid->resize(nvc::UISize(width, height));
+    }
+    if (grid_id == 1) {
+        const auto& p = m_wins.find(grid_id);
+        const auto frame = UIRect(0, 0, width, height);
+        if (p != m_wins.end()) {
+            p->second->frame(frame);
+        } else {
+            m_wins[grid_id] = new UIWin(grid_id, 0, frame);
+        }
+        cb().layer_resize(userdata(), grid_id, cell2rect(frame));
     }
 }
 
@@ -243,6 +238,7 @@ void UIContext::update_win_pos(int grid_id, nvc_rpc_object_handler_t win, const 
     } else {
         m_wins[grid_id] = new UIWin(grid_id, win, frame);
     }
+    cb().layer_resize(userdata(), grid_id, cell2rect(frame));
     NVLogI("win pos grid %d win %d", grid_id, win);
 }
 
@@ -282,13 +278,25 @@ void UIContext::close_win(int grid_id) {
     std::erase_if(m_wins, [this, grid_id](const auto& p) {
         bool res = false;
         if (p.first == grid_id) {
-            this->update_dirty(grid_id, UIRect(UIPoint(), p.second->frame().size));
+            update_dirty(grid_id, UIRect(UIPoint(), p.second->frame().size));
+            cb().layer_close(userdata(), grid_id);
             delete p.second;
             res = true;
         }
         return res;
     });
     NVLogI("win close grid %d", grid_id);
+}
+
+void UIContext::flush_layers(void) {
+    nvc_lock_guard_t guard(m_locker);
+    for (const auto& p : m_wins) {
+        auto win = p.second;
+        const auto& dirty = win->dirty();
+        if (!dirty.empty()) {
+            cb().layer_flush(userdata(), p.first, cell2rect(dirty));
+        }
+    }
 }
 
 void UIContext::set_rpc_callback(int64_t msgid, const UIContext::RPCCallback& cb) {
@@ -315,18 +323,10 @@ bool UIContext::find_rpc_callback(int64_t msgid, UIContext::RPCCallback& cb) {
 }
 
 #pragma mark - Helper
-void UIContext::update_dirty(int grid_id, const UIRect& dirty) {
-    CGRect rc = CGRectMake(dirty.x(), dirty.y(), dirty.width(), dirty.height());
+void UIContext::update_dirty(int grid_id, const UIRect& dirty) {;
     const auto& p = m_wins.find(grid_id);
-    if (p != m_wins.end()) {
-        const auto& frame = p->second->frame();
-        rc.origin.x += frame.x();
-        rc.origin.y += frame.y();
-    }
-    if (CGRectIsEmpty(m_dirty_rect)) {
-        m_dirty_rect = rc;
-    } else {
-        m_dirty_rect = CGRectUnion(m_dirty_rect, rc);
+    if (likely(p != m_wins.end())) {
+        p->second->dirty(dirty);
     }
 }
 

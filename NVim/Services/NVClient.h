@@ -13,7 +13,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol NVClientDelegate <NSObject>
 @optional
-- (void)client:(NVClient *)client flush:(CGRect)dirty;
+- (void)client:(NVClient *)client grid:(NSInteger)grid flush:(CGRect)dirty;
+- (void)client:(NVClient *)client grid:(NSInteger)grid resize:(CGRect)frame;
+- (void)client:(NVClient *)client closeGrid:(NSInteger)grid;
 - (void)client:(NVClient *)client updateTitle:(NSString *)title;
 - (void)client:(NVClient *)client updateBackground:(NSColor *)color;
 - (void)client:(NVClient *)client updateTabBackground:(NSColor *)color;
@@ -40,7 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)active;
 - (void)deactive;
 - (void)detachUI;
-- (void)redrawUI:(CGContextRef)context;
+- (void)redrawLayer:(NSInteger)grid context:(CGContextRef)context;
 - (CGSize)resizeUIWithSize:(CGSize)size;
 - (BOOL)openFiles:(NSArray<NSString *> *)files;
 - (BOOL)keyDown:(NSEvent *)event;

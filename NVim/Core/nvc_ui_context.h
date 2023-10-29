@@ -39,7 +39,6 @@ private:
     UIFont              m_font;
     UIMode              m_mode;
     UISize              m_window_size;
-    CGRect              m_dirty_rect;
     UIWinMap            m_wins;
     UIGridMap           m_grids;
     RPCCallbackMap      m_rpc_callbacks;
@@ -59,8 +58,6 @@ public:
     inline UIMode& mode(void) { return m_mode; }
     inline const CGSize& cell_size(void) const { return m_font.glyph_size(); }
     inline const UISize& window_size(void) const { return m_window_size; }
-    inline const CGRect& dirty(void) const { return m_dirty_rect; }
-    inline void clear_dirty(void) { m_dirty_rect = CGRectZero; }
 
     inline UISize size2cell(const CGSize& size) const {
         return UISize(floor(size.width/cell_size().width), floor(size.height/cell_size().height));
@@ -70,6 +67,9 @@ public:
     }
     inline CGSize cell2size(const nvc::UISize& size) const {
         return CGSizeMake(cell_size().width * size.width, cell_size().height * size.height);
+    }
+    inline CGRect cell2rect(const nvc::UIRect& rc) const {
+        return CGRectMake(cell_size().width * rc.x(), cell_size().height * rc.y(), cell_size().width * rc.width(), cell_size().height * rc.height());
     }
     inline UIRect rect2cell(const CGRect& rect) const {
         UIRect rc;
@@ -85,7 +85,7 @@ public:
     bool attach(const CGSize& size);
     bool detach(void);
     bool update_size(const CGSize& size);
-    void draw(CGContextRef context);
+    void draw(int grid, CGContextRef context);
     CGPoint find_cursor(void);
     void change_mode(const std::string& mode, int index);
     void resize_grid(int grid_id, int32_t width, int32_t height);
@@ -100,6 +100,8 @@ public:
     void hide_win(int grid_id);
     void close_win(int grid_id);
 
+    void flush_layers(void);
+    
     void set_rpc_callback(int64_t msgid, const RPCCallback& cb);
     bool find_rpc_callback(int64_t msgid, RPCCallback& cb);
 };

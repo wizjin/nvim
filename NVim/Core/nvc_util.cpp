@@ -9,4 +9,8 @@
 
 namespace nvc {
 
+const UIPoint UIPoint::zero = UIPoint();
+const UISize UISize::zero = UISize();
+const UIRect UIRect::zero = UIRect();
+
 }

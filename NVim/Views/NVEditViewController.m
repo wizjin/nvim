@@ -104,8 +104,16 @@
 }
 
 #pragma mark - NVClientDelegate
-- (void)client:(NVClient *)client flush:(CGRect)dirty {
-    [self.editView updateDisplayRect:dirty];
+- (void)client:(NVClient *)client grid:(NSInteger)grid flush:(CGRect)dirty {
+    [self.editView layer:grid flush:dirty];
+}
+
+- (void)client:(NVClient *)client grid:(NSInteger)grid resize:(CGRect)frame {
+    [self.editView layer:grid resize:frame];
+}
+
+- (void)client:(NVClient *)client closeGrid:(NSInteger)grid {
+    [self.editView closeLayer:grid];
 }
 
 - (void)client:(NVClient *)client updateTitle:(NSString *)title {

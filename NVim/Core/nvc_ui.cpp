@@ -155,10 +155,10 @@ void nvc_ui_detach(nvc_ui_context_t *ptr) {
     }
 }
 
-void nvc_ui_redraw(nvc_ui_context_t *ptr, CGContextRef context) {
+void nvc_ui_redraw(nvc_ui_context_t *ptr, int grid, CGContextRef context) {
     auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr && context != nullptr)) {
-        ctx->draw(context);
+        ctx->draw(grid, context);
     }
 }
 
@@ -750,15 +750,7 @@ static inline int nvc_ui_redraw_action_bell(nvc::UIContext *ctx, int items) {
 }
 
 static inline int nvc_ui_redraw_action_flush(nvc::UIContext *ctx, int items) {
-    if (!CGRectIsEmpty(ctx->dirty())) {
-        CGRect dirty = ctx->dirty();
-        ctx->clear_dirty();
-        dirty.origin.x *= ctx->cell_size().width;
-        dirty.origin.y *= ctx->cell_size().height;
-        dirty.size.width *= ctx->cell_size().width;
-        dirty.size.height *= ctx->cell_size().height;
-        ctx->cb().flush(ctx->userdata(), dirty);
-    }
+    ctx->flush_layers();
     return items;
 }
 

@@ -23,14 +23,19 @@ private:
     int                         m_grid_id;
     nvc_rpc_object_handler_t    m_win;
     UIRect                      m_frame;
+    UIRect                      m_dirty;
     bool                        m_hidden;
 public:
-    inline explicit UIWin(int grid_id, nvc_rpc_object_handler_t win, const UIRect& frame) : m_grid_id(grid_id), m_win(win), m_frame(frame), m_hidden(false) {}
+    explicit UIWin(int grid_id, nvc_rpc_object_handler_t win, const UIRect& frame);
 
     inline int grid_id(void) const { return m_grid_id; }
     inline const UIRect& frame(void) const { return m_frame; }
+    inline void frame(const UIRect& frame) { m_frame = frame; }
     inline bool hidden(void) const { return m_hidden; }
     inline void hidden(bool hidden) { m_hidden = hidden; }
+    inline void dirty(const UIRect& dirty) { m_dirty += dirty; }
+    inline const UIRect& dirty(void) const { return m_dirty; }
+    inline void clear_dirty(void) { m_dirty = UIRect::zero; }
     inline void update(nvc_rpc_object_handler_t win, const UIRect& frame) {
         m_win = win;
         m_frame = frame;
