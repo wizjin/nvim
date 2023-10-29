@@ -43,6 +43,7 @@ NVC_API int nvc_rpc_init(nvc_rpc_context_t *ctx, int inskt, int outskt, void *us
 NVC_API void nvc_rpc_final(nvc_rpc_context_t *ctx);
 NVC_API bool nvc_rpc_read_bool(nvc_rpc_context_t *ctx);
 NVC_API int64_t nvc_rpc_read_int64(nvc_rpc_context_t *ctx);
+NVC_API double nvc_rpc_read_double(nvc_rpc_context_t *ctx);
 NVC_API const char *nvc_rpc_read_str(nvc_rpc_context_t *ctx, uint32_t *len);
 NVC_API int nvc_rpc_read_array_size(nvc_rpc_context_t *ctx);
 NVC_API int nvc_rpc_read_map_size(nvc_rpc_context_t *ctx);

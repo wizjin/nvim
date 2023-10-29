@@ -12,7 +12,7 @@
 #include "nvc_rpc.h"
 #include "nvc_ui.h"
 #include "mvc_ui_mode.h"
-#include "nvc_ui_grid.h"
+#include "nvc_ui_win.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,6 +23,7 @@ namespace nvc {
 
 class UIContext {
 public:
+    using UIWinMap          = std::map<int, UIWin *, std::less<int>>;
     using UIGridMap         = std::map<int, UIGrid *, std::less<int>>;
     using RPCCallback       = std::function<int(UIContext *, int, int)>;
     using RPCCallbackMap    = std::unordered_map<int64_t, RPCCallback>;
@@ -39,8 +40,11 @@ private:
     UIMode              m_mode;
     UISize              m_window_size;
     CGRect              m_dirty_rect;
+    UIWinMap            m_wins;
     UIGridMap           m_grids;
     RPCCallbackMap      m_rpc_callbacks;
+protected:
+    void update_dirty(int grid_id, const UIRect& dirty);
 public:
     explicit UIContext(const nvc_ui_callback_t& cb, const nvc_ui_config_t& config, void *userdata);
     inline nvc_rpc_context_t* rpc() { return &m_rpc; }
@@ -57,7 +61,6 @@ public:
     inline const UISize& window_size(void) const { return m_window_size; }
     inline const CGRect& dirty(void) const { return m_dirty_rect; }
     inline void clear_dirty(void) { m_dirty_rect = CGRectZero; }
-    inline UIGridMap& grids(void) { return m_grids; }
 
     inline UISize size2cell(const CGSize& size) const {
         return UISize(floor(size.width/cell_size().width), floor(size.height/cell_size().height));
@@ -77,10 +80,10 @@ public:
         return rc;
     }
     
+    void clear(void);
     void close(void);
     bool attach(const CGSize& size);
     bool detach(void);
-    void update_dirty(const UIRect& dirty);
     bool update_size(const CGSize& size);
     void draw(CGContextRef context);
     CGPoint find_cursor(void);
@@ -91,6 +94,11 @@ public:
     void update_grid_cursor(int grid_id, const UIPoint& pt);
     void scroll_grid(int grid_id, const UIRect& rc, int32_t rows);
     void update_grid_line(int items);
+    void update_win_pos(int grid_id, nvc_rpc_object_handler_t win, const UIRect& frame);
+    void update_win_float_pos(int grid_id, nvc_rpc_object_handler_t win, const std::string& anchor, int anchor_grid, const UIPoint& anchor_pos, bool focusable);
+    void update_win_external_pos(int grid_id, nvc_rpc_object_handler_t win);
+    void hide_win(int grid_id);
+    void close_win(int grid_id);
 
     void set_rpc_callback(int64_t msgid, const RPCCallback& cb);
     bool find_rpc_callback(int64_t msgid, RPCCallback& cb);

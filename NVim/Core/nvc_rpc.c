@@ -289,6 +289,24 @@ int64_t nvc_rpc_read_int64(nvc_rpc_context_t *ctx) {
     return res;
 }
 
+double nvc_rpc_read_double(nvc_rpc_context_t *ctx) {
+    int64_t res = 0;
+    switch (cw_look_ahead(&ctx->cin)) {
+        case CWP_ITEM_FLOAT:
+            cw_unpack_next(&ctx->cin);
+            res = ctx->cin.item.as.real;
+            break;
+        case CWP_ITEM_DOUBLE:
+            cw_unpack_next(&ctx->cin);
+            res = ctx->cin.item.as.long_real;
+            break;
+        default:
+            cw_skip_items(&ctx->cin, 1);
+            break;
+    }
+    return res;
+}
+
 const char *nvc_rpc_read_str(nvc_rpc_context_t *ctx, uint32_t *len) {
     const char *res = NULL;
     uint32_t nlen = 0;

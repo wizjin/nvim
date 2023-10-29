@@ -31,6 +31,11 @@ struct UIPoint {
     inline constexpr explicit UIPoint(int32_t _x, int32_t _y) : x(_x), y(_y) {}
     inline constexpr bool operator==(const UIPoint& rhs) const { return x == rhs.x && y == rhs.y; }
     inline constexpr bool operator!=(const UIPoint& rhs) const { return x != rhs.x || y != rhs.y; }
+    inline constexpr UIPoint& operator-=(const UIPoint& rhs) {
+        this->x -= rhs.x;
+        this->y -= rhs.y;
+        return *this;
+    }
 };
 
 struct UISize {
@@ -67,6 +72,25 @@ struct UIRect {
     }
     inline constexpr bool operator==(const UIRect& rhs) const { return origin == rhs.origin && size == rhs.size; }
     inline constexpr bool operator!=(const UIRect& rhs) const { return origin != rhs.origin || size != rhs.size; }
+    
+    inline constexpr UIRect intersection(const UIRect& rhs) const {
+        UIRect rc;
+        if (!empty()) {
+            int32_t left = std::max(this->left(), rhs.left());
+            int32_t right = std::min(this->right(), rhs.right());
+            int32_t top = std::max(this->top(), rhs.top());
+            int32_t bottom = std::min(this->bottom(), rhs.bottom());
+            int32_t width = right - left;
+            int32_t height = bottom - top;
+            if (width > 0 && height > 0) {
+                rc.origin.x = left;
+                rc.origin.y = top;
+                rc.size.width = width;
+                rc.size.height = height;
+            }
+        }
+        return rc;
+    }
 };
 
 #pragma mark - Util Helper

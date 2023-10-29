@@ -113,10 +113,7 @@ void nvc_ui_destroy(nvc_ui_context_t *ptr) {
     auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (ctx != nullptr) {
         nvc_rpc_final(ctx->rpc());
-        for (const auto& p : ctx->grids()) {
-            delete p.second;
-        }
-        ctx->grids().clear();
+        ctx->clear();
         delete ctx;
     }
 }
@@ -138,10 +135,10 @@ CGSize nvc_ui_attach(nvc_ui_context_t *ptr, CGSize size) {
         nvc_rpc_write_unsigned(ctx->rpc(), wndSize.width);
         nvc_rpc_write_unsigned(ctx->rpc(), wndSize.height);
         nvc_rpc_write_map_size(ctx->rpc(), 3);
-        nvc_rpc_write_const_str(ctx->rpc(), "override");
-        nvc_rpc_write_false(ctx->rpc());
         nvc_rpc_write_const_str(ctx->rpc(), "ext_linegrid");
         nvc_rpc_write_true(ctx->rpc());
+        nvc_rpc_write_const_str(ctx->rpc(), "ext_multigrid");
+        nvc_rpc_write_false(ctx->rpc());
         nvc_rpc_write_const_str(ctx->rpc(), "ext_tabline");
         nvc_rpc_write_false(ctx->rpc());
         nvc_rpc_call_end(ctx->rpc());
@@ -601,7 +598,7 @@ static inline int nvc_ui_option_set_action_ext_tabline(nvc::UIContext *ctx, int 
     return items;
 }
 
-#pragma mark - NVC UI Redraw Actions
+#pragma mark - NVC UI Redraw Actions - Global Events
 static inline int nvc_ui_redraw_action_set_title(nvc::UIContext *ctx, int count) {
     if (likely(count-- > 0)) {
         int items = nvc_rpc_read_array_size(ctx->rpc());
@@ -868,6 +865,7 @@ static inline int nvc_ui_redraw_action_hl_group_set(nvc::UIContext *ctx, int ite
     return 0;
 }
 
+#pragma mark - NVC UI Redraw Actions - Grid Events (line-based)
 static inline int nvc_ui_redraw_action_grid_line(nvc::UIContext *ctx, int items) {
     ctx->update_grid_line(items);
     return 0;
@@ -930,6 +928,91 @@ static inline int nvc_ui_redraw_action_grid_scroll(nvc::UIContext *ctx, int item
     return items;
 }
 
+#pragma mark - NVC UI Redraw Actions - Multigrid Events
+static inline int nvc_ui_redraw_action_win_pos(nvc::UIContext *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx->rpc());
+        if (likely(narg >= 6)) {
+            narg -= 6;
+            int grid_id = nvc_rpc_read_int(ctx->rpc());
+            nvc_rpc_object_handler_t win = nvc_rpc_read_ext_handle(ctx->rpc());
+            int32_t start_row = nvc_rpc_read_int32(ctx->rpc());
+            int32_t start_col = nvc_rpc_read_int32(ctx->rpc());
+            int32_t width = nvc_rpc_read_int32(ctx->rpc());
+            int32_t height = nvc_rpc_read_int32(ctx->rpc());
+            ctx->update_win_pos(grid_id, win, nvc::UIRect(start_col, start_row, width, height));
+        }
+        nvc_rpc_read_skip_items(ctx->rpc(), narg);
+    }
+    return items;
+}
+
+static inline int nvc_ui_redraw_action_win_float_pos(nvc::UIContext *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx->rpc());
+        if (likely(narg >= 7)) {
+            narg -= 7;
+            int grid_id = nvc_rpc_read_int(ctx->rpc());
+            nvc_rpc_object_handler_t win = nvc_rpc_read_ext_handle(ctx->rpc());
+            auto anchor = nvc_rpc_read_str(ctx->rpc());
+            int anchor_grid = nvc_rpc_read_int(ctx->rpc());
+            int32_t anchor_row = (int32_t)nvc_rpc_read_double(ctx->rpc());
+            int32_t anchor_col = (int32_t)nvc_rpc_read_double(ctx->rpc());
+            bool focusable = nvc_rpc_read_bool(ctx->rpc());
+            ctx->update_win_float_pos(grid_id, win, anchor, anchor_grid, nvc::UIPoint(anchor_col, anchor_row), focusable);
+        }
+        nvc_rpc_read_skip_items(ctx->rpc(), narg);
+    }
+    return items;
+}
+
+static inline int nvc_ui_redraw_action_win_external_pos(nvc::UIContext *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx->rpc());
+        if (likely(narg >= 2)) {
+            narg -= 2;
+            ctx->update_win_external_pos(nvc_rpc_read_int(ctx->rpc()), nvc_rpc_read_ext_handle(ctx->rpc()));
+        }
+        nvc_rpc_read_skip_items(ctx->rpc(), narg);
+    }
+    return items;
+}
+
+static inline int nvc_ui_redraw_action_win_hide(nvc::UIContext *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx->rpc());
+        if (narg-- > 0) {
+            ctx->hide_win(nvc_rpc_read_int(ctx->rpc()));
+        }
+        nvc_rpc_read_skip_items(ctx->rpc(), narg);
+    }
+    return items;
+}
+
+static inline int nvc_ui_redraw_action_win_close(nvc::UIContext *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int narg = nvc_rpc_read_array_size(ctx->rpc());
+        if (narg-- > 0) {
+            ctx->close_win(nvc_rpc_read_int(ctx->rpc()));
+        }
+        nvc_rpc_read_skip_items(ctx->rpc(), narg);
+    }
+    return items;
+}
+
+static inline int nvc_ui_redraw_action_win_viewport(nvc::UIContext *ctx, int items) {
+//    if (likely(items-- > 0)) {
+//        int narg = nvc_rpc_read_array_size(ctx->rpc());
+//        if (narg >= 2) {
+//            narg -= 2;
+//            NVLogI("win_viewport grid %d win %d", nvc_rpc_read_int(ctx->rpc()), nvc_rpc_read_ext_handle(ctx->rpc()));
+//        }
+//        nvc_rpc_read_skip_items(ctx->rpc(), narg);
+//    }
+    return items;
+}
+
+#pragma mark - NVC UI Redraw Actions - Tabline Events
 typedef struct nvc_ui_tab {
     nvc_rpc_object_handler_t    tab;
     std::string                 name;
@@ -1011,13 +1094,13 @@ static const std::unordered_map<std::string, const std::function<int(nvc::UICont
     NVC_REDRAW_ACTION(grid_cursor_goto),
     NVC_REDRAW_ACTION(grid_scroll),
     // Multigrid Events
-    NVC_REDRAW_ACTION_IGNORE(win_pos),
-    NVC_REDRAW_ACTION_IGNORE(win_float_pos),
-    NVC_REDRAW_ACTION_IGNORE(win_external_pos),
-    NVC_REDRAW_ACTION_IGNORE(win_hide),
-    NVC_REDRAW_ACTION_IGNORE(win_close),
+    NVC_REDRAW_ACTION(win_pos),
+    NVC_REDRAW_ACTION(win_float_pos),
+    NVC_REDRAW_ACTION(win_external_pos),
+    NVC_REDRAW_ACTION(win_hide),
+    NVC_REDRAW_ACTION(win_close),
     NVC_REDRAW_ACTION_IGNORE(msg_set_pos),
-    NVC_REDRAW_ACTION_IGNORE(win_viewport),
+    NVC_REDRAW_ACTION(win_viewport),
     NVC_REDRAW_ACTION_IGNORE(win_extmark),
     // Popupmenu Events
     NVC_REDRAW_ACTION_IGNORE(popupmenu_show),
