@@ -121,7 +121,7 @@ public:
             if (!info->is_space) {
                 set_fill_color(m_text_color);
                 CGContextSetTextPosition(m_context, pt.x, pt.y);
-                CTFontDrawGlyphs(info->font->find(traits), &info->glyph, &CGPointZero, 1, m_context);
+                CTFontDrawGlyphs(info->font->find(traits, info), &info->glyph, &CGPointZero, 1, m_context);
             }
             if (info->font->underline()) {
                 CGFloat y = pt.y - font.underline_position();

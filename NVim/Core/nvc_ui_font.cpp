@@ -176,8 +176,7 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
     if (p != m_glyph_cache.end()) {
         result = &p->second;
     } else if (likely(!m_fonts.empty())) {
-        CTGlyphInfo info;
-        bzero(&info, sizeof(info));
+        CTGlyphInfo info{};
         const auto& chars = UICharacter::instance();
         info.is_wide = chars.is_wide(ch);
         if (ch == 0) {
@@ -187,28 +186,27 @@ CTGlyphInfo *UIFont::load_glyph(UnicodeChar ch) {
             info.is_space = true;
             info.font = &m_fonts.front();
         } else {
-            UniChar c[2];
-            uint8_t n = 1;
+            info.chs_n = 1;
             if (ch < 0x10000) {
-                c[0] = (UniChar) ch;
+                info.chs[0] = (UniChar) ch;
             } else if (chars.is_colorful(ch)) {
-                c[0] = (UniChar) ch;
-                info.is_emoji = m_emoji && chars.is_emoji(c[0]);
+                info.chs[0] = (UniChar) ch;
+                info.is_emoji = m_emoji && chars.is_emoji(info.chs[0]);
             } else {
                 UnicodeChar cp = ch - 0x10000;
-                c[0] = 0xD800 + ((cp >> 10)&0x03FF);
-                c[1] = 0xDC00 + (cp & 0x03FF);
-                n = 2;
+                info.chs[0] = 0xD800 + ((cp >> 10)&0x03FF);
+                info.chs[1] = 0xDC00 + (cp & 0x03FF);
+                info.chs_n = 2;
             }
             if (!info.is_emoji) {
-                if (info.is_wide) find_glyph(m_font_wides, c, n, info);
-                if (info.glyph == 0) find_glyph(m_fonts, c, n, info);
+                if (info.is_wide) find_glyph(m_font_wides, info.chs, info.chs_n, info);
+                if (info.glyph == 0) find_glyph(m_fonts, info.chs, info.chs_n, info);
                 if (info.glyph == 0) info.is_emoji = chars.is_emoji(ch);
             }
             if (info.glyph == 0 && info.is_emoji) {
                 CGGlyph glyphs[2] = { 0, 0 };
                 info.font = load_emoji();
-                if (likely(info.font != nullptr && info.font->find_glyphs(c, glyphs, n))) {
+                if (likely(info.font != nullptr && info.font->find_glyphs(info.chs, glyphs, info.chs_n))) {
                     info.glyph = glyphs[0];
                 }
             }
