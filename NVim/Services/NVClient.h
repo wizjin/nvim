@@ -23,6 +23,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)client:(NVClient *)client enableMouse:(BOOL)enabled;
 - (void)client:(NVClient *)client enableMouseMove:(BOOL)enabled;
 - (void)client:(NVClient *)client hideTabline:(BOOL)hidden;
+- (void)clientResized:(NVClient *)client;
 - (void)clientUpdated:(NVClient *)client;
 - (void)clientClosed:(NVClient *)client;
 @end

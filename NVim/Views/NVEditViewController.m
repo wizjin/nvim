@@ -147,6 +147,10 @@
     }
 }
 
+- (void)clientResized:(NVClient *)client {
+    [self contentLayout];
+}
+
 - (void)clientUpdated:(NVClient *)client {
     [self contentLayout];
 }

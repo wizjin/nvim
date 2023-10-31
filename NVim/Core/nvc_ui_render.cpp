@@ -11,7 +11,7 @@ namespace nvc {
 
 UIRender::UIRender(UIContext& ctx, CGContextRef context)
 : m_ctx(ctx), m_context(context), m_font(ctx.font()), m_mode(ctx.mode()), m_hl_attrs(ctx.hl_attrs()),
-  m_font_offset(ctx.cell_size().height - ctx.font().font_offset()),
+  m_font_offset(ctx.font().glyph_size().height - ctx.font().font_offset()),
   m_last_hl(nullptr),
   m_last_hl_id(0),
   m_one_pixel(1.0/ctx.font().scale_factor()),
@@ -21,7 +21,7 @@ UIRender::UIRender(UIContext& ctx, CGContextRef context)
   m_text_color(m_foreground),
   m_fill_color(-1),
   m_stroke_color(-1) {
-      
+
 }
 
 const UIHLAttr *UIRender::update_hl_id(int32_t hl) {

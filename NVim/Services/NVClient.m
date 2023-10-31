@@ -274,6 +274,15 @@ static inline void nvclient_ui_layer_close(void *userdata, int grid) {
     });
 }
 
+static inline void nvclient_ui_update_resize(void *userdata) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate clientResized:client];
+    });
+}
+
 static inline void nvclient_ui_update_title(void *userdata, const char *str, uint32_t len) {
     NVClient *client = (__bridge NVClient *)userdata;
     NSString *title = [[NSString alloc] initWithBytes:str length:len encoding:NSUTF8StringEncoding];
@@ -396,6 +405,7 @@ static const nvc_ui_callback_t nvclient_ui_callbacks = {
     NVCLIENT_CALLBACK(layer_flush),
     NVCLIENT_CALLBACK(layer_resize),
     NVCLIENT_CALLBACK(layer_close),
+    NVCLIENT_CALLBACK(update_resize),
     NVCLIENT_CALLBACK(update_title),
     NVCLIENT_CALLBACK(update_background),
     NVCLIENT_CALLBACK(update_tab_background),

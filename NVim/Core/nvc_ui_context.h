@@ -9,10 +9,10 @@
 #define __NVC_UI_CONTEXT_H__
 
 #include <mutex>
-#include "nvc_rpc.h"
 #include "nvc_ui.h"
-#include "mvc_ui_mode.h"
 #include "nvc_ui_win.h"
+#include "nvc_ui_tab.h"
+#include "mvc_ui_mode.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +34,7 @@ private:
     bool                m_attached;
     bool                m_mode_enabled;
     bool                m_show_cursor;
+    int32_t             m_linespace;
     std::mutex          m_locker;
     UIHLAttrGroups      m_hl_attrs;
     UIFont              m_font;
@@ -41,6 +42,7 @@ private:
     UISize              m_window_size;
     UIWinMap            m_wins;
     UIGridMap           m_grids;
+    UITabList           m_tablist;
     RPCCallbackMap      m_rpc_callbacks;
 protected:
     void update_dirty(int grid_id, const UIRect& dirty);
@@ -53,30 +55,41 @@ public:
     inline bool mode_enabled(void) const { return m_mode_enabled; }
     inline bool show_cursor(void) const { return m_show_cursor; }
     inline void show_cursor(bool value) { m_show_cursor = value; }
+    inline CGFloat linespace(void) const { return m_linespace; }
+    inline bool linespace(int32_t linespace) {
+        bool res = false;
+        if (m_linespace != linespace) {
+            m_linespace = linespace;
+            res = true;
+        }
+        return res;
+    }
     inline UIHLAttrGroups& hl_attrs(void) { return m_hl_attrs; }
     inline UIFont& font(void) { return m_font; }
     inline UIMode& mode(void) { return m_mode; }
-    inline const CGSize& cell_size(void) const { return m_font.glyph_size(); }
+    inline UITabList& tablist(void) { return m_tablist; }
     inline const UISize& window_size(void) const { return m_window_size; }
-
+    inline CGFloat cell_width(void) const { return m_font.glyph_size().width; }
+    inline CGFloat cell_height(void) const { return m_font.glyph_size().height + m_linespace; }
+    inline CGSize cell_size(void) const { return CGSizeMake(cell_width(), cell_height()); }
     inline UISize size2cell(const CGSize& size) const {
-        return UISize(floor(size.width/cell_size().width), floor(size.height/cell_size().height));
+        return UISize(floor(size.width/cell_width()), floor(size.height/cell_height()));
     }
     inline CGPoint cell2point(const nvc::UIPoint& pt) const {
-        return CGPointMake(cell_size().width * pt.x, cell_size().height * pt.y);
+        return CGPointMake(cell_width() * pt.x, cell_height() * pt.y);
     }
     inline CGSize cell2size(const nvc::UISize& size) const {
-        return CGSizeMake(cell_size().width * size.width, cell_size().height * size.height);
+        return CGSizeMake(cell_width() * size.width, cell_height() * size.height);
     }
     inline CGRect cell2rect(const nvc::UIRect& rc) const {
-        return CGRectMake(cell_size().width * rc.x(), cell_size().height * rc.y(), cell_size().width * rc.width(), cell_size().height * rc.height());
+        return CGRectMake(cell_width() * rc.x(), cell_height() * rc.y(), cell_width() * rc.width(), cell_height() * rc.height());
     }
     inline UIRect rect2cell(const CGRect& rect) const {
         UIRect rc;
-        rc.origin.x = MAX(floor(rect.origin.x/cell_size().width), 0);
-        rc.origin.y = MAX(floor(rect.origin.y/cell_size().height), 0);
-        rc.size.width = MIN(ceil(rect.size.width/cell_size().width), window_size().width - rc.x());
-        rc.size.height = MIN(ceil(rect.size.height/cell_size().height), window_size().height - rc.y());
+        rc.origin.x = MAX(floor(rect.origin.x/cell_width()), 0);
+        rc.origin.y = MAX(floor(rect.origin.y/cell_height()), 0);
+        rc.size.width = MIN(ceil(rect.size.width/cell_width()), window_size().width - rc.x());
+        rc.size.height = MIN(ceil(rect.size.height/cell_height()), window_size().height - rc.y());
         return rc;
     }
     

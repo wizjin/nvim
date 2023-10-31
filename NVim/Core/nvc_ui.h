@@ -22,6 +22,7 @@ typedef struct nvc_ui_callback {
     void (*layer_flush)(void *userdata, int grid, CGRect dirty);
     void (*layer_resize)(void *userdata, int grid, CGRect frame);
     void (*layer_close)(void *userdata, int grid);
+    void (*update_resize)(void *userdata);
     void (*update_title)(void *userdata, const char *str, uint32_t len);
     void (*update_background)(void *userdata, nvc_ui_color_t rgb);
     void (*update_tab_background)(void *userdata, nvc_ui_color_t rgb);

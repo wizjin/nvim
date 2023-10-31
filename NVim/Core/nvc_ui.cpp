@@ -134,7 +134,9 @@ CGSize nvc_ui_attach(nvc_ui_context_t *ptr, CGSize size) {
         nvc_rpc_call_const_begin(ctx->rpc(), "nvim_ui_attach", 3);
         nvc_rpc_write_unsigned(ctx->rpc(), wndSize.width);
         nvc_rpc_write_unsigned(ctx->rpc(), wndSize.height);
-        nvc_rpc_write_map_size(ctx->rpc(), 3);
+        nvc_rpc_write_map_size(ctx->rpc(), 4);
+        nvc_rpc_write_const_str(ctx->rpc(), "ext_hlstate");
+        nvc_rpc_write_true(ctx->rpc());
         nvc_rpc_write_const_str(ctx->rpc(), "ext_linegrid");
         nvc_rpc_write_true(ctx->rpc());
         nvc_rpc_write_const_str(ctx->rpc(), "ext_multigrid");
@@ -179,7 +181,7 @@ CGFloat nvc_ui_get_line_height(nvc_ui_context_t *ptr) {
     CGFloat height = 0;
     auto ctx = static_cast<nvc::UIContext *>(ptr);
     if (likely(ctx != nullptr && ctx->attached())) {
-        height = ctx->cell_size().height;
+        height = ctx->cell_height();
     }
     return height;
 }
@@ -425,8 +427,8 @@ void nvc_ui_input_mouse(nvc_ui_context_t *ptr, nvc_ui_mouse_info_t mouse) {
         len = nvc_ui_key_flags_encode(mouse.flags, modifier, len, true);
         nvc_rpc_write_str(ctx->rpc(), modifier, len);
         nvc_rpc_write_unsigned(ctx->rpc(), 0);
-        nvc_rpc_write_signed(ctx->rpc(), mouse.point.y/ctx->cell_size().height);
-        nvc_rpc_write_signed(ctx->rpc(), mouse.point.x/ctx->cell_size().width);
+        nvc_rpc_write_signed(ctx->rpc(), mouse.point.y/ctx->cell_height());
+        nvc_rpc_write_signed(ctx->rpc(), mouse.point.x/ctx->cell_width());
         nvc_rpc_call_end(ctx->rpc());
     }
 }
@@ -577,6 +579,16 @@ static inline int nvc_ui_option_set_action_guifontwide(nvc::UIContext *ctx, int 
     return items;
 }
 
+static inline int nvc_ui_option_set_action_linespace(nvc::UIContext *ctx, int items) {
+    if (likely(items-- > 0)) {
+        int32_t linespace = nvc_rpc_read_int32(ctx->rpc());
+        if (ctx->linespace(linespace)) {
+            ctx->cb().update_resize(ctx->userdata());
+        }
+    }
+    return items;
+}
+
 static inline int nvc_ui_option_set_action_mousehide(nvc::UIContext *ctx, int items) {
     if (likely(items-- > 0)) {
         ctx->cb().enable_mouse_autohide(ctx->userdata(), nvc_rpc_read_bool(ctx->rpc()));
@@ -667,7 +679,7 @@ static const std::unordered_map<std::string, const std::function<int(nvc::UICont
     NVC_UI_OPTION_SET_ACTION(emoji),
     NVC_UI_OPTION_SET_ACTION(guifont),
     NVC_UI_OPTION_SET_ACTION(guifontwide),
-    NVC_UI_OPTION_SET_ACTION_NULL(linespace),
+    NVC_UI_OPTION_SET_ACTION(linespace),
     NVC_UI_OPTION_SET_ACTION_NULL(mousefocus),
     NVC_UI_OPTION_SET_ACTION(mousehide),
     NVC_UI_OPTION_SET_ACTION(mousemoveevent),
@@ -1005,32 +1017,20 @@ static inline int nvc_ui_redraw_action_win_viewport(nvc::UIContext *ctx, int ite
 }
 
 #pragma mark - NVC UI Redraw Actions - Tabline Events
-typedef struct nvc_ui_tab {
-    nvc_rpc_object_handler_t    tab;
-    std::string                 name;
-    
-    inline bool operator==(const struct nvc_ui_tab& rhl) const {
-        return this->tab == rhl.tab && this->name == rhl.name;
-    }
-} nvc_ui_tab_t;
-
-#define NVC_UI_SET_UI_TAB_EXT(_target)      { #_target, [](nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx) { tab._target = nvc_rpc_read_ext_handle(ctx); } }
-#define NVC_UI_SET_UI_TAB_STR(_target)      { #_target, [](nvc_ui_tab_t &tab, nvc_rpc_context_t *ctx) { tab._target = nvc_rpc_read_str(ctx); } }
-static const std::unordered_map<std::string, const std::function<void(nvc_ui_tab_t &, nvc_rpc_context_t *)>> nvc_ui_tab_setters = {
-    NVC_UI_SET_UI_TAB_EXT(tab),
-    NVC_UI_SET_UI_TAB_STR(name),
+static const std::unordered_map<std::string, const std::function<void(nvc::UITab &, nvc_rpc_context_t *)>> nvc_ui_tab_setters = {
+    { "tab", [](nvc::UITab &tab, nvc_rpc_context_t *ctx) { tab.handler(nvc_rpc_read_ext_handle(ctx)); } },
+    { "name", [](nvc::UITab &tab, nvc_rpc_context_t *ctx) { tab.name(nvc_rpc_read_str(ctx)); } },
 };
 static inline int nvc_ui_redraw_action_tabline_update(nvc::UIContext *ctx, int items) {
     if (likely(items-- > 0)) {
         int narg = nvc_rpc_read_array_size(ctx->rpc());
         if (likely(narg >= 2)) {
             narg -= 2;
+            nvc::UITabs tabs;
             nvc_rpc_object_handler_t handler = nvc_rpc_read_ext_handle(ctx->rpc());
-            // TODO: fix tab list
-            //nvc_ui_tab_list_t tabs;
             int tn = nvc_rpc_read_array_size(ctx->rpc());
             while (tn-- > 0) {
-                nvc_ui_tab_t tab;
+                nvc::UITab tab;
                 int mn = nvc_rpc_read_map_size(ctx->rpc());
                 while (mn-- > 0) {
                     const auto& name = nvc_rpc_read_str(ctx->rpc());
@@ -1042,14 +1042,16 @@ static inline int nvc_ui_redraw_action_tabline_update(nvc::UIContext *ctx, int i
                         NVLogW("nvc ui tab info: %s", name.c_str());
                     }
                 }
-                //tabs.push_back(tab);
+                tabs.push_back(tab);
             }
-            //ctx->current_tab = handler;
-            //bool list_updated = ctx->tabs != tabs;
-            //if (list_updated) {
-            //    ctx->tabs = tabs;
-            //}
-            //ctx->cb.update_tab_list(nvc_ui_get_userdata(ctx), list_updated);
+            auto& tablist = ctx->tablist();
+            bool updated = tablist.tabs() != tabs;
+            if (!updated) {
+                tablist.update(handler);
+            } else {
+                tablist.update(handler, tabs);
+            }
+            ctx->cb().update_tab_list(ctx->userdata(), updated);
         }
         nvc_rpc_read_skip_items(ctx->rpc(), narg);
     }

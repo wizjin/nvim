@@ -25,18 +25,19 @@ struct CTGlyphInfo {
     UIFontInfo*     font;
     CGGlyph         glyph;
     UniChar         chs[2];
-    uint8_t         chs_n;
+    uint8_t         chs_n           :2;
     bool            is_skip         :1;
     bool            is_wide         :1;
     bool            is_space        :1;
     bool            is_emoji        :1;
+    uint8_t         unused          :2;
+    // font traits
     bool            chk_bold        :1;
     bool            can_bold        :1;
     bool            chk_italic      :1;
     bool            can_italic      :1;
     bool            chk_bold_italic :1;
     bool            can_bold_italic :1;
-    
 };
 
 class CTFontHolder {

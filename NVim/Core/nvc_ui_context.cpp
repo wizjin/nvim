@@ -15,6 +15,7 @@ UIContext::UIContext(const nvc_ui_callback_t& cb, const nvc_ui_config_t& config,
     m_attached = false;
     m_mode_enabled = true;
     m_show_cursor = true;
+    m_linespace = 0;
     bzero(&m_rpc, sizeof(m_rpc));
 }
 
