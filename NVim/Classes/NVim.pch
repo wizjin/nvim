@@ -23,6 +23,10 @@
 #   import "NSColor+NVExt.h"
 #endif
 
+#if __has_include(<AppKit/NSMenu.h>)
+#   import "NSMenu+NVExt.h"
+#endif
+
 #endif /* __OBJC__ */
 
 #endif /* __NVIM_PCH__ */

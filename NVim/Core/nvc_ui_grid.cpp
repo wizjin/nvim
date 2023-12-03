@@ -73,15 +73,14 @@ void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
     CGPoint pt;
     auto& ctx = render.ctx();
     auto& font = render.font();
-    CGSize size = font.glyph_size();
+    CGSize size = ctx.cell_size();
     UISize wndSize = ctx.window_size();
     int32_t width = std::min(wndSize.width, dirty.right());
     int32_t height = std::min(wndSize.height, dirty.bottom());
-    CGFloat linespace = ctx.linespace();
     bool need_cursor = render.need_cursor() && dirty.contains(m_cursor);
     for (int j = dirty.y(); j < height; j++) {
         int i = dirty.x();
-        pt.y = j * (size.height + linespace);
+        pt.y = j * size.height;
         const UICell *cell = m_cells.data() + j * m_size.width + i;
         if (cell->is_skip && i > 0) {
             cell--; i--;
@@ -120,7 +119,7 @@ void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
                     render.draw(font, cell->ch, cell_hl->traits, UIPoint(pt.x, ypos));
                     if (cell_hl->understyle != ui_under_style_none) {
                         CGFloat one_pixel = render.one_pixel();
-                        CGFloat line_position = pt.y + font.glyph_size().height - one_pixel * 2;
+                        CGFloat line_position = pt.y + size.height - one_pixel * 2;
                         render.set_stroke_color(render.stroke_color());
                         render.line_width(one_pixel);
                         switch (cell_hl->understyle) {
