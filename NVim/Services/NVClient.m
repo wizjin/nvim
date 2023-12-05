@@ -92,8 +92,8 @@
     nvc_ui_detach(ui_ctx);
 }
 
-- (void)redrawUI:(CGContextRef)context {
-    nvc_ui_redraw(ui_ctx, context);
+- (void)redrawLayer:(NSInteger)grid context:(CGContextRef)context{
+    nvc_ui_redraw(ui_ctx, (int)grid, context);
 }
 
 - (CGSize)resizeUIWithSize:(CGSize)size {
@@ -247,12 +247,39 @@ static inline nvc_ui_key_flags_t nvc_ui_key_flags_init(NSEventModifierFlags flag
 }
 
 #pragma mark - Callback
-static inline void nvclient_ui_flush(void *userdata, CGRect dirty) {
+static inline void nvclient_ui_layer_flush(void *userdata, int grid, CGRect dirty) {
     NVClient *client = (__bridge NVClient *)userdata;
     @weakify(client);
     dispatch_main_async(^{
         @strongify(client);
-        [client.delegate client:client flush:dirty];
+        [client.delegate client:client grid:grid flush:dirty];
+    });
+}
+
+static inline void nvclient_ui_layer_resize(void *userdata, int grid, CGRect frame) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate client:client grid:grid resize:frame];
+    });
+}
+
+static inline void nvclient_ui_layer_close(void *userdata, int grid) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate client:client closeGrid:grid];
+    });
+}
+
+static inline void nvclient_ui_update_resize(void *userdata) {
+    NVClient *client = (__bridge NVClient *)userdata;
+    @weakify(client);
+    dispatch_main_async(^{
+        @strongify(client);
+        [client.delegate clientResized:client];
     });
 }
 
@@ -375,7 +402,10 @@ static inline void nvclient_ui_close(void *userdata) {
 
 #define NVCLIENT_CALLBACK(_func)    ._func = nvclient_ui_##_func
 static const nvc_ui_callback_t nvclient_ui_callbacks = {
-    NVCLIENT_CALLBACK(flush),
+    NVCLIENT_CALLBACK(layer_flush),
+    NVCLIENT_CALLBACK(layer_resize),
+    NVCLIENT_CALLBACK(layer_close),
+    NVCLIENT_CALLBACK(update_resize),
     NVCLIENT_CALLBACK(update_title),
     NVCLIENT_CALLBACK(update_background),
     NVCLIENT_CALLBACK(update_tab_background),

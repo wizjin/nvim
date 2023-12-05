@@ -19,7 +19,10 @@ extern "C" {
 typedef uint32_t    nvc_ui_color_t;
 
 typedef struct nvc_ui_callback {
-    void (*flush)(void *userdata, CGRect dirty);
+    void (*layer_flush)(void *userdata, int grid, CGRect dirty);
+    void (*layer_resize)(void *userdata, int grid, CGRect frame);
+    void (*layer_close)(void *userdata, int grid);
+    void (*update_resize)(void *userdata);
     void (*update_title)(void *userdata, const char *str, uint32_t len);
     void (*update_background)(void *userdata, nvc_ui_color_t rgb);
     void (*update_tab_background)(void *userdata, nvc_ui_color_t rgb);
@@ -83,7 +86,7 @@ NVC_API void nvc_ui_destroy(nvc_ui_context_t *ctx);
 NVC_API bool nvc_ui_is_attached(nvc_ui_context_t *ctx);
 NVC_API CGSize nvc_ui_attach(nvc_ui_context_t *ctx, CGSize size);
 NVC_API void nvc_ui_detach(nvc_ui_context_t *ctx);
-NVC_API void nvc_ui_redraw(nvc_ui_context_t *ctx, CGContextRef context);
+NVC_API void nvc_ui_redraw(nvc_ui_context_t *ctx, int grid, CGContextRef context);
 NVC_API CGSize nvc_ui_resize(nvc_ui_context_t *ctx, CGSize size);
 NVC_API CGFloat nvc_ui_get_line_height(nvc_ui_context_t *ctx);
 NVC_API CGPoint nvc_ui_get_cursor_position(nvc_ui_context_t *ctx);

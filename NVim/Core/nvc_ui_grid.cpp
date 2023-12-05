@@ -71,21 +71,23 @@ void UIGrid::update(const UIPoint& pt, int32_t count, UnicodeChar ch, int32_t hl
 
 void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
     CGPoint pt;
-    CGSize size = render.ctx().cell_size();
-    UISize wndSize = render.ctx().window_size();
+    auto& ctx = render.ctx();
+    auto& font = render.font();
+    CGSize size = ctx.cell_size();
+    UISize wndSize = ctx.window_size();
     int32_t width = std::min(wndSize.width, dirty.right());
     int32_t height = std::min(wndSize.height, dirty.bottom());
     bool need_cursor = render.need_cursor() && dirty.contains(m_cursor);
     for (int j = dirty.y(); j < height; j++) {
         int i = dirty.x();
-        pt.y = size.height * j;
+        pt.y = j * size.height;
         const UICell *cell = m_cells.data() + j * m_size.width + i;
         if (cell->is_skip && i > 0) {
             cell--; i--;
         }
         for (; i < width; i++) {
             if (!cell->is_skip) {
-                pt.x = size.width * i;
+                pt.x = i * size.width;
                 const auto cell_hl = render.update_hl_id(cell->hl_id);
                 CGFloat cellWidth = size.width;
                 if (cell->is_wide) cellWidth *= 2;
@@ -110,17 +112,16 @@ void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
                         }
                     }
                 }
-                UIFont &font = render.font();
                 CGFloat ypos = pt.y + render.font_offset();
                 if (cell_hl == nullptr) {
                     render.draw(font, cell->ch, ui_font_traits_none, UIPoint(pt.x, ypos));
                 } else {
                     render.draw(font, cell->ch, cell_hl->traits, UIPoint(pt.x, ypos));
                     if (cell_hl->understyle != ui_under_style_none) {
-                        CGFloat underline_position = font.underline_position();
-                        CGFloat line_position = ypos - underline_position;
+                        CGFloat one_pixel = render.one_pixel();
+                        CGFloat line_position = pt.y + size.height - one_pixel * 2;
                         render.set_stroke_color(render.stroke_color());
-                        render.line_width(font.underline_thickness());
+                        render.line_width(one_pixel);
                         switch (cell_hl->understyle) {
                             case ui_under_style_underline:
                                 render.line_dash(nullptr, 0);
@@ -128,13 +129,12 @@ void UIGrid::draw(UIRender& render, const UIRect& dirty) const {
                                 break;
                             case ui_under_style_undercurl:
                                 render.line_dash(nullptr, 0);
-                                render.draw_wavy_line(pt.x, line_position, size.width, std::floor(underline_position - 1)*0.5, cell->is_wide);
+                                render.draw_wavy_line(pt.x, line_position, size.width, -one_pixel*2, cell->is_wide);
                                 break;
                             case ui_under_style_underdouble:
                                 render.line_dash(nullptr, 0);
-                                line_position -= render.one_pixel() * 2;
                                 render.draw_line(pt.x, line_position, pt.x + cellWidth, line_position);
-                                line_position += render.one_pixel() * 4;
+                                line_position -= one_pixel * 4;
                                 render.draw_line(pt.x, line_position, pt.x + cellWidth, line_position);
                                 break;
                             case ui_under_style_underdotted:

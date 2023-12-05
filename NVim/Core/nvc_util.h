@@ -31,6 +31,13 @@ struct UIPoint {
     inline constexpr explicit UIPoint(int32_t _x, int32_t _y) : x(_x), y(_y) {}
     inline constexpr bool operator==(const UIPoint& rhs) const { return x == rhs.x && y == rhs.y; }
     inline constexpr bool operator!=(const UIPoint& rhs) const { return x != rhs.x || y != rhs.y; }
+    inline constexpr UIPoint& operator-=(const UIPoint& rhs) {
+        this->x -= rhs.x;
+        this->y -= rhs.y;
+        return *this;
+    }
+    
+    static const UIPoint zero;
 };
 
 struct UISize {
@@ -44,6 +51,8 @@ struct UISize {
     inline constexpr bool contains(const UIPoint& pt) const { return pt.x >= 0 && pt.y >= 0 && pt.x < width && pt.y < height; }
     inline constexpr bool operator==(const UISize& rhs) const { return width == rhs.width && height == rhs.height; }
     inline constexpr bool operator!=(const UISize& rhs) const { return width != rhs.width || height != rhs.height; }
+    
+    static const UISize zero;
 };
 
 struct UIRect {
@@ -65,8 +74,48 @@ struct UIRect {
     inline constexpr bool contains(const UIPoint& pt) const {
         return pt.x >= origin.x && pt.y >= origin.y && pt.x <= origin.x + size.width && pt.y <= origin.y + size.height;
     }
+
     inline constexpr bool operator==(const UIRect& rhs) const { return origin == rhs.origin && size == rhs.size; }
     inline constexpr bool operator!=(const UIRect& rhs) const { return origin != rhs.origin || size != rhs.size; }
+
+    inline constexpr const UIRect& operator+=(const UIRect& rhs) {
+        if (!rhs.empty()) {
+            if (empty()) {
+                *this = rhs;
+            } else {
+                int32_t left = std::min(this->left(), rhs.left());
+                int32_t right = std::max(this->right(), rhs.right());
+                int32_t top = std::min(this->top(), rhs.top());
+                int32_t bottom = std::max(this->bottom(), rhs.bottom());
+                this->origin.x = left;
+                this->origin.y = top;
+                this->size.width = right - left;
+                this->size.height = bottom - top;
+            }
+        }
+        return *this;
+    }
+
+    inline constexpr UIRect intersection(const UIRect& rhs) const {
+        UIRect rc;
+        if (!empty()) {
+            int32_t left = std::max(this->left(), rhs.left());
+            int32_t right = std::min(this->right(), rhs.right());
+            int32_t top = std::max(this->top(), rhs.top());
+            int32_t bottom = std::min(this->bottom(), rhs.bottom());
+            int32_t width = right - left;
+            int32_t height = bottom - top;
+            if (width > 0 && height > 0) {
+                rc.origin.x = left;
+                rc.origin.y = top;
+                rc.size.width = width;
+                rc.size.height = height;
+            }
+        }
+        return rc;
+    }
+    
+    static const UIRect zero;
 };
 
 #pragma mark - Util Helper

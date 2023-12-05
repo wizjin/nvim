@@ -19,6 +19,26 @@ extern "C" {
 namespace nvc {
 
 class UIRender;
+class UIFontInfo;
+
+struct CTGlyphInfo {
+    UIFontInfo*     font;
+    CGGlyph         glyph;
+    UniChar         chs[2];
+    uint8_t         chs_n           :2;
+    bool            is_skip         :1;
+    bool            is_wide         :1;
+    bool            is_space        :1;
+    bool            is_emoji        :1;
+    uint8_t         unused          :2;
+    // font traits
+    bool            chk_bold        :1;
+    bool            can_bold        :1;
+    bool            chk_italic      :1;
+    bool            can_italic      :1;
+    bool            chk_bold_italic :1;
+    bool            can_bold_italic :1;
+};
 
 class CTFontHolder {
 private:
@@ -58,6 +78,11 @@ public:
     inline bool find_glyphs(const UniChar chs[], CGGlyph glyphs[], uint8_t count) const {
         return likely(m_font != nullptr) && CTFontGetGlyphsForCharacters(m_font, chs, glyphs, count) && glyphs[0] != 0;
     }
+    
+    inline bool has_char(const UniChar chs[2], uint8_t n) const {
+        CGGlyph glyphs[2];
+        return find_glyphs(chs, glyphs, n) && glyphs[0] != 0;
+    }
 
 };
 
@@ -76,40 +101,57 @@ public:
     inline void underline(bool enable) { m_underline = enable; }
     inline explicit operator CTFontRef() const { return static_cast<CTFontRef>(m_font); }
     inline bool find_glyphs(const UniChar chs[], CGGlyph glyphs[], uint8_t count) const { return m_font.find_glyphs(chs, glyphs, count); }
-    inline CTFontRef find(UIFontTraits traits) {
+    inline CTFontRef find(UIFontTraits traits, CTGlyphInfo *info) {
         CTFontRef font = nullptr;
-        switch(traits) {
-            default:
-            case ui_font_traits_none:
-                font = static_cast<CTFontRef>(m_font);
-                break;
-            case ui_font_traits_bold:
-                if (!m_font_bold) m_font_bold = m_font.copy(kCTFontTraitBold);
-                font = static_cast<CTFontRef>(m_font_bold);
-                break;
-            case ui_font_traits_italic:
-                if (!m_font_italic) m_font_italic = m_font.copy(kCTFontTraitItalic);
-                font = static_cast<CTFontRef>(m_font_italic);
-                break;
-            case ui_font_traits_bold_italic:
-                if (!m_font_bold_italic) m_font_bold_italic = m_font.copy(kCTFontTraitBold|kCTFontTraitItalic);
-                font = static_cast<CTFontRef>(m_font_bold_italic);
-                break;
+        if (likely(info != nullptr && info->chs_n > 0)) {
+            switch(traits) {
+                default: break;
+                case ui_font_traits_bold:
+                    if (!info->chk_bold) {
+                        info->chk_bold = true;
+                        if (!m_font_bold) m_font_bold = m_font.copy(kCTFontTraitBold);
+                        if (m_font_bold.has_char(info->chs, info->chs_n)) {
+                            info->can_bold = true;
+                        }
+                    }
+                    if (info->can_bold) {
+                        font = static_cast<CTFontRef>(m_font_bold);
+                    }
+                    break;
+                case ui_font_traits_italic:
+                    if (!info->chk_italic) {
+                        info->chk_italic = true;
+                        if (!m_font_italic) m_font_italic = m_font.copy(kCTFontTraitItalic);
+                        if (m_font_italic.has_char(info->chs, info->chs_n)) {
+                            info->can_italic = true;
+                        }
+                    }
+                    if (info->can_italic) {
+                        font = static_cast<CTFontRef>(m_font_italic);
+                    }
+                    break;
+                case ui_font_traits_bold_italic:
+                    if (!info->chk_bold_italic) {
+                        info->chk_bold_italic = true;
+                        if (!m_font_bold_italic) m_font_bold_italic = m_font.copy(kCTFontTraitBold|kCTFontTraitItalic);
+                        if (m_font_bold_italic.has_char(info->chs, info->chs_n)) {
+                            info->can_bold_italic = true;
+                        }
+                    }
+                    if (info->can_bold_italic) {
+                        font = static_cast<CTFontRef>(m_font_bold_italic);
+                    }
+                    break;
+            }
+        }
+        if (font == nullptr) {
+            font = static_cast<CTFontRef>(m_font);
         }
         return font;
     }
 };
 
 typedef std::vector<UIFontInfo> CTFontList;
-
-struct CTGlyphInfo {
-    UIFontInfo*     font;
-    CGGlyph         glyph;
-    bool            is_skip;
-    bool            is_wide;
-    bool            is_space;
-    bool            is_emoji;
-};
 
 class UIFont {
 private:

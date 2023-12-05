@@ -19,6 +19,7 @@
 		6D455A5F2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A5D2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp */; };
 		6D455A622ADC14E500DD58A2 /* nvc_ui_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A602ADC14E500DD58A2 /* nvc_ui_context.cpp */; };
 		6D455A682ADC307B00DD58A2 /* mvc_ui_mode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D455A662ADC307B00DD58A2 /* mvc_ui_mode.cpp */; };
+		6D6010B32AED5D6B00F91937 /* nvc_ui_win.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D6010B12AED5D6B00F91937 /* nvc_ui_win.cpp */; };
 		6D681FD02AADF5DA00B25717 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FCF2AADF5DA00B25717 /* AppDelegate.m */; };
 		6D681FD22AADF5DB00B25717 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6D681FD12AADF5DB00B25717 /* Assets.xcassets */; };
 		6D681FD72AADF5DB00B25717 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D681FD62AADF5DB00B25717 /* main.m */; };
@@ -35,8 +36,11 @@
 		6D9989902ABCA5C60001F1A6 /* NVSTDClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D99898F2ABCA5C60001F1A6 /* NVSTDClient.m */; };
 		6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */ = {isa = PBXBuildFile; fileRef = 6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */; };
 		6DB9E2A82ABF17C000F6D444 /* nvim in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6DB9E2A22ABF094E00F6D444 /* nvim */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		6DD0201B2AEFFED600F8D470 /* nvc_ui_tab.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6DD020192AEFFED600F8D470 /* nvc_ui_tab.cpp */; };
 		6DD47B452ADD6FC200CA3048 /* nvc_ui_char.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6DD47B432ADD6FC200CA3048 /* nvc_ui_char.cpp */; };
+		6DDFC1462AF292BF008B7126 /* NSMenu+NVExt.m in Sources */ = {isa = PBXBuildFile; fileRef = 6DDFC1452AF292BF008B7126 /* NSMenu+NVExt.m */; };
 		6DDFCFEB2AE09FC200D1957F /* nvc_ui_render.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6DDFCFE92AE09FC200D1957F /* nvc_ui_render.cpp */; };
+		6DEE9C562AEE89D000924237 /* NVLayer.m in Sources */ = {isa = PBXBuildFile; fileRef = 6DEE9C552AEE89D000924237 /* NVLayer.m */; };
 		C4413092ED5EE9FA5A597797 /* libPods-NVim.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2B03DA4EDB5EBAD4D80D5625 /* libPods-NVim.a */; };
 /* End PBXBuildFile section */
 
@@ -80,6 +84,8 @@
 		6D455A612ADC14E500DD58A2 /* nvc_ui_context.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_context.h; sourceTree = "<group>"; };
 		6D455A662ADC307B00DD58A2 /* mvc_ui_mode.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = mvc_ui_mode.cpp; sourceTree = "<group>"; };
 		6D455A672ADC307B00DD58A2 /* mvc_ui_mode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mvc_ui_mode.h; sourceTree = "<group>"; };
+		6D6010B12AED5D6B00F91937 /* nvc_ui_win.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_win.cpp; sourceTree = "<group>"; };
+		6D6010B22AED5D6B00F91937 /* nvc_ui_win.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_win.h; sourceTree = "<group>"; };
 		6D681FCB2AADF5DA00B25717 /* NVim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NVim.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D681FCE2AADF5DA00B25717 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		6D681FCF2AADF5DA00B25717 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -114,10 +120,16 @@
 		6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSColor+NVExt.m"; sourceTree = "<group>"; };
 		6DB9E2A12ABF094E00F6D444 /* nvim.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = nvim.entitlements; path = Venders/NeoVim/nvim.entitlements; sourceTree = SOURCE_ROOT; };
 		6DB9E2A22ABF094E00F6D444 /* nvim */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = nvim; path = Venders/NeoVim/nvim; sourceTree = SOURCE_ROOT; };
+		6DD020192AEFFED600F8D470 /* nvc_ui_tab.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_tab.cpp; sourceTree = "<group>"; };
+		6DD0201A2AEFFED600F8D470 /* nvc_ui_tab.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_tab.h; sourceTree = "<group>"; };
 		6DD47B432ADD6FC200CA3048 /* nvc_ui_char.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_char.cpp; sourceTree = "<group>"; };
 		6DD47B442ADD6FC200CA3048 /* nvc_ui_char.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_char.h; sourceTree = "<group>"; };
+		6DDFC1442AF292BF008B7126 /* NSMenu+NVExt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSMenu+NVExt.h"; sourceTree = "<group>"; };
+		6DDFC1452AF292BF008B7126 /* NSMenu+NVExt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSMenu+NVExt.m"; sourceTree = "<group>"; };
 		6DDFCFE92AE09FC200D1957F /* nvc_ui_render.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nvc_ui_render.cpp; sourceTree = "<group>"; };
 		6DDFCFEA2AE09FC200D1957F /* nvc_ui_render.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nvc_ui_render.h; sourceTree = "<group>"; };
+		6DEE9C542AEE89D000924237 /* NVLayer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NVLayer.h; sourceTree = "<group>"; };
+		6DEE9C552AEE89D000924237 /* NVLayer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NVLayer.m; sourceTree = "<group>"; };
 		95844A96CB9BC84A72565201 /* Pods-NVim.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.debug.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.debug.xcconfig"; sourceTree = "<group>"; };
 		CED193A2A6409B458DD5A4C3 /* Pods-NVim.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NVim.release.xcconfig"; path = "Target Support Files/Pods-NVim/Pods-NVim.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -188,6 +200,10 @@
 				6D8014732ADECCEF009559D1 /* nvc_ui_hl.cpp */,
 				6D455A5B2ADBDA7900DD58A2 /* nvc_ui_cell.h */,
 				6D455A5A2ADBDA7900DD58A2 /* nvc_ui_cell.cpp */,
+				6D6010B22AED5D6B00F91937 /* nvc_ui_win.h */,
+				6D6010B12AED5D6B00F91937 /* nvc_ui_win.cpp */,
+				6DD0201A2AEFFED600F8D470 /* nvc_ui_tab.h */,
+				6DD020192AEFFED600F8D470 /* nvc_ui_tab.cpp */,
 				6D455A5E2ADBDDBE00DD58A2 /* nvc_ui_grid.h */,
 				6D455A5D2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp */,
 				6DD47B442ADD6FC200CA3048 /* nvc_ui_char.h */,
@@ -271,6 +287,8 @@
 				6D1E29622AB58B5300E1AA79 /* NSString+NVExt.m */,
 				6DB3F7A32AB72DE000F6A123 /* NSColor+NVExt.h */,
 				6DB3F7A42AB72DE000F6A123 /* NSColor+NVExt.m */,
+				6DDFC1442AF292BF008B7126 /* NSMenu+NVExt.h */,
+				6DDFC1452AF292BF008B7126 /* NSMenu+NVExt.m */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -282,6 +300,8 @@
 				6D6A336F2AB0B03100BF791C /* NVMainMenu.m */,
 				6D8E43842AC705D8000E3DF2 /* NVView.h */,
 				6D8E43852AC705D8000E3DF2 /* NVView.m */,
+				6DEE9C542AEE89D000924237 /* NVLayer.h */,
+				6DEE9C552AEE89D000924237 /* NVLayer.m */,
 				6D8E43872AC70B57000E3DF2 /* NVTabView.h */,
 				6D8E43882AC70B57000E3DF2 /* NVTabView.m */,
 				6D6A336D2AB0B03100BF791C /* NVEditView.h */,
@@ -408,7 +428,9 @@
 			files = (
 				6D20284D2AB20347008B3E3B /* cwpack.c in Sources */,
 				6D6A33742AB0B03100BF791C /* NVMainMenu.m in Sources */,
+				6DDFC1462AF292BF008B7126 /* NSMenu+NVExt.m in Sources */,
 				6D1E29632AB58B5300E1AA79 /* NSString+NVExt.m in Sources */,
+				6DD0201B2AEFFED600F8D470 /* nvc_ui_tab.cpp in Sources */,
 				6DD47B452ADD6FC200CA3048 /* nvc_ui_char.cpp in Sources */,
 				6D455A5F2ADBDDBE00DD58A2 /* nvc_ui_grid.cpp in Sources */,
 				6D6A33732AB0B03100BF791C /* NVEditView.m in Sources */,
@@ -417,11 +439,13 @@
 				6D2028442AB20034008B3E3B /* NVClient.m in Sources */,
 				6D1E29602AB5853100E1AA79 /* NVTCPClient.m in Sources */,
 				6D8E43862AC705D8000E3DF2 /* NVView.m in Sources */,
+				6DEE9C562AEE89D000924237 /* NVLayer.m in Sources */,
 				6D6A04802AB8A38800A78E12 /* nvc_rpc.c in Sources */,
 				6D681FF12AADFC3F00B25717 /* NVUtils.m in Sources */,
 				6D8DEA472AC01918008C9552 /* NVEditViewController.m in Sources */,
 				6DB3F7A52AB72DE000F6A123 /* NSColor+NVExt.m in Sources */,
 				6D3296D12ADA5CF9009CFCEF /* nvc_util.cpp in Sources */,
+				6D6010B32AED5D6B00F91937 /* nvc_ui_win.cpp in Sources */,
 				6D8014752ADECCEF009559D1 /* nvc_ui_hl.cpp in Sources */,
 				6D681FD72AADF5DB00B25717 /* main.m in Sources */,
 				6D8E43892AC70B57000E3DF2 /* NVTabView.m in Sources */,

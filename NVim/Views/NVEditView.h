@@ -18,7 +18,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readwrite, assign) CGSize contentSize;
 @property (nonatomic, readwrite, strong) NSColor *backgroundColor;
 
-- (void)updateDisplayRect:(CGRect)dirty;
+- (void)layer:(NSInteger)grid flush:(CGRect)dirty;
+- (void)layer:(NSInteger)grid resize:(CGRect)frame;
+- (void)closeLayer:(NSInteger)grid;
 - (void)startContentResize;
 - (void)endContentResize;
 
