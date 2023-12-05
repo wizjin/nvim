@@ -113,11 +113,31 @@ static inline NSURL *getWorkDirectoryURL(NSURL *current) {
     return current;
 }
 
+static inline NSString *getEnvPath(void) {
+    NSString *result = nil;
+    NSError *error = nil;
+    NSPipe *pipe = [NSPipe pipe];
+    NSTask *task = [NSTask new];
+    task.launchPath = @"/usr/bin/env";
+    task.arguments = @[@"/bin/sh", @"-c", @"eval $(/usr/libexec/path_helper -s); echo $PATH"];
+    task.standardOutput = pipe;
+    if ([task launchAndReturnError:&error] && error == nil) {
+        [task waitUntilExit];
+        NSData *data = [pipe.fileHandleForReading readDataToEndOfFile];
+        result = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+    }
+    return result;
+}
+
 static inline NSDictionary<NSString *, NSString *> *getEnvironment(void) {
     NSMutableDictionary<NSString *, NSString *> *environment = [NSMutableDictionary dictionaryWithDictionary:NSProcessInfo.processInfo.environment];
     NSString *home = getHomeDirectory();
     if (home.length > 0) {
         [environment setValue:home forKey:@"HOME"];
+    }
+    NSString *path = getEnvPath();
+    if (path.length > 0) {
+        [environment setValue:path forKey:@"PATH"];
     }
     return environment;
 }
